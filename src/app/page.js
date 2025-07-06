@@ -3,7 +3,7 @@ import React from 'react';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { DataProvider } from '../contexts/DataContext';
 import Login from '../components/auth/Login';
-import Dashboard from '../components/dashboard/Dashboard';
+import Dashboard from '../components/dashboard/dashboard';
 
 // Komponenta, která rozhoduje, co zobrazit
 const AppContent = () => {
