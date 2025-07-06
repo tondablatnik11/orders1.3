@@ -1,13 +1,11 @@
 import { getHours, parseISO } from 'date-fns';
 
-// Definice konzistentní barevné palety pro grafy
 export const CHART_COLORS = [
   '#FFFFFF', '#EF4444', '#3B82F6', '#F59E0B', '#10B981',
   '#3498DB', '#9B59B6', '#28A745', '#218838', '#FFC107',
   '#FF9800', '#FF5722',
 ];
 
-// Barvy pro kategorie dat v skládaných grafech
 export const DATE_CATEGORY_COLORS = {
   'Today': '#3498DB',
   'Yesterday': '#9B59B6',
@@ -15,7 +13,6 @@ export const DATE_CATEGORY_COLORS = {
   'Future': '#2ECC71',
 };
 
-// Mapování statusů na textové popisy pro porovnání importů
 export const STATUS_TRANSITIONS = {
   '10_to_31': 'transferCreated',
   '31_to_35': 'readyForPicking',
@@ -25,7 +22,6 @@ export const STATUS_TRANSITIONS = {
   '60_to_70': 'onTheWay',
 };
 
-// Pomocná funkce pro parsování datumů
 export const parseExcelDate = (dateInput) => {
     if (typeof dateInput === "number" && typeof window.XLSX !== 'undefined' && typeof window.XLSX.SSF !== 'undefined') {
         try {
@@ -51,7 +47,6 @@ export const parseExcelDate = (dateInput) => {
     return null;
 };
 
-// Získání aktuální směny
 export const getCurrentShift = (date) => {
   const hours = date.getHours();
   const minutes = date.getMinutes();
@@ -69,7 +64,6 @@ export const getCurrentShift = (date) => {
   return null;
 };
 
-// Funkce pro získání barvy zpoždění
 export const getDelayColorClass = (delayDays) => {
     if (delayDays <= 1) return "text-green-400";
     if (delayDays <= 2) return "text-orange-400";
