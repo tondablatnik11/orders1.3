@@ -49,7 +49,7 @@ export const DataProvider = ({ children }) => {
     allOrdersData,
     importHistory,
     loading,
-    refetchData: fetchData, // Přidána funkce pro znovunačtení dat
+    refetchData: fetchData, // Funkce pro znovunačtení dat
   };
 
   return (
