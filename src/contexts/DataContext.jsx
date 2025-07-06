@@ -1,33 +1,65 @@
 'use client';
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { AuthContext } from './AuthContext';
-import { firestore } from '../lib/firebase'; // Ujistěte se, že cesta je správná
-import { processData } from '../lib/dataProcessor';
+import { getSupabase } from '../lib/supabaseClient';
+import { useAuth } from './AuthContext'; // Použijeme AuthContext
 
 export const DataContext = createContext();
 
+export const useData = () => useContext(DataContext);
+
 export const DataProvider = ({ children }) => {
-  const [data, setData] = useState(null);
+  const [allOrdersData, setAllOrdersData] = useState([]);
+  const [importHistory, setImportHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useContext(AuthContext);
+  const { currentUser } = useAuth(); // Získáme info o přihlášení
 
   useEffect(() => {
-    if (user) {
-      const unsubscribe = firestore.collection('data')
-        .where('userId', '==', user.uid)
-        .onSnapshot(snapshot => {
-          const rawData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          const processedData = processData(rawData);
-          setData(processedData);
-          setLoading(false);
-        });
+    const fetchData = async () => {
+      if (!currentUser) { // Načítáme data, jen pokud je uživatel přihlášen
+        setAllOrdersData([]);
+        setImportHistory([]);
+        setLoading(false);
+        return;
+      }
 
-      return () => unsubscribe();
-    }
-  }, [user]);
+      setLoading(true);
+      try {
+        // ZÍSKÁNÍ KLIENTA: Toto je klíčová změna
+        const supabase = getSupabase();
+
+        const { data: deliveriesData, error: deliveriesError } = await supabase
+          .from("deliveries")
+          .select('*');
+        if (deliveriesError) throw deliveriesError;
+
+        const { data: importHistoryData, error: importHistoryError } = await supabase
+          .from("imports")
+          .select("id, created_at, original_name, date_label")
+          .order("created_at", { ascending: false });
+        if (importHistoryError) throw importHistoryError;
+
+        setAllOrdersData(deliveriesData || []);
+        setImportHistory(importHistoryData || []);
+      } catch (error) {
+        console.error("Error fetching data from Supabase:", error);
+        setAllOrdersData([]);
+        setImportHistory([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [currentUser]); // Znovu načteme data, když se změní uživatel
+
+  const value = {
+    allOrdersData,
+    importHistory,
+    loading,
+  };
 
   return (
-    <DataContext.Provider value={{ data, loading }}>
+    <DataContext.Provider value={value}>
       {children}
     </DataContext.Provider>
   );

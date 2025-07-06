@@ -1,42 +1,29 @@
-"use client";
+'use client';
 import React from 'react';
-import { UIProvider } from '@/contexts/UIContext';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { DataProvider } from '@/contexts/DataContext';
-import Login from '@/components/auth/Login';
-import DashboardLayout from '@/components/layout/DashboardLayout';
+import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { DataProvider } from '../contexts/DataContext';
+import Login from '../components/auth/Login';
+import Dashboard from '../components/dashboard/Dashboard'; // Vytvoříme za chvíli
 
-// Pomocná komponenta, která má přístup k autentizačnímu kontextu
-function AppContent() {
-    const { user, loading } = useAuth();
+// Komponenta, která rozhoduje, co zobrazit
+const AppContent = () => {
+  const { currentUser, loading } = useAuth();
 
-    // Zobrazí načítací obrazovku, dokud se neověří stav přihlášení
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-950 text-white">
-                <p>Načítání aplikace...</p>
-            </div>
-        );
-    }
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen bg-gray-950 text-white">Načítání...</div>;
+  }
 
-    // Pokud je uživatel přihlášen, zobrazí hlavní layout aplikace.
-    // Jinak zobrazí přihlašovací formulář.
-    return user ? (
-        <DataProvider>
-            <DashboardLayout />
-        </DataProvider>
-    ) : (
-        <Login />
-    );
-}
+  return currentUser ? <Dashboard /> : <Login />;
+};
 
-// Hlavní exportovaná komponenta stránky
+
+// Hlavní export stránky
 export default function Page() {
-    return (
-        <UIProvider>
-            <AuthProvider>
-                <AppContent />
-            </AuthProvider>
-        </UIProvider>
-    );
+  return (
+    <AuthProvider>
+      <DataProvider>
+        <AppContent />
+      </DataProvider>
+    </AuthProvider>
+  );
 }
