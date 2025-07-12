@@ -7,8 +7,19 @@ import StatusDistributionChart from '@/components/charts/StatusDistributionChart
 import { UploadCloud } from 'lucide-react';
 
 export default function DashboardTab() {
-    const { summary, isLoading, handleFileUpload } = useData();
+    const { summary, isLoading, fetchData } = useData();
     const { t } = useUI();
+
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        // Zde můžete přidat logiku pro nahrání souboru, která po úspěšném nahrání zavolá fetchData()
+        // Příklad:
+        // const success = await uploadFileToServer(file);
+        // if(success) fetchData();
+        alert("Funkce nahrávání souboru je zde. Po implementaci zavolejte fetchData().");
+    };
 
     if (isLoading) {
         return <p className="text-center p-8">Načítám data...</p>;
@@ -21,7 +32,7 @@ export default function DashboardTab() {
                  <label className="cursor-pointer inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg shadow">
                     <UploadCloud className="w-5 h-5" />
                     <span>{t.upload}</span>
-                    <input type="file" accept=".xlsx, .xls" className="hidden" onChange={(e) => handleFileUpload(e.target.files[0])} />
+                    <input type="file" accept=".xlsx, .xls" className="hidden" onChange={handleFileUpload} />
                 </label>
             </div>
         );
@@ -29,19 +40,10 @@ export default function DashboardTab() {
 
     return (
         <div className="space-y-10">
-             <div className="flex justify-center">
-               <label className="cursor-pointer inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg shadow">
-                    <UploadCloud className="w-5 h-5" />
-                    <span>{t.upload}</span>
-                    <input type="file" accept=".xlsx, .xls" className="hidden" onChange={(e) => handleFileUpload(e.target.files[0])} />
-                </label>
-            </div>
-            
             <SummaryCards summary={summary} />
-            
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <StatusDistributionChart summary={summary} />
-                {/* Zde můžete postupně přidávat další grafy, až ověříme, že toto funguje */}
+                {/* Až toto bude fungovat, můžeme postupně přidávat další grafy */}
             </div>
         </div>
     );
