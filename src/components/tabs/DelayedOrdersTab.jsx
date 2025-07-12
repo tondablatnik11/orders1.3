@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo } from 'react'; // Added useMemo
+import React, { useState, useEffect, useMemo } from 'react'; 
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { format, parseISO } from 'date-fns';
@@ -7,34 +7,27 @@ import { getDelayColorClass } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/Card';
 import { FileDown, ClipboardList } from 'lucide-react';
 import { exportDelayedOrdersXLSX } from '@/lib/exportUtils';
-import OrderDetailsModal from '@/components/modals/OrderDetailsModal'; // Import OrderDetailsModal
-import StatusHistoryModal from '@/components/modals/StatusHistoryModal'; // Import StatusHistoryModal
+import OrderDetailsModal from '@/components/modals/OrderDetailsModal';
+import StatusHistoryModal from '@/components/modals/StatusHistoryModal';
 
 export default function DelayedOrdersTab() {
     const { summary, handleSaveNote, supabase, setSelectedOrderDetails: setGlobalSelectedOrderDetails, selectedOrderDetails: globalSelectedOrderDetails } = useData(); 
     const { t } = useUI();
     const [showAll, setShowAll] = useState(false);
     const [localNotes, setLocalNotes] = useState({});
-    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' }); // Sorting state
+    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
     const [showStatusHistoryModal, setShowStatusHistoryModal] = useState(false);
     const [currentDeliveryNoForHistory, setCurrentDeliveryNoForHistory] = useState(null);
     const [deliveryStatusLog, setDeliveryStatusLog] = useState([]);
 
 
-    // Logování summary stavu po mountu komponenty (ponecháno pro budoucí ladění, nyní méně verbose)
     useEffect(() => {
-        // console.log('DelayedOrdersTab: summary stav (dynamická data):', summary); 
-        // if (summary?.delayedOrdersList) {
-        //     console.log('DelayedOrdersTab: délka delayedOrdersList (dynamická data):', summary.delayedOrdersList.length);
-        //     if (summary.delayedOrdersList.length > 0) {
-        //         console.log('DelayedOrdersTab: První zpožděná zakázka (dynamická data):', summary.delayedOrdersList[0]);
-        //     }
-        // }
+        // Ladicí logy, které již nejsou potřeba, byly odebrány nebo zakomentovány
     }, [summary]);
 
 
     if (!summary || !summary.delayedOrdersList) {
-        // console.log('DelayedOrdersTab: Není k dispozici žádná data pro zpožděné zakázky.'); // Méně verbose
+        console.log('DelayedOrdersTab: Není k dispozici žádná data pro zpožděné zakázky.'); // Ponecháno pro diagnostiku prázdných dat
         return <p className="text-center p-8">{t.noDataAvailable}</p>;
     }
 
@@ -48,12 +41,10 @@ export default function DelayedOrdersTab() {
         }
     };
 
-    // Logika řazení
     const sortedOrders = useMemo(() => {
-        // ZDE JE KLÍČOVÁ ZMĚNA: Definice 'delayedOrders' je přesunuta do useMemo
         const delayedOrders = summary.delayedOrdersList; 
         
-        let sortableItems = [...delayedOrders]; // Používáme nyní definované delayedOrders
+        let sortableItems = [...delayedOrders]; 
         if (sortConfig.key !== null) {
             sortableItems.sort((a, b) => {
                 let aValue = a[sortConfig.key];
@@ -81,7 +72,6 @@ export default function DelayedOrdersTab() {
         return sortableItems;
     }, [summary.delayedOrdersList, sortConfig]);
 
-    // Proměnná displayedOrders by měla nyní správně fungovat s daty z useMemo
     const displayedOrders = showAll ? sortedOrders : sortedOrders.slice(0, 10);
 
     const requestSort = (key) => {
@@ -100,7 +90,6 @@ export default function DelayedOrdersTab() {
         return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
     };
 
-    // Obsluha modalu s detaily zakázky
     const handleSelectOrder = (order) => {
         setGlobalSelectedOrderDetails({ 
             "Delivery No": order.delivery,
@@ -142,15 +131,13 @@ export default function DelayedOrdersTab() {
         }
     };
 
-    // console.log('DelayedOrdersTab: Počet zakázek k vykreslení (displayedOrders.length):', displayedOrders.length); // Méně verbose
-
 
     return (
         <Card>
             <CardContent>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-2xl font-semibold flex items-center gap-2 text-red-400">
-                        <ClipboardList className="w-6 h-6" /> {t.delayed} ({summary.delayedOrdersList.length}) {/* Opraveno na summary.delayedOrdersList.length */}
+                        <ClipboardList className="w-6 h-6" /> {t.delayed} ({delayedOrders.length}) 
                     </h2>
                     <button
                         onClick={() => exportDelayedOrdersXLSX(supabase, t)}
@@ -181,7 +168,6 @@ export default function DelayedOrdersTab() {
                             </thead>
                             <tbody>
                                 {displayedOrders.map((order) => {
-                                    // console.log('DelayedOrdersTab: Vykresluji zakázku (dynamická data):', order.delivery, order); // Méně verbose
                                     
                                     if (!order.delivery) {
                                         console.warn('DelayedOrdersTab: Zakázka postrádá číslo dodávky pro klíč, přeskočeno:', order);
@@ -219,7 +205,7 @@ export default function DelayedOrdersTab() {
                          </p>
                     )}
                 </div>
-                {sortedOrders.length > 10 && ( // Používáme sortedOrders pro určení, zda zobrazit "Show More"
+                {sortedOrders.length > 10 && ( 
                     <div className="text-center mt-4">
                         <button onClick={() => setShowAll(!showAll)} className="text-blue-400 hover:underline">
                             {showAll ? t.showLess : `${t.showMore} (${sortedOrders.length - 10} ${t.moreItems})`}
