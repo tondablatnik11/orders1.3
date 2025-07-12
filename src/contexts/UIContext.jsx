@@ -1,31 +1,30 @@
 'use client';
 import React, { createContext, useState } from 'react';
+import { translations } from '../lib/translations';
 
 export const UIContext = createContext();
 
 export const UIProvider = ({ children }) => {
-  const [notification, setNotification] = useState(null);
+  const [lang, setLang] = useState('cz');
+  const [darkMode, setDarkMode] = useState(true);
 
-  const showNotification = (message, type) => {
-    setNotification({ message, type });
-    setTimeout(() => {
-      setNotification(null);
-    }, 5000);
+  const toggleLang = () => {
+    setLang(prev => (prev === 'cz' ? 'en' : prev === 'en' ? 'de' : 'cz'));
   };
 
+  const toggleTheme = () => setDarkMode(!darkMode);
+
   const value = {
-    notification,
-    showNotification,
+    t: translations[lang],
+    darkMode,
+    toggleTheme,
+    toggleLang,
+    lang,
   };
 
   return (
     <UIContext.Provider value={value}>
       {children}
-      {notification && (
-        <div className={`notification ${notification.type}`}>
-          {notification.message}
-        </div>
-      )}
     </UIContext.Provider>
   );
 };

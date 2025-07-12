@@ -1,7 +1,8 @@
 'use client';
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { getSupabase } from '../lib/supabaseClient';
 import { useAuth } from './AuthContext';
+import { processData } from '../lib/dataProcessor';
 
 export const DataContext = createContext();
 
@@ -9,47 +10,110 @@ export const useData = () => useContext(DataContext);
 
 export const DataProvider = ({ children }) => {
   const [allOrdersData, setAllOrdersData] = useState([]);
-  const [importHistory, setImportHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState(null);
+  const [filters, setFilters] = useState({
+    timeRange: 'all',
+    startDate: '',
+    endDate: '',
+    deliveryType: 'all',
+    status: 'all',
+  });
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const { currentUser } = useAuth();
+  const supabase = getSupabase();
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!currentUser) {
       setAllOrdersData([]);
-      setImportHistory([]);
-      setLoading(false);
+      setSummary(null);
+      setIsLoadingData(false);
       return;
     }
 
-    setLoading(true);
+    setIsLoadingData(true);
     try {
-      const supabase = getSupabase();
-      const { data: deliveriesData, error: deliveriesError } = await supabase.from("deliveries").select('*');
-      if (deliveriesError) throw deliveriesError;
-
-      const { data: importHistoryData, error: importHistoryError } = await supabase.from("imports").select("id, created_at, original_name, date_label").order("created_at", { ascending: false });
-      if (importHistoryError) throw importHistoryError;
-
-      setAllOrdersData(deliveriesData || []);
-      setImportHistory(importHistoryData || []);
+      const { data, error } = await supabase.from("deliveries").select('*');
+      if (error) throw error;
+      setAllOrdersData(data || []);
     } catch (error) {
       console.error("Error fetching data from Supabase:", error);
       setAllOrdersData([]);
-      setImportHistory([]);
     } finally {
-      setLoading(false);
+      setIsLoadingData(false);
     }
-  };
+  }, [currentUser, supabase]);
 
   useEffect(() => {
     fetchData();
-  }, [currentUser]);
+  }, [fetchData]);
+
+  useEffect(() => {
+      if (allOrdersData.length > 0) {
+        const processed = processData(allOrdersData, filters);
+        setSummary(processed);
+      } else {
+        setSummary(null);
+      }
+  }, [allOrdersData, filters]);
+
+  const handleSaveNote = useCallback(async (deliveryNo, newNote) => {
+    const { error } = await supabase
+        .from('deliveries')
+        .update({ Note: newNote })
+        .eq('"Delivery No"', deliveryNo.trim());
+
+    if (error) console.error("Error saving note:", error);
+    else {
+        setAllOrdersData(prev => prev.map(order =>
+            (order["Delivery No"] || order["Delivery"])?.trim() === deliveryNo ? { ...order, Note: newNote } : order
+        ));
+    }
+  }, [supabase]);
+
+  const handleFileUpload = async (file) => {
+      if (!file || typeof window.XLSX === 'undefined') return;
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+          const bstr = evt.target.result;
+          const wb = window.XLSX.read(bstr, { type: 'binary' });
+          const wsname = wb.SheetNames[0];
+          const ws = wb.Sheets[wsname];
+          const jsonData = window.XLSX.utils.sheet_to_json(ws);
+
+          const transformedData = jsonData.map(row => ({
+              "Delivery No": String(row["Delivery No"] || row["Delivery"]).trim(),
+              "Status": Number(row["Status"]),
+              "del.type": row["del.type"],
+              "Loading Date": new Date((row["Loading Date"] - 25569) * 86400 * 1000).toISOString(),
+              "Note": row["Note"],
+              "Forwarding agent name": row["Forwarding agent name"],
+              "Name of ship-to party": row["Name of ship-to party"],
+              "Total Weight": row["Total Weight"],
+              "Bill of lading": row["Bill of lading"],
+          }));
+
+          const { error } = await supabase.from('deliveries').upsert(transformedData, { onConflict: 'Delivery No' });
+          if (error) {
+              console.error('File upload error:', error);
+              alert('Chyba při nahrávání dat.');
+          } else {
+              alert('Data byla úspěšně nahrána!');
+              fetchData(); // Znovu načteme všechna data
+          }
+      };
+      reader.readAsBinaryString(file);
+  };
+
 
   const value = {
     allOrdersData,
-    importHistory,
-    loading,
-    refetchData: fetchData, // Funkce pro znovunačtení dat
+    summary,
+    isLoadingData,
+    filters,
+    setFilters,
+    refetchData: fetchData,
+    handleSaveNote,
+    handleFileUpload,
   };
 
   return (

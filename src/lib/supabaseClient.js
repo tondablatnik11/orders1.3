@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Uložíme si klienta do mezipaměti, abychom ho nevytvářeli stále dokola
 let supabaseClient = null;
 
 export const getSupabase = () => {
