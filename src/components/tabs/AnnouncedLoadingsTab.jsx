@@ -75,9 +75,28 @@ export default function AnnouncedLoadingsTab() {
 
                 {message.text && <div className={`p-3 mb-4 rounded-md text-sm ${message.type === 'success' ? 'bg-green-800 text-green-100' : 'bg-red-800 text-red-100'}`}>{message.text}</div>}
 
+                {/* VRÁCENÝ FORMULÁŘ */}
                 <form onSubmit={handleSaveLoading} className="space-y-4 mb-8 p-4 border border-gray-700 rounded-lg bg-gray-750">
                     <h3 className="text-xl font-semibold text-blue-300 mb-3">{t.addLoading}</h3>
-                    {/* ... (formulář pro novou nakládku) ... */}
+                    <div>
+                        <label htmlFor="loadingDate" className="block text-sm font-medium text-gray-300 mb-1">{t.loadingDate}:</label>
+                        <input type="date" name="loadingDate" id="loadingDate" value={newLoading.loadingDate} onChange={handleInputChange} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500" required />
+                    </div>
+                    <div>
+                        <label htmlFor="carrierName" className="block text-sm font-medium text-gray-300 mb-1">{t.carrierName}:</label>
+                        <input type="text" name="carrierName" id="carrierName" value={newLoading.carrierName} onChange={handleInputChange} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500" required />
+                    </div>
+                    <div>
+                        <label htmlFor="orderNumbers" className="block text-sm font-medium text-gray-300 mb-1">{t.orderNumbers}:</label>
+                        <textarea name="orderNumbers" id="orderNumbers" value={newLoading.orderNumbers} onChange={handleInputChange} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500 h-20 resize-y" placeholder={t.orderNumbersPlaceholder} />
+                    </div>
+                    <div>
+                        <label htmlFor="notes" className="block text-sm font-medium text-gray-300 mb-1">{t.notes}:</label>
+                        <textarea name="notes" id="notes" value={newLoading.notes} onChange={handleInputChange} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500 h-20 resize-y" />
+                    </div>
+                    <button type="submit" className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 flex items-center justify-center gap-2">
+                        <Send className="w-5 h-5" /> {t.saveLoading}
+                    </button>
                 </form>
 
                 <div className="space-y-3">
