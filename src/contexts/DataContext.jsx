@@ -9,7 +9,7 @@ export const DataContext = createContext();
 export const useData = () => useContext(DataContext);
 
 export const DataProvider = ({ children }) => {
-  const [allOrdersData, setAllOrdersData] = useState([]);
+  const [allOrdersData, setAllOrdersData] = useState(null);
   const [summary, setSummary] = useState(null);
   const [filters, setFilters] = useState({
     timeRange: 'all',
@@ -25,8 +25,7 @@ export const DataProvider = ({ children }) => {
 
   const fetchData = useCallback(async () => {
     if (!currentUser) {
-      setAllOrdersData([]);
-      setSummary(null);
+      setAllOrdersData(null);
       setIsLoadingData(false);
       return;
     }
@@ -38,7 +37,7 @@ export const DataProvider = ({ children }) => {
       setAllOrdersData(data || []);
     } catch (error) {
       console.error("Error fetching data from Supabase:", error);
-      setAllOrdersData([]);
+      setAllOrdersData(null);
     } finally {
       setIsLoadingData(false);
     }
@@ -48,15 +47,14 @@ export const DataProvider = ({ children }) => {
     fetchData();
   }, [fetchData]);
 
-  // This is the key change: We process data only when loading is false and data exists.
   useEffect(() => {
-    if (!isLoadingData && allOrdersData && allOrdersData.length > 0) {
+    if (allOrdersData) {
       const processed = processData(allOrdersData, filters);
       setSummary(processed);
     } else {
       setSummary(null);
     }
-  }, [allOrdersData, filters, isLoadingData]);
+  }, [allOrdersData, filters]);
 
   const handleSaveNote = useCallback(async (deliveryNo, newNote) => {
     const { error } = await supabase
@@ -71,10 +69,10 @@ export const DataProvider = ({ children }) => {
         ));
     }
   }, [supabase]);
-
+  
   const handleFileUpload = async (file) => {
       if (!file) return;
-      setIsLoadingData(true); // Set loading state
+      setIsLoadingData(true);
       const reader = new FileReader();
       reader.onload = async (evt) => {
           try {
@@ -100,7 +98,7 @@ export const DataProvider = ({ children }) => {
             if (error) throw error;
 
             alert('Data byla úspěšně nahrána!');
-            fetchData(); // Refresh all data
+            fetchData();
           } catch (error) {
             console.error('File upload error:', error);
             alert('Chyba při nahrávání dat.');

@@ -1,24 +1,45 @@
 "use client";
 import React, { useState, useCallback } from 'react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, Sector } from 'recharts';
+import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { CHART_COLORS } from '@/lib/utils';
 import { Card, CardContent } from '../ui/Card';
 import { BarChart3, PieChart as PieChartIcon } from 'lucide-react';
 
 const renderActiveShape = (props) => {
-    // ... kód pro renderActiveShape zůstává stejný ...
+    const { cx, cy, midAngle, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
+    const sin = Math.sin(- (Math.PI / 180) * midAngle);
+    const cos = Math.cos(- (Math.PI / 180) * midAngle);
+    const sx = cx + (outerRadius + 10) * cos;
+    const sy = cy + (outerRadius + 10) * sin;
+    const mx = cx + (outerRadius + 30) * cos;
+    const my = cy + (outerRadius + 30) * sin;
+    const ex = mx + (cos >= 0 ? 1 : -1) * 12;
+    const ey = my;
+    const textAnchor = cos >= 0 ? 'start' : 'end';
+
+    return (
+        <g>
+            <text x={cx} y={cy} dy={8} textAnchor="middle" fill={fill} className="font-bold text-sm">{payload.name}</text>
+            <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius} startAngle={startAngle} endAngle={endAngle} fill={fill} />
+            <Sector cx={cx} cy={cy} startAngle={startAngle} endAngle={endAngle} innerRadius={outerRadius + 6} outerRadius={outerRadius + 10} fill={fill} />
+            <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={fill} fill="none" />
+            <circle cx={ex} cy={ey} r={2} fill={fill} stroke="none" />
+            <text x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey} textAnchor={textAnchor} fill="#fff">{`${value}`}</text>
+            <text x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey} dy={18} textAnchor={textAnchor} fill="#999">{`(Rate ${(percent * 100).toFixed(2)}%)`}</text>
+        </g>
+    );
 };
 
-// ZMĚNA: Přijímáme 'summary' jako prop
-export default function StatusDistributionChart({ summary }) { 
+export default function StatusDistributionChart() {
+    const { summary } = useData();
     const { t } = useUI();
     const [chartType, setChartType] = useState('stackedBar');
     const [activeIndex, setActiveIndex] = useState(0);
 
     const onPieEnter = useCallback((_, index) => setActiveIndex(index), []);
 
-    // ZMĚNA: Používáme 'summary' z props, ne z useData()
     const pieData = Object.entries(summary?.statusCounts || {}).map(([status, count]) => ({ name: `Status ${status}`, value: count })).filter(item => item.value > 0);
     const stackedData = Object.values(summary?.statusByLoadingDate || {}).sort((a, b) => new Date(a.date.split('/').reverse().join('-')) - new Date(b.date.split('/').reverse().join('-')));
     const uniqueStatuses = Array.from(new Set(summary?.allOrdersData?.map(row => Number(row.Status)).filter(s => !isNaN(s)))).sort((a, b) => a - b);

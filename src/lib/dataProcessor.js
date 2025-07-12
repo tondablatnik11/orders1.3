@@ -2,7 +2,7 @@ import { startOfDay, format, isBefore, isAfter, parseISO, differenceInDays, subD
 import { getCurrentShift, parseExcelDate } from './utils';
 
 export const processData = (rawData, filters) => {
-    if (!rawData) {
+    if (!rawData || rawData.length === 0) {
         return null;
     }
     
@@ -11,39 +11,41 @@ export const processData = (rawData, filters) => {
 
     let filteredData = [...rawData];
 
-    // Apply filters
-    if (filters && filters.timeRange !== 'all') {
-        let startDate, endDate;
-        if (filters.timeRange === 'today') {
-            startDate = today;
-            endDate = addDays(today, 1);
-        } else if (filters.timeRange === 'yesterday') {
-            startDate = subDays(today, 1);
-            endDate = today;
-        } else if (filters.timeRange === 'last7days') {
-            startDate = subDays(today, 6);
-            endDate = addDays(today, 1);
-        } else if (filters.timeRange === 'thisMonth') {
-            startDate = startOfMonth(today);
-            endDate = addDays(endOfMonth(today), 1);
-        } else if (filters.timeRange === 'custom' && filters.startDate && filters.endDate) {
-            startDate = startOfDay(parseISO(filters.startDate));
-            endDate = addDays(startOfDay(parseISO(filters.endDate)), 1);
-        }
+    // Apply filters from filters object if it exists
+    if (filters) {
+        if (filters.timeRange && filters.timeRange !== 'all') {
+            let startDate, endDate;
+            if (filters.timeRange === 'today') {
+                startDate = today;
+                endDate = addDays(today, 1);
+            } else if (filters.timeRange === 'yesterday') {
+                startDate = subDays(today, 1);
+                endDate = today;
+            } else if (filters.timeRange === 'last7days') {
+                startDate = subDays(today, 6);
+                endDate = addDays(today, 1);
+            } else if (filters.timeRange === 'thisMonth') {
+                startDate = startOfMonth(today);
+                endDate = addDays(endOfMonth(today), 1);
+            } else if (filters.timeRange === 'custom' && filters.startDate && filters.endDate) {
+                startDate = startOfDay(parseISO(filters.startDate));
+                endDate = addDays(startOfDay(parseISO(filters.endDate)), 1);
+            }
 
-        if(startDate && endDate) {
-            filteredData = filteredData.filter(row => {
-                const date = parseExcelDate(row["Loading Date"]);
-                return date && !isNaN(date.getTime()) && date >= startDate && date < endDate;
-            });
+            if(startDate && endDate) {
+                filteredData = filteredData.filter(row => {
+                    const date = parseExcelDate(row["Loading Date"]);
+                    return date && !isNaN(date.getTime()) && date >= startDate && date < endDate;
+                });
+            }
         }
-    }
-    
-    if (filters && filters.deliveryType !== 'all') {
-        filteredData = filteredData.filter(row => row["del.type"] === filters.deliveryType);
-    }
-    if (filters && filters.status !== 'all') {
-        filteredData = filteredData.filter(row => String(row.Status) === String(filters.status));
+        
+        if (filters.deliveryType && filters.deliveryType !== 'all') {
+            filteredData = filteredData.filter(row => row["del.type"] === filters.deliveryType);
+        }
+        if (filters.status && filters.status !== 'all') {
+            filteredData = filteredData.filter(row => String(row.Status) === String(filters.status));
+        }
     }
 
 
@@ -56,7 +58,6 @@ export const processData = (rawData, filters) => {
         deliveryTypeByDateCategory: {}, statusByLoadingDate: {}, allOrdersData: filteredData
     };
 
-    // Initialize hourly snapshots
     for (let h = 0; h <= 23; h++) {
         const hourKey = format(new Date(today.getFullYear(), today.getMonth(), today.getDate(), h), 'HH');
         result.hourlyStatusSnapshots[hourKey] = {};
@@ -108,15 +109,7 @@ export const processData = (rawData, filters) => {
 
         if (isBefore(parsedDate, today) && !doneStatuses.includes(status)) {
             result.delayed++;
-            result.delayedOrdersList.push({
-                delivery: deliveryIdentifier,
-                status,
-                delType,
-                loadingDate: parsedDate.toISOString(),
-                delayDays: differenceInDays(today, parsedDate),
-                note: row["Note"] || "",
-                ...row
-            });
+            result.delayedOrdersList.push({ ...row, delayDays: differenceInDays(today, parsedDate) });
         }
         
         const hourKey = format(parsedDate, 'HH');
