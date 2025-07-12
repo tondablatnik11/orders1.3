@@ -15,7 +15,7 @@ export default function TicketsTab() {
     const [tickets, setTickets] = useState([]);
     const [newTicketTitle, setNewTicketTitle] = useState('');
     const [newTicketDescription, setNewTicketDescription] = useState('');
-    const [newTicketCategory, setNewTicketCategory] = useState(''); // Stav pro kategorii
+    const [newTicketCategory, setNewTicketCategory] = useState('');
     const [newTicketAssignee, setNewTicketAssignee] = useState('');
     const [message, setMessage] = useState({ text: '', type: '' });
     const [attachment, setAttachment] = useState(null);
@@ -47,7 +47,6 @@ export default function TicketsTab() {
     const handleCreateTicket = async (e) => {
         e.preventDefault();
         
-        // Opravená validace
         if (!newTicketTitle || !newTicketDescription || !newTicketAssignee || !newTicketCategory || !user) {
             setMessage({ text: t.fillAllFields || "Vyplňte všechna povinná pole.", type: 'error' });
             return;
@@ -72,7 +71,7 @@ export default function TicketsTab() {
                 title: newTicketTitle,
                 description: newTicketDescription,
                 assignedTo: newTicketAssignee,
-                category: newTicketCategory, // Uložení kategorie
+                category: newTicketCategory,
                 status: 'Vytvořeno',
                 createdBy: user.uid,
                 createdByName: userProfile?.displayName || user.email,
@@ -80,7 +79,6 @@ export default function TicketsTab() {
                 attachmentUrl,
                 attachmentName,
             });
-            // Resetování všech polí
             setNewTicketTitle('');
             setNewTicketDescription('');
             setNewTicketAssignee('');
@@ -124,14 +122,14 @@ export default function TicketsTab() {
                     </div>
                      <div>
                         <label htmlFor="ticket-category" className="block text-sm font-medium text-gray-300 mb-1">Kategorie:</label>
-                        <select id="ticket-category" value={newTicketCategory} onChange={(e) => setNewTicketCategory(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500" required>
+                        <select id="ticket-category" value={newTicketCategory} onChange={(e) => setNewTicketCategory(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500">
                             <option value="">Vyberte kategorii</option>
                             {ticketCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                         </select>
                     </div>
                     <div>
                         <label htmlFor="ticket-assignee" className="block text-sm font-medium text-gray-300 mb-1">{t.assignTo}:</label>
-                        <select id="ticket-assignee" value={newTicketAssignee} onChange={(e) => setNewTicketAssignee(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500" required>
+                        <select id="ticket-assignee" value={newTicketAssignee} onChange={(e) => setNewTicketAssignee(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500">
                             <option value="">{t.selectUserToAssign}</option>
                             {Array.isArray(allUsers) && allUsers.map(u => <option key={u.uid} value={u.uid}>{u.displayName || u.email}</option>)}
                         </select>

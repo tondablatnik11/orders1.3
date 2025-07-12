@@ -1,3 +1,4 @@
+// src/components/modals/LoadingDetailsModal.jsx
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -8,23 +9,28 @@ import { format, parseISO } from 'date-fns';
 import OrderListTable from '@/components/shared/OrderListTable';
 import { Send, Check } from 'lucide-react';
 
-export default function LoadingDetailsModal({ loading, orders, onClose }) {
+export default function LoadingDetailsModal({ loading, onClose }) {
     const { t } = useUI();
     const { db, appId, user, userProfile } = useAuth();
     const [history, setHistory] = useState([]);
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState("");
+    // Použijeme loading.status pro inicializaci, aby se stav správně projevil
     const [selectedStatus, setSelectedStatus] = useState(loading.status || "Ohlášeno");
 
-    // Načtení historie a komentářů...
+    // Efekt pro synchronizaci stavu, pokud se změní vstupní `loading` prop
+    useEffect(() => {
+        setSelectedStatus(loading.status || "Ohlášeno");
+    }, [loading.status]);
+
     useEffect(() => {
         if (!db || !loading) return;
-        // ... (kód pro načítání historie statusů)
+        // Načtení historie statusů
         const historyColRef = collection(db, `artifacts/${appId}/public/data/loading_status_history`);
         const qHistory = query(historyColRef, where("loadingId", "==", loading.id), orderBy("timestamp", "desc"));
         const unsubHistory = onSnapshot(qHistory, (snapshot) => setHistory(snapshot.docs.map(doc => doc.data())));
         
-        // ... (kód pro načítání komentářů)
+        // Načtení komentářů
         const commentsColRef = collection(db, `artifacts/${appId}/public/data/announced_loadings/${loading.id}/comments`);
         const qComments = query(commentsColRef, orderBy("timestamp", "asc"));
         const unsubComments = onSnapshot(qComments, (snapshot) => setComments(snapshot.docs.map(doc => doc.data())));
@@ -38,11 +44,10 @@ export default function LoadingDetailsModal({ loading, orders, onClose }) {
     const confirmStatusChange = async () => {
         if (!db || !loading || !user || selectedStatus === loading.status) return;
         const loadingRef = doc(db, `artifacts/${appId}/public/data/announced_loadings`, loading.id);
-        const historyColRef = collection(db, `artifacts/${appId}/public/data/loading_status_history`);
-
+        
         try {
             await updateDoc(loadingRef, { status: selectedStatus });
-            await addDoc(historyColRef, {
+            await addDoc(collection(db, `artifacts/${appId}/public/data/loading_status_history`), {
                 loadingId: loading.id,
                 newStatus: selectedStatus,
                 changedBy: userProfile?.displayName || user.email,
@@ -102,6 +107,7 @@ export default function LoadingDetailsModal({ loading, orders, onClose }) {
                 <div>
                     <h4 className="font-semibold mt-2 mb-2">{t.orderList || 'Seznam zakázek'}</h4>
                     <div className="max-h-56 overflow-y-auto">
+                        {/* Zde onSelectOrder nic nedělá, proto prázdná funkce */}
                         <OrderListTable orders={orders} onSelectOrder={() => {}} size="small" />
                     </div>
                 </div>
@@ -120,6 +126,7 @@ export default function LoadingDetailsModal({ loading, orders, onClose }) {
                                 </div>
                             ))}
                         </div>
+                        {/* OPRAVA: Formulář je nyní propojen s handleAddComment */}
                         <form onSubmit={handleAddComment} className="flex gap-2 mt-3 pt-3 border-t border-gray-700">
                             <input
                                 type="text"
