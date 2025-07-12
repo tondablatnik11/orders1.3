@@ -37,9 +37,9 @@ export default function DashboardLayout() {
 
     return (
         <div className={`p-8 space-y-8 min-h-screen ${darkMode ? "bg-gray-950 text-gray-100" : "bg-white text-gray-900"} transition-colors duration-300 font-sans`}>
-            <AppHeader 
-                onChatToggle={() => setIsChatOpen(!isChatOpen)} 
-                onProfileToggle={() => setIsProfileOpen(!isProfileOpen)} 
+            <AppHeader
+                onChatToggle={() => setIsChatOpen(!isChatOpen)}
+                onProfileToggle={() => setIsProfileOpen(!isProfileOpen)}
             />
 
             <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} t={t} />
@@ -47,7 +47,7 @@ export default function DashboardLayout() {
             <main>
                 {renderActiveTab()}
             </main>
-            
+
             {selectedOrderDetails && (
                 <OrderDetailsModal order={selectedOrderDetails} onClose={() => setSelectedOrderDetails(null)} />
             )}
