@@ -12,7 +12,8 @@ import LoadingDetailsModal from '@/components/modals/LoadingDetailsModal';
 export default function AnnouncedLoadingsTab() {
     const { t } = useUI();
     const { db, appId, user } = useAuth();
-    const { allOrdersData, isLoadingData } = useData(); // Přidáno isLoadingData
+    // Získáme i stav načítání dat
+    const { allOrdersData, isLoadingData } = useData(); 
     
     const [loadings, setLoadings] = useState([]);
     const [newLoading, setNewLoading] = useState({ loadingDate: '', carrierName: '', orderNumbers: '', notes: '' });
@@ -58,9 +59,10 @@ export default function AnnouncedLoadingsTab() {
         }
     };
 
+    // KLÍČOVÁ OPRAVA: Přidána kontrola isLoadingData
     const handleSelectLoading = (loading) => {
         if (isLoadingData) {
-            alert("Data se ještě načítají, zkuste to za chvíli.");
+            alert("Data se stále načítají. Zkuste to prosím za chvíli.");
             return;
         }
         const relatedOrders = allOrdersData.filter(order => 
@@ -76,9 +78,7 @@ export default function AnnouncedLoadingsTab() {
                 <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2 text-cyan-400">
                     <Ship className="w-6 h-6" /> {t.announcedLoadingsTab}
                 </h2>
-
                 {message.text && <div className={`p-3 mb-4 rounded-md text-sm ${message.type === 'success' ? 'bg-green-800 text-green-100' : 'bg-red-800 text-red-100'}`}>{message.text}</div>}
-
                 <form onSubmit={handleSaveLoading} className="space-y-4 mb-8 p-4 border border-gray-700 rounded-lg bg-gray-750">
                     <h3 className="text-xl font-semibold text-blue-300 mb-3">{t.addLoading}</h3>
                     <div>
@@ -111,9 +111,7 @@ export default function AnnouncedLoadingsTab() {
                                     loading.status === 'Naloženo' ? 'bg-green-600 text-white' :
                                     loading.status === 'Připraveno' ? 'bg-yellow-500 text-black' :
                                     'bg-blue-600 text-white'
-                                }`}>
-                                    {loading.status || 'Ohlášeno'}
-                                </span>
+                                }`}>{loading.status || 'Ohlášeno'}</span>
                             </div>
                             <p><strong>{t.loadingDate}:</strong> {format(parseISO(loading.loadingDate), 'dd/MM/yyyy')}</p>
                             <p className="text-sm text-gray-400 mt-1">{t.notes}: {loading.notes || t.noNotes}</p>

@@ -10,8 +10,7 @@ import TicketDetailsModal from '@/components/modals/TicketDetailsModal';
 
 export default function TicketsTab() {
     const { t } = useUI();
-    // Získáme celý kontext jako jeden objekt, abychom měli vždy aktuální data
-    const authContext = useAuth(); 
+    const authContext = useAuth(); // Získáme celý kontext
 
     const [tickets, setTickets] = useState([]);
     const [newTicketTitle, setNewTicketTitle] = useState('');
@@ -36,15 +35,13 @@ export default function TicketsTab() {
     }, [authContext.db, authContext.appId]);
 
     const handleFileChange = (e) => {
-        if (e.target.files && e.target.files[0]) {
-            setAttachment(e.target.files[0]);
-        }
+        if (e.target.files[0]) setAttachment(e.target.files[0]);
     };
 
     const handleCreateTicket = async (e) => {
         e.preventDefault();
         
-        // Používáme authContext.user přímo zde, abychom měli 100% jistotu aktuální hodnoty
+        // KLÍČOVÁ OPRAVA: Pracujeme přímo s authContext.user
         if (!authContext.user) {
             setMessage({ text: "Pro vytvoření úkolu musíte být přihlášen.", type: 'error' });
             return;
@@ -92,7 +89,6 @@ export default function TicketsTab() {
             if (fileInputRef.current) fileInputRef.current.value = "";
             setMessage({ text: t.ticketCreatedSuccess, type: 'success' });
         } catch (error) {
-            console.error("Error creating ticket:", error);
             setMessage({ text: `${t.ticketError} ${error.message}`, type: 'error' });
         }
     };
@@ -119,32 +115,17 @@ export default function TicketsTab() {
 
                 <form onSubmit={handleCreateTicket} className="space-y-4 mb-8 p-4 border border-gray-700 rounded-lg bg-gray-750">
                     <h3 className="text-xl font-semibold text-blue-300 mb-3">{t.createTicket}</h3>
-                    <div>
-                        <label htmlFor="ticket-title" className="block text-sm font-medium text-gray-300 mb-1">{t.ticketTitle}:</label>
-                        <input type="text" id="ticket-title" value={newTicketTitle} onChange={(e) => setNewTicketTitle(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500" />
-                    </div>
-                    <div>
-                        <label htmlFor="ticket-description" className="block text-sm font-medium text-gray-300 mb-1">{t.ticketDescription}:</label>
-                        <textarea id="ticket-description" value={newTicketDescription} onChange={(e) => setNewTicketDescription(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500 h-24 resize-y" />
-                    </div>
-                    <div>
-                        <label htmlFor="ticket-category" className="block text-sm font-medium text-gray-300 mb-1">Kategorie:</label>
-                        <select id="ticket-category" value={newTicketCategory} onChange={(e) => setNewTicketCategory(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500">
-                            <option value="">Vyberte kategorii</option>
-                            {ticketCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="ticket-assignee" className="block text-sm font-medium text-gray-300 mb-1">{t.assignTo}:</label>
-                        <select id="ticket-assignee" value={newTicketAssignee} onChange={(e) => setNewTicketAssignee(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500">
-                            <option value="">{t.selectUserToAssign}</option>
-                            {Array.isArray(authContext.allUsers) && authContext.allUsers.map(u => <option key={u.uid} value={u.uid}>{u.displayName || u.email}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="ticket-attachment" className="block text-sm font-medium text-gray-300 mb-1">{t.addAttachment}:</label>
-                        <input type="file" id="ticket-attachment" ref={fileInputRef} onChange={handleFileChange} className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                    </div>
+                    <input type="text" value={newTicketTitle} onChange={(e) => setNewTicketTitle(e.target.value)} placeholder={t.ticketTitle} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500" />
+                    <textarea value={newTicketDescription} onChange={(e) => setNewTicketDescription(e.target.value)} placeholder={t.ticketDescription} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500 h-24 resize-y" />
+                    <select value={newTicketCategory} onChange={(e) => setNewTicketCategory(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500">
+                        <option value="">Vyberte kategorii</option>
+                        {ticketCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    </select>
+                    <select value={newTicketAssignee} onChange={(e) => setNewTicketAssignee(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500">
+                        <option value="">{t.selectUserToAssign}</option>
+                        {Array.isArray(authContext.allUsers) && authContext.allUsers.map(u => <option key={u.uid} value={u.uid}>{u.displayName || u.email}</option>)}
+                    </select>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
                     <button type="submit" className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 flex items-center justify-center gap-2">
                         <Send className="w-5 h-5" /> {t.createTicket}
                     </button>
