@@ -14,16 +14,13 @@ import OrderTypesChart from '@/components/charts/OrderTypesChart';
 import { UploadCloud, FileDown } from 'lucide-react';
 
 export default function DashboardTab() {
-    // Získáváme data z DataContextu
     const { summary, isLoadingData, handleFileUpload } = useData();
     const { t } = useUI();
 
-    // Zobrazení načítacího stavu
     if (isLoadingData) {
         return <p className="text-center p-8">Načítám data...</p>;
     }
 
-    // Zobrazení výzvy, pokud nejsou k dispozici žádná data
     if (!summary) {
         return (
             <div className="text-center mt-8">
@@ -37,7 +34,6 @@ export default function DashboardTab() {
         );
     }
 
-    // Plné zobrazení dashboardu, pokud jsou data k dispozici
     return (
         <div className="space-y-10">
             <div className="flex flex-col md:flex-row justify-center items-center gap-4">
@@ -53,12 +49,8 @@ export default function DashboardTab() {
 
             <div id="report-section" className="space-y-10">
                 <DataFilters />
-                
-                {/* Předání 'summary' dat do komponent */}
                 <SummaryCards summary={summary} />
-                
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Komponenty pro grafy již nepotřebují 'summary' jako prop, protože si ho vezmou z useData() */}
                     <StatusDistributionChart />
                     <OrdersOverTimeChart />
                     <InProgressChart />

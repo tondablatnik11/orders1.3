@@ -4,7 +4,11 @@ import { useUI } from '@/hooks/useUI';
 
 export default function SummaryCards({ summary }) {
     const { t } = useUI();
-    
+
+    if (!summary) {
+        return null; // Nezobrazí nic, pokud nejsou data
+    }
+
     const cards = [
         { labelKey: 'total', value: summary.total, color: 'text-blue-400' },
         { labelKey: 'done', value: summary.doneTotal, color: 'text-green-400' },
