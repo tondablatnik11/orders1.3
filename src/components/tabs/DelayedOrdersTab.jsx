@@ -13,6 +13,7 @@ export default function DelayedOrdersTab() {
     const [showAll, setShowAll] = useState(false);
     const [localNotes, setLocalNotes] = useState({});
 
+    // Zajištění, že summary a delayedOrdersList existují
     if (!summary || !summary.delayedOrdersList) {
         return <p className="text-center p-8">{t.noDataAvailable}</p>;
     }
@@ -37,6 +38,8 @@ export default function DelayedOrdersTab() {
                     <h2 className="text-2xl font-semibold flex items-center gap-2 text-red-400">
                         <ClipboardList className="w-6 h-6" /> {t.delayed} ({delayedOrders.length})
                     </h2>
+                    {/* Předpokládám, že funkce exportDelayedOrdersXLSX bude volána, pokud je k dispozici.
+                        Pokud ne, bude potřeba ji přidat do DataContextu nebo přímo sem, stejně jako v původním kódu. */}
                     <button className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700">
                         <FileDown className="w-5 h-5" /> {t.exportToXLSX}
                     </button>
@@ -54,17 +57,18 @@ export default function DelayedOrdersTab() {
                         </thead>
                         <tbody>
                             {displayedOrders.map((order) => (
-                                <tr key={order["Delivery No"]} className="border-t border-gray-600 hover:bg-gray-600">
-                                    <td className="py-3 px-4">{order["Delivery No"]}</td>
+                                <tr key={order.delivery} className="border-t border-gray-600 hover:bg-gray-600">
+                                    <td className="py-3 px-4">{order.delivery}</td>
                                     <td className={`py-3 px-4 font-semibold ${getDelayColorClass(order.delayDays)}`}>{order.delayDays}</td>
-                                    <td className="py-3 px-4">{format(parseISO(order["Loading Date"]), 'dd.MM.yyyy')}</td>
-                                    <td className="py-3 px-4">{order.Status}</td>
+                                    {/* Ujistěte se, že order.loadingDate je platný ISO string */}
+                                    <td className="py-3 px-4">{order.loadingDate ? format(parseISO(order.loadingDate), 'dd.MM.yyyy') : 'N/A'}</td>
+                                    <td className="py-3 px-4">{order.status}</td>
                                     <td className="py-3 px-4">
                                         <input
                                             type="text"
-                                            value={localNotes[order["Delivery No"]] ?? order.Note ?? ''}
-                                            onChange={(e) => handleNoteChange(order["Delivery No"], e.target.value)}
-                                            onBlur={() => handleNoteBlur(order["Delivery No"], order.Note)}
+                                            value={localNotes[order.delivery] ?? order.note ?? ''}
+                                            onChange={(e) => handleNoteChange(order.delivery, e.target.value)}
+                                            onBlur={() => handleNoteBlur(order.delivery, order.note)}
                                             className="w-full p-1 rounded-md bg-gray-600 border border-gray-500 text-sm"
                                         />
                                     </td>
