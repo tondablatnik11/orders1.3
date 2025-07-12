@@ -1,20 +1,23 @@
 // src/app/page.js
 'use client';
-import { useEffect } from 'react';
+
 import { useAuth } from '@/hooks/useAuth';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import LoginPage from '@/components/auth/Login'; 
+import LoginPage from '@/components/auth/Login';
 
+/**
+ * Hlavní vstupní bod aplikace.
+ * Tato komponenta funguje jako "výhybka", která rozhoduje,
+ * co zobrazit na základě stavu přihlášení uživatele.
+ */
 export default function Home() {
-  // Získat celý kontextový objekt z useAuth
-  const authContext = useAuth(); 
-  // Bezpečné destrukturování vlastností, s poskytnutím fallbacku pro případy, kdy authContext může být null během SSR nebo počáteční hydratace
-  const currentUser = authContext ? authContext.currentUser : null;
-  const loading = authContext ? authContext.loading : true; // Předpokládejte, že je načítání aktivní, dokud není určen stav
+  // Získání stavu přihlášení a načítání z AuthContextu.
+  // Destrukturování je čistý a běžný způsob, jak přistupovat k hodnotám z kontextu.
+  const { currentUser, loading } = useAuth();
 
-  // Pokud je aplikace stále načítána (kontroluje stav autentizace), zobrazte loader
+  // 1. Zobrazit "Načítání...", dokud se neověří stav autentizace.
+  //    Tím se zabrání problikávání mezi přihlašovací a hlavní stránkou.
   if (loading) {
-    console.log("page.js: Stav načítání autentizace je true, zobrazuji loader.");
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-950 text-gray-100">
         Načítání...
@@ -22,13 +25,9 @@ export default function Home() {
     );
   }
 
-  // Pokud je uživatel přihlášen, zobrazte DashboardLayout
-  if (currentUser) {
-    console.log("page.js: Současný uživatel je přihlášen, zobrazuji DashboardLayout.");
-    return <DashboardLayout />;
-  }
-
-  // Pokud uživatel není přihlášen, zobrazte LoginPage
-  console.log("page.js: Žádný současný uživatel, zobrazuji LoginPage.");
-  return <LoginPage />;
+  // 2. Po dokončení načítání zkontrolovat, zda je uživatel přihlášen.
+  //    Pokud ano, zobrazit hlavní layout aplikace.
+  //    Pokud ne, zobrazit přihlašovací stránku.
+  //    Ternární operátor (?:) je pro tuto logiku ideální a velmi čitelný.
+  return currentUser ? <DashboardLayout /> : <LoginPage />;
 }
