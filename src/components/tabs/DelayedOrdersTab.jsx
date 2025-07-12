@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo } from 'react'; 
+import React, { useState, useEffect, useMemo } from 'react';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { format, parseISO } from 'date-fns';
@@ -21,13 +21,12 @@ export default function DelayedOrdersTab() {
     const [deliveryStatusLog, setDeliveryStatusLog] = useState([]);
 
 
-    useEffect(() => {
-        // Ladicí logy, které již nejsou potřeba, byly odebrány nebo zakomentovány
-    }, [summary]);
+    // Není potřeba logovat summary v useEffect, pokud není specifické ladění potřeba
+    // useEffect(() => { /* ... */ }, [summary]);
 
 
     if (!summary || !summary.delayedOrdersList) {
-        console.log('DelayedOrdersTab: Není k dispozici žádná data pro zpožděné zakázky.'); // Ponecháno pro diagnostiku prázdných dat
+        console.log('DelayedOrdersTab: Není k dispozici žádná data pro zpožděné zakázky.');
         return <p className="text-center p-8">{t.noDataAvailable}</p>;
     }
 
@@ -41,10 +40,12 @@ export default function DelayedOrdersTab() {
         }
     };
 
+    // Použijte useMemo pro řazení dat
     const sortedOrders = useMemo(() => {
-        const delayedOrders = summary.delayedOrdersList; 
+        // Zde se delayedOrders získává přímo ze summary
+        const allDelayedOrders = summary.delayedOrdersList; 
         
-        let sortableItems = [...delayedOrders]; 
+        let sortableItems = [...allDelayedOrders]; 
         if (sortConfig.key !== null) {
             sortableItems.sort((a, b) => {
                 let aValue = a[sortConfig.key];
@@ -72,6 +73,7 @@ export default function DelayedOrdersTab() {
         return sortableItems;
     }, [summary.delayedOrdersList, sortConfig]);
 
+    // displayedOrders nyní používá sortedOrders
     const displayedOrders = showAll ? sortedOrders : sortedOrders.slice(0, 10);
 
     const requestSort = (key) => {
@@ -137,7 +139,7 @@ export default function DelayedOrdersTab() {
             <CardContent>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-2xl font-semibold flex items-center gap-2 text-red-400">
-                        <ClipboardList className="w-6 h-6" /> {t.delayed} ({delayedOrders.length}) 
+                        <ClipboardList className="w-6 h-6" /> {t.delayed} ({summary.delayedOrdersList.length}) 
                     </h2>
                     <button
                         onClick={() => exportDelayedOrdersXLSX(supabase, t)}
@@ -168,6 +170,7 @@ export default function DelayedOrdersTab() {
                             </thead>
                             <tbody>
                                 {displayedOrders.map((order) => {
+                                    // console.log('DelayedOrdersTab: Vykresluji zakázku (dynamická data):', order.delivery, order); // Méně verbose
                                     
                                     if (!order.delivery) {
                                         console.warn('DelayedOrdersTab: Zakázka postrádá číslo dodávky pro klíč, přeskočeno:', order);

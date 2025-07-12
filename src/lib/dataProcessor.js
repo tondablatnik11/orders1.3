@@ -1,20 +1,16 @@
 import { startOfDay, format, isBefore, parseISO, differenceInDays } from 'date-fns';
 
-// Funkce pro parsování různých formátů data
 const parseDataDate = (dateInput) => {
     if (!dateInput) return null;
-    // Nejprve zkusíme parsovat jako ISO string, což je formát z databáze
     let date = parseISO(dateInput);
     if (!isNaN(date.getTime())) return date;
 
-    // Pokud selže, zkusíme parsovat jako Excel číslo
     if (typeof dateInput === 'number') {
         date = new Date(Math.round((dateInput - 25569) * 86400 * 1000));
         if (!isNaN(date.getTime())) return date;
     }
     return null;
 };
-
 
 export const processData = (rawData) => {
     if (!rawData || rawData.length === 0) {
@@ -36,17 +32,15 @@ export const processData = (rawData) => {
     };
 
     const doneStatuses = [50, 60, 70];
-    const delayedStatuses = [10, 31, 35, 40]; // Statusy, které mohou být zpožděné
+    const delayedStatuses = [10, 31, 35, 40]; 
     const today = startOfDay(new Date());
 
     rawData.forEach(row => {
-        const status = Number(row.Status); // Načtení statusu
-        // Použijeme Delivery No nebo Delivery a ořežeme whitespace,
-        // což zajišťuje konzistenci s tím, co se ukládá do DB jako "Delivery No"
+        const status = Number(row.Status); 
         const deliveryIdentifier = String(row["Delivery No"] || row["Delivery"] || '').trim();
 
-        if (isNaN(status)) return; // Přeskočit, pokud status není číslo
-        if (!deliveryIdentifier) return; // Přeskočit, pokud Delivery No chybí
+        if (isNaN(status)) return; 
+        if (!deliveryIdentifier) return; 
 
         summary.total++;
         if (doneStatuses.includes(status)) summary.doneTotal++;
@@ -57,28 +51,25 @@ export const processData = (rawData) => {
 
         summary.statusCounts[status] = (summary.statusCounts[status] || 0) + 1;
         if(row["del.type"]) summary.deliveryTypes[row["del.type"]] = (summary.deliveryTypes[row["del.type"]] || 0) + 1;
-        
+
         const loadingDate = parseDataDate(row["Loading Date"]);
-        
-        // Klíčová podmínka pro zpožděné zakázky
-        // Zde je důležité, aby deliveryIdentifier byl platný a Loading Date také
+
         if (loadingDate && isBefore(loadingDate, today) && delayedStatuses.includes(status)) {
             const delayDays = differenceInDays(today, loadingDate);
-            // KLÍČOVÁ ZMĚNA ZDE: Přidána podmínka pro filtrování 0-denních zpoždění
+            // KLÍČOVÁ ZMĚNA: Přidáváme podmínku pro vyloučení zakázek se zpožděním 0 dní
             if (delayDays > 0) { 
                 summary.delayed++;
                 summary.delayedOrdersList.push({ 
-                    // Použijeme klíč 'delivery', jak očekává DelayedOrdersTab
                     delivery: deliveryIdentifier, 
                     status: status, 
                     delType: row["del.type"],
                     loadingDate: loadingDate.toISOString(), 
                     delayDays: delayDays,
                     note: row["Note"] || "",
-                    "Forwarding agent name": row["Forwarding agent name"] || "N/A", // Přidáno "N/A" pro konzistenci
-                    "Name of ship-to party": row["Name of ship-to party"] || "N/A", // Přidáno "N/A" pro konzistenci
-                    "Total Weight": row["Total Weight"] || "N/A", // Přidáno "N/A" pro konzistenci
-                    "Bill of lading": row["Bill of lading"] || "N/A", // Přidáno "N/A" pro konzistenci
+                    "Forwarding agent name": row["Forwarding agent name"] || "N/A", 
+                    "Name of ship-to party": row["Name of ship-to party"] || "N/A", 
+                    "Total Weight": row["Total Weight"] || "N/A", 
+                    "Bill of lading": row["Bill of lading"] || "N/A", 
                 });
             }
         }
