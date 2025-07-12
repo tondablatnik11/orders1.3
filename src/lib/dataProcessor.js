@@ -36,13 +36,18 @@ export const processData = (rawData) => {
     };
 
     const doneStatuses = [50, 60, 70];
-    const delayedStatuses = [10, 31, 35, 40];
+    const delayedStatuses = [10, 31, 35, 40]; // Statusy, které mohou být zpožděné
     const today = startOfDay(new Date());
 
     rawData.forEach(row => {
-        const status = Number(row.Status);
-        if (isNaN(status)) return;
-        
+        const status = Number(row.Status); // Načtení statusu
+        // Použijeme Delivery No nebo Delivery a ořežeme whitespace,
+        // což zajišťuje konzistenci s tím, co se ukládá do DB jako "Delivery No"
+        const deliveryIdentifier = String(row["Delivery No"] || row["Delivery"] || '').trim();
+
+        if (isNaN(status)) return; // Přeskočit, pokud status není číslo
+        if (!deliveryIdentifier) return; // Přeskočit, pokud Delivery No chybí
+
         summary.total++;
         if (doneStatuses.includes(status)) summary.doneTotal++;
         if (status === 10) summary.newOrdersTotal++;
@@ -56,18 +61,28 @@ export const processData = (rawData) => {
         const loadingDate = parseDataDate(row["Loading Date"]);
         
         // Klíčová podmínka pro zpožděné zakázky
+        // Zde je důležité, aby deliveryIdentifier byl platný a Loading Date také
         if (loadingDate && isBefore(loadingDate, today) && delayedStatuses.includes(status)) {
             summary.delayed++;
             summary.delayedOrdersList.push({ 
-                ...row, 
-                "Loading Date": loadingDate.toISOString(), // Uložíme jako ISO pro konzistenci
-                delayDays: differenceInDays(today, loadingDate) 
+                // Použijeme klíč 'delivery', jak očekává DelayedOrdersTab
+                delivery: deliveryIdentifier, 
+                status: status, // Nyní správně používáme "status" proměnnou
+                delType: row["del.type"],
+                loadingDate: loadingDate.toISOString(), // Uložíme jako ISO pro konzistenci
+                delayDays: differenceInDays(today, loadingDate),
+                note: row["Note"] || "",
+                "Forwarding agent name": row["Forwarding agent name"] || "N/A", // Přidáno "N/A" pro konzistenci
+                "Name of ship-to party": row["Name of ship-to party"] || "N/A", // Přidáno "N/A" pro konzistenci
+                "Total Weight": row["Total Weight"] || "N/A", // Přidáno "N/A" pro konzistenci
+                "Bill of lading": row["Bill of lading"] || "N/A", // Přidáno "N/A" pro konzistenci
             });
         }
     });
     
     summary.remainingTotal = summary.total - summary.doneTotal;
-    summary.delayedOrdersList.sort((a, b) => b.delayDays - a.delayDays); // Seřadíme od největšího zpoždění
+    // Doplnil jsem setřídění, pokud by chybělo
+    summary.delayedOrdersList.sort((a, b) => b.delayDays - a.delayDays); 
 
     return summary;
 };
