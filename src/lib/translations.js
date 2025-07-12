@@ -172,6 +172,8 @@ export const translations = {
     addAttachment: "Přidat přílohu",
     xlsxLibNotLoaded: "XLSX knihovna není načtena. Zkuste prosím obnovit stránku.",
     exportError: "Chyba při získávání dat pro export:",
+    filterByNameOfShipToParty: "Filtrovat dle jména příjemce",
+    forwardingAgent: "Jméno dopravce",
   },
   en: {
     title: "Order Overview",
@@ -345,7 +347,9 @@ export const translations = {
     attachment: "Attachment",
     addAttachment: "Add Attachment",
     xlsxLibNotLoaded: "XLSX library not loaded. Please try refreshing the page.",
-    exportError: "Error fetching data for export:",        
+    exportError: "Error fetching data for export:",  
+    filterByNameOfShipToParty: "Filter by Name of Ship-to Party",
+    forwardingAgent: "Forwarding agent name",      
   },
   de: {
     title: "Auftragsübersicht",
@@ -520,5 +524,7 @@ export const translations = {
     addAttachment: "Anhang hinzufügen",
     xlsxLibNotLoaded: "XLSX-Bibliothek nicht geladen. Bitte versuchen Sie, die Seite neu zu laden.",
     exportError: "Fehler beim Abrufen von Daten für den Export:",
+    filterByNameOfShipToParty: "Nach Name des Empfängers filtern",
+    forwardingAgent: "Spediteur Name",
   },
 };
