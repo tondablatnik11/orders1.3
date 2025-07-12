@@ -18,7 +18,7 @@ export default function DashboardTab() {
     const { t } = useUI();
 
     if (isLoadingData) {
-        return <p className="text-center">Načítám data...</p>;
+        return <p className="text-center p-8">Načítám data...</p>;
     }
 
     return (
