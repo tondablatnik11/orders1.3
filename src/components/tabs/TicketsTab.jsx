@@ -10,7 +10,10 @@ import TicketDetailsModal from '@/components/modals/TicketDetailsModal';
 
 export default function TicketsTab() {
     const { t } = useUI();
-    const { user, userProfile, allUsers, db, appId, supabase } = useAuth();
+    const auth = useAuth(); // Získáme celý auth kontext
+
+    // Destrukturujeme proměnné až zde, abychom měli jistotu, že jsou aktuální
+    const { user, userProfile, allUsers, db, appId, supabase } = auth;
 
     const [tickets, setTickets] = useState([]);
     const [newTicketTitle, setNewTicketTitle] = useState('');
@@ -26,14 +29,13 @@ export default function TicketsTab() {
 
     useEffect(() => {
         if (!db || !appId) {
-            console.warn("Firestore or App ID not available for TicketsTab.");
+            console.warn("TicketsTab: db nebo appId nejsou k dispozici.");
             return;
         }
         const ticketsColRef = collection(db, `artifacts/${appId}/public/data/tickets`);
         const q = query(ticketsColRef, orderBy('createdAt', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const fetchedTickets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setTickets(fetchedTickets);
+            setTickets(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         });
         return () => unsubscribe();
     }, [db, appId]);
@@ -46,8 +48,8 @@ export default function TicketsTab() {
 
     const handleCreateTicket = async (e) => {
         e.preventDefault();
-
-        if (!user) {
+        
+        if (!auth.user) {
             setMessage({ text: "Pro vytvoření úkolu musíte být přihlášen.", type: 'error' });
             return;
         }
@@ -61,26 +63,26 @@ export default function TicketsTab() {
         let attachmentUrl = null, attachmentName = null;
 
         if (attachment) {
-            const filePath = `${user.uid}/${Date.now()}_${attachment.name}`;
-            const { error: uploadError } = await supabase.storage.from('ticket-attachments').upload(filePath, attachment);
+            const filePath = `${auth.user.uid}/${Date.now()}_${attachment.name}`;
+            const { error: uploadError } = await auth.supabase.storage.from('ticket-attachments').upload(filePath, attachment);
             if (uploadError) {
                 setMessage({ text: `${t.ticketError} ${uploadError.message}`, type: 'error' });
                 return;
             }
-            const { data: { publicUrl } } = supabase.storage.from('ticket-attachments').getPublicUrl(filePath);
+            const { data: { publicUrl } } = auth.supabase.storage.from('ticket-attachments').getPublicUrl(filePath);
             attachmentUrl = publicUrl;
             attachmentName = attachment.name;
         }
 
         try {
-            await addDoc(collection(db, `artifacts/${appId}/public/data/tickets`), {
+            await addDoc(collection(auth.db, `artifacts/${auth.appId}/public/data/tickets`), {
                 title: newTicketTitle.trim(),
                 description: newTicketDescription.trim(),
                 assignedTo: newTicketAssignee,
                 category: newTicketCategory,
                 status: 'Vytvořeno',
-                createdBy: user.uid,
-                createdByName: userProfile?.displayName || user.email,
+                createdBy: auth.user.uid,
+                createdByName: auth.userProfile?.displayName || auth.user.email,
                 createdAt: new Date().toISOString(),
                 attachmentUrl,
                 attachmentName,
@@ -101,7 +103,9 @@ export default function TicketsTab() {
     };
     
     const handleExport = () => {
-        exportTicketsToXLSX(tickets, allUsers, t);
+        if (allUsers) {
+            exportTicketsToXLSX(tickets, allUsers, t);
+        }
     };
 
     return (
@@ -122,11 +126,11 @@ export default function TicketsTab() {
                     <h3 className="text-xl font-semibold text-blue-300 mb-3">{t.createTicket}</h3>
                     <div>
                         <label htmlFor="ticket-title" className="block text-sm font-medium text-gray-300 mb-1">{t.ticketTitle}:</label>
-                        <input type="text" id="ticket-title" value={newTicketTitle} onChange={(e) => setNewTicketTitle(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500" placeholder={t.ticketTitlePlaceholder} />
+                        <input type="text" id="ticket-title" value={newTicketTitle} onChange={(e) => setNewTicketTitle(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500" />
                     </div>
                     <div>
                         <label htmlFor="ticket-description" className="block text-sm font-medium text-gray-300 mb-1">{t.ticketDescription}:</label>
-                        <textarea id="ticket-description" value={newTicketDescription} onChange={(e) => setNewTicketDescription(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500 h-24 resize-y" placeholder={t.ticketDescriptionPlaceholder} />
+                        <textarea id="ticket-description" value={newTicketDescription} onChange={(e) => setNewTicketDescription(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500 h-24 resize-y" />
                     </div>
                      <div>
                         <label htmlFor="ticket-category" className="block text-sm font-medium text-gray-300 mb-1">Kategorie:</label>
@@ -163,11 +167,11 @@ export default function TicketsTab() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {tickets.map((ticket, index) => (
+                                {tickets.map((ticket) => (
                                     <tr 
                                         key={ticket.id} 
                                         onClick={() => setSelectedTicket(ticket)}
-                                        className={`border-t border-gray-600 cursor-pointer hover:bg-gray-600 ${index % 2 === 0 ? "bg-gray-750" : "bg-gray-700"}`}
+                                        className="border-t border-gray-600 cursor-pointer hover:bg-gray-600"
                                     >
                                         <td className="py-3 px-4">{ticket.title}</td>
                                         <td className="py-3 px-4">{allUsers.find(u => u.uid === ticket.assignedTo)?.displayName || 'N/A'}</td>
