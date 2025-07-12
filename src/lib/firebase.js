@@ -1,4 +1,4 @@
-// src/lib/firebase.js - Zjednodušeno na minimum
+// src/lib/firebase.js - Úplně zjednodušeno
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
