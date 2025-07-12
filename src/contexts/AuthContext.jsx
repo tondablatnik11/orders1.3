@@ -1,8 +1,9 @@
 'use client';
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, onSnapshot, updateDoc } from 'firebase/firestore'; 
-import { auth, db, appId } from '../lib/firebase'; 
+import { initializeApp, getApps, getApp } from 'firebase/app'; // NOVÝ IMPORT
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth'; // NOVÝ IMPORT
+import { getFirestore, doc, getDoc, setDoc, collection, onSnapshot, updateDoc } from 'firebase/firestore'; // NOVÝ IMPORT
+import { firebaseConfig, isConfigComplete } from '../lib/firebase'; // Získání konfigurace
 import { getSupabase } from '../lib/supabaseClient'; 
 
 export const AuthContext = createContext(null);
@@ -15,99 +16,121 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true); 
   const supabase = getSupabase(); 
 
+  // Nové lokální stavy pro Firebase instance
+  const [firebaseApp, setFirebaseApp] = useState(null);
+  const [firebaseAuth, setFirebaseAuth] = useState(null);
+  const [firestoreDb, setFirestoreDb] = useState(null);
+  const [firebaseAppId, setFirebaseAppId] = useState(null);
+
+
+  // Funkce pro aktualizaci profilu (používá lokální firestoreDb)
   const updateUserProfile = async (uid, updates) => {
-    if (!db || !appId) throw new Error("Firestore or App ID not available.");
-    const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, uid);
+    if (!firestoreDb || !firebaseAppId) throw new Error("Firestore or App ID not available.");
+    const userProfileRef = doc(firestoreDb, `artifacts/${firebaseAppId}/public/data/user_profiles`, uid);
     await updateDoc(userProfileRef, updates);
     setCurrentUserProfile(prev => ({ ...prev, ...updates }));
   };
 
+  // KLÍČOVÝ useEffect pro inicializaci Firebase a nastavení listenerů
   useEffect(() => {
-    // Pokud Firebase nebo App ID nejsou k dispozici, okamžitě ukončíme loading
-    if (!auth || !db || !appId) {
-        console.error("AuthContext: Firebase Auth/DB/App ID is not available, skipping auth listener setup.");
-        setLoading(false);
+    let app, authInstance, dbInstance, currentAppId;
+    let unsubscribeAuthListener, unsubscribeUsersListener; // Pro správný cleanup
+
+    if (!isConfigComplete) {
+        console.error("AuthContext: Firebase konfigurace je neúplná, nelze inicializovat.");
+        setLoading(false); // Okamžité ukončení načítání, pokud chybí konfigurace
         return;
     }
 
-    console.log('AuthContext: useEffect spuštěn, registruji onAuthStateChanged listener.');
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-        console.log('AuthContext: onAuthStateChanged callback spuštěn. Uživatel:', user ? user.email : 'null (odhlášen)');
-        try {
-            if (user) {
-                setCurrentUser(user);
-                console.log('AuthContext: Uživatel přihlášen, UID:', user.uid);
+    try {
+        if (!getApps().length) {
+            app = initializeApp(firebaseConfig);
+            console.log("AuthContext: Firebase aplikace inicializována.");
+        } else {
+            app = getApps()[0];
+            console.log("AuthContext: Používám existující instanci Firebase aplikace.");
+        }
 
-                const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, user.uid);
-                console.log('AuthContext: Pokus o načtení profilu uživatele...');
-                const userProfileSnap = await getDoc(userProfileRef);
+        authInstance = getAuth(app);
+        dbInstance = getFirestore(app);
+        currentAppId = firebaseConfig.appId;
 
-                if (userProfileSnap.exists()) {
-                    setCurrentUserProfile({ uid: user.uid, ...userProfileSnap.data() });
-                    console.log('AuthContext: Profil uživatele načten.');
+        setFirebaseApp(app);
+        setFirebaseAuth(authInstance);
+        setFirestoreDb(dbInstance);
+        setFirebaseAppId(currentAppId);
+
+        console.log('AuthContext: Firebase instance nastaveny. Registruji onAuthStateChanged listener.');
+        
+        // Setup onAuthStateChanged listener
+        unsubscribeAuthListener = onAuthStateChanged(authInstance, async (user) => {
+            console.log('AuthContext: onAuthStateChanged callback spuštěn. Uživatel:', user ? user.email : 'null (odhlášen)');
+            try {
+                if (user) {
+                    setCurrentUser(user);
+                    console.log('AuthContext: Uživatel přihlášen, UID:', user.uid);
+
+                    const userProfileRef = doc(dbInstance, `artifacts/${currentAppId}/public/data/user_profiles`, user.uid);
+                    const userProfileSnap = await getDoc(userProfileRef);
+
+                    if (userProfileSnap.exists()) {
+                        setCurrentUserProfile({ uid: user.uid, ...userProfileSnap.data() });
+                        console.log('AuthContext: Profil uživatele načten.');
+                    } else {
+                        const newProfile = { email: user.email, displayName: user.email.split('@')[0], function: '', isAdmin: false, createdAt: new Date().toISOString() };
+                        await setDoc(userProfileRef, newProfile);
+                        setCurrentUserProfile(newProfile);
+                        console.log('AuthContext: Nový profil uživatele vytvořen.');
+                    }
+
+                    const usersColRef = collection(dbInstance, `artifacts/${currentAppId}/public/data/user_profiles`);
+                    unsubscribeUsersListener = onSnapshot(usersColRef, (snapshot) => {
+                        const fetchedUsers = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
+                        setAllUsers(fetchedUsers);
+                        console.log("AuthContext: Načten počet uživatelů pro allUsers:", fetchedUsers.length);
+                    }, (error) => {
+                        console.error("AuthContext: Chyba při načítání všech uživatelů:", error);
+                        setAllUsers([]); 
+                    });
                 } else {
-                    console.log('AuthContext: Profil uživatele nenalezen, vytvářím nový...');
-                    const newProfile = { email: user.email, displayName: user.email.split('@')[0], function: '', isAdmin: false, createdAt: new Date().toISOString() };
-                    await setDoc(userProfileRef, newProfile);
-                    setCurrentUserProfile(newProfile);
-                    console.log('AuthContext: Nový profil uživatele vytvořen.');
-                }
-
-                console.log('AuthContext: Spouštím načítání všech uživatelů...');
-                const usersColRef = collection(db, `artifacts/${appId}/public/data/user_profiles`);
-                const unsubscribeUsers = onSnapshot(usersColRef, (snapshot) => {
-                    const fetchedUsers = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
-                    setAllUsers(fetchedUsers);
-                    console.log("AuthContext: Načten počet uživatelů pro allUsers:", fetchedUsers.length);
-                }, (error) => {
-                    console.error("AuthContext: Chyba při načítání všech uživatelů:", error);
+                    console.log('AuthContext: Žádný uživatel není přihlášen.');
+                    setCurrentUser(null);
+                    setCurrentUserProfile(null);
                     setAllUsers([]); 
-                });
-                setLoading(false); 
-                return () => unsubscribeUsers(); 
-            } else {
-                console.log('AuthContext: Žádný uživatel není přihlášen.');
-                setCurrentUser(null);
-                setCurrentUserProfile(null);
-                setAllUsers([]); 
-                setLoading(false); 
+                }
+            } catch (error) {
+                console.error("AuthContext: Chyba uvnitř onAuthStateChanged callbacku (uživatelský profil/uživatelé):", error);
+            } finally {
+                console.log('AuthContext: onAuthStateChanged callback dokončen, nastavuji loading na false.');
+                setLoading(false); // VŽDY se přepne na false na konci
             }
-        } catch (error) {
-            console.error("AuthContext: Chyba uvnitř onAuthStateChanged callbacku (uživatelský profil/uživatelé):", error);
-            setLoading(false); // Zajistit, že se loading přepne na false i při chybě
-        }
-    });
+        });
 
-    // Přidání timeoutu, který vynutí loading na false po 5 sekundách,
-    // pokud onAuthStateChanged nedoběhne.
-    const timeoutId = setTimeout(() => {
-        if (loading) { // Pouze pokud je stále ve stavu načítání
-            console.warn("AuthContext: Timeout vypršel! onAuthStateChanged listener se nespustil/dokončil včas. Vynucuji loading: false.");
-            setLoading(false);
-            // Může to znamenat, že firebase autentizace je blokována, nebo API klíč má omezení.
-        }
-    }, 5000); // 5 sekund
+    } catch (error) {
+        console.error("AuthContext: Hlavní chyba v useEffectu při inicializaci Firebase/nastavení listeneru:", error);
+        setLoading(false); // Zajistit, že loading se přepne na false i při chybě inicializace
+    }
 
+    // Cleanup funkce pro odhlášení listenerů při unmountu komponenty
     return () => {
-      console.log('AuthContext: odhlašuji onAuthStateChanged listener a čistím timeout.');
-      unsubscribeAuth();
-      clearTimeout(timeoutId); // Vyčistit timeout, pokud se listener spustí dříve
+        console.log('AuthContext: odhlašuji listenery.');
+        if (unsubscribeAuthListener) unsubscribeAuthListener();
+        if (unsubscribeUsersListener) unsubscribeUsersListener();
     };
-  }, [db, appId, loading]); // Přidána 'loading' do závislostí pro správné chování timeoutu
+  }, []); // Prázdné pole závislostí: spustí se jen jednou při mountu
 
-
-  const login = (email, password) => signInWithEmailAndPassword(auth, email, password);
-  const register = (email, password) => createUserWithEmailAndPassword(auth, email, password);
+  const login = (email, password) => signInWithEmailAndPassword(firebaseAuth, email, password); // Používá lokální firebaseAuth
+  const register = (email, password) => createUserWithEmailAndPassword(firebaseAuth, email, password); // Používá lokální firebaseAuth
   const googleSignIn = () => {
     const provider = new GoogleAuthProvider();
-    return signInWithPopup(auth, provider);
+    return signInWithPopup(firebaseAuth, provider); // Používá lokální firebaseAuth
   };
 
   const logout = async () => {
-    console.log('AuthContext: Pokus o odhlášení. Instance Firebase auth:', auth);
+    console.log('AuthContext: Pokus o odhlášení. Instance Firebase auth:', firebaseAuth);
     try {
-      if (auth) { 
-        await signOut(auth);
+      if (firebaseAuth) { // Používá lokální firebaseAuth
+        await signOut(firebaseAuth);
         console.log('AuthContext: signOut úspěšné.');
       } else {
         console.error('AuthContext: Instance Firebase auth je undefined, nelze se odhlásit.');
@@ -117,7 +140,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const value = { currentUser, currentUserProfile, loading, login, register, googleSignIn, logout, db, appId, allUsers, updateUserProfile, supabase };
+  const value = { currentUser, currentUserProfile, loading, login, register, googleSignIn, logout, db: firestoreDb, appId: firebaseAppId, allUsers, updateUserProfile, supabase }; // Exportujeme lokální instance
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
