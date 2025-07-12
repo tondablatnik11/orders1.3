@@ -8,7 +8,7 @@ import { Search, FileDown } from 'lucide-react';
 import OrderListTable from '../shared/OrderListTable';
 import { format, parseISO } from 'date-fns';
 import OrderDetailsModal from '@/components/modals/OrderDetailsModal';
-import StatusHistoryModal from '@/components/modals/StatusHistoryModal'; // Assuming this might be used for history
+import StatusHistoryModal from '@/components/modals/StatusHistoryModal';
 
 export default function OrderSearchTab() {
     const { t } = useUI();
@@ -17,8 +17,8 @@ export default function OrderSearchTab() {
     const [searchDeliveryNo, setSearchDeliveryNo] = useState("");
     const [searchLoadingDate, setSearchLoadingDate] = useState("");
     const [searchStatus, setSearchStatus] = useState("all");
-    const [searchShipToPartyName, setSearchShipToPartyName] = useState("all"); // State for Ship-to Party filter
-    const [searchForwardingAgentName, setSearchForwardingAgentName] = useState("all"); // NEW State for Forwarding Agent filter
+    const [searchShipToPartyName, setSearchShipToPartyName] = useState("all");
+    const [searchForwardingAgentName, setSearchForwardingAgentName] = useState("all");
     const [searchResult, setSearchResult] = useState(null);
 
     const uniqueStatuses = useMemo(() =>
@@ -26,13 +26,11 @@ export default function OrderSearchTab() {
         [allOrdersData]
     );
 
-    // Dynamic unique "Name of ship-to party" for filter dropdown
     const uniqueShipToPartyNames = useMemo(() =>
         Array.from(new Set(allOrdersData.map(row => row["Name of ship-to party"]).filter(name => name))).sort(),
         [allOrdersData]
     );
 
-    // NEW: Dynamic unique "Forwarding agent name" for filter dropdown
     const uniqueForwardingAgentNames = useMemo(() =>
         Array.from(new Set(allOrdersData.map(row => row["Forwarding agent name"]).filter(name => name))).sort(),
         [allOrdersData]
@@ -46,6 +44,7 @@ export default function OrderSearchTab() {
             const deliveryIdentifier = (row["Delivery"] || row["Delivery No"] || "").trim();
             const loadingDateStr = row["Loading Date"] ? format(parseISO(row["Loading Date"]), "yyyy-MM-dd") : "";
 
+            // Všechny proměnné match musí být definovány uvnitř callbacku filtru
             const deliveryMatch = searchDeliveryNos.length > 0
                 ? searchDeliveryNos.some(num => deliveryIdentifier.toLowerCase().includes(num.toLowerCase()))
                 : true;
@@ -57,27 +56,25 @@ export default function OrderSearchTab() {
                 ? partyNameInRow.includes(searchShipToPartyName.toLowerCase())
                 : true;
 
-            // NEW: Forwarding Agent filter logic
             const agentNameInRow = (row["Forwarding agent name"] || "").toLowerCase();
             const forwardingAgentMatch = searchForwardingAgentName !== "all"
                 ? agentNameInRow.includes(searchForwardingAgentName.toLowerCase())
                 : true;
 
 
-            return deliveryMatch && loadingDateMatch && statusMatch && partyMatch && forwardingAgentMatch;
+            return deliveryMatch && loadingDateMatch && statusMatch && shipToPartyMatch && forwardingAgentMatch;
         });
 
-        // Map to ensure consistent keys for OrderListTable and OrderDetailsModal
         const mappedResults = filtered.map(order => ({
             "Delivery No": (order["Delivery No"] || order["Delivery"])?.trim(),
             "Status": Number(order.Status),
             "del.type": order["del.type"],
-            "Loading Date": order["Loading Date"], // Keep as ISO string
+            "Loading Date": order["Loading Date"],
             "Note": order.Note || '',
-            "Forwarding agent name": order["Forwarding agent name"] || 'N/A', // Ensure this field is passed
-            "Name of ship-to party": order["Name of ship-to party"] || 'N/A', // Ensure this field is passed
-            "Total Weight": order["Total Weight"] || 'N/A', // Ensure this field is passed
-            "Bill of lading": order["Bill of lading"] || 'N/A', // Ensure this field is passed
+            "Forwarding agent name": order["Forwarding agent name"] || 'N/A',
+            "Name of ship-to party": order["Name of ship-to party"] || 'N/A',
+            "Total Weight": order["Total Weight"] || 'N/A',
+            "Bill of lading": order["Bill of lading"] || 'N/A',
         }));
 
         setSearchResult(mappedResults);
@@ -90,7 +87,7 @@ export default function OrderSearchTab() {
     };
 
     const handleSelectOrderForModal = (order) => {
-        setGlobalSelectedOrderDetails(order); // Order is already in correct format from mappedResults
+        setGlobalSelectedOrderDetails(order);
     };
 
     const handleCloseOrderDetailsModal = () => {
@@ -98,8 +95,6 @@ export default function OrderSearchTab() {
     };
 
     const handleShowStatusHistory = async (deliveryNo) => {
-        // This function would fetch history, similar to DelayedOrdersTab
-        // You'll need to manage StatusHistoryModal visibility and data here
         try {
             const { data, error } = await supabase
                 .from('delivery_status_log')
@@ -109,12 +104,8 @@ export default function OrderSearchTab() {
 
             if (error) {
                 console.error("Error fetching status history:", error.message);
-                // Optionally show a modal or alert here
             } else {
                 console.log("Status History for", deliveryNo, data);
-                // You'd typically set state for StatusHistoryModal here:
-                // setStatusHistoryData(data);
-                // setShowStatusHistoryModal(true);
             }
         } catch (e) {
             console.error("Caught error fetching status history:", e);
@@ -135,7 +126,6 @@ export default function OrderSearchTab() {
                         </button>
                     )}
                 </div>
-                {/* Visual improvements: Use flex for better alignment or more grid columns */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"> 
                     <div className="col-span-1">
                         <label className="block text-sm font-medium text-gray-400 mb-1">{t.deliveryNo}:</label>
@@ -152,22 +142,12 @@ export default function OrderSearchTab() {
                         </select>
                     </div>
                     <div className="col-span-1">
-                        {/* Filter: Name of Ship-to Party */}
                         <label className="block text-sm font-medium text-gray-400 mb-1">{t.filterByNameOfShipToParty}:</label>
                         <select value={searchShipToPartyName} onChange={(e) => setSearchShipToPartyName(e.target.value)} className="w-full p-2 rounded-md bg-gray-700">
                             <option value="all">{t.all}</option>
-                            {/* Predefined values from translations.js */}
-                            {t.man && <option value="MAN">{t.man}</option>}
-                            {t.daimler && <option value="Daimler">{t.daimler}</option>}
-                            {t.volvo && <option value="Volvo">{t.volvo}</option>}
-                            {t.iveco && <option value="Iveco">{t.iveco}</option>}
-                            {t.scania && <option value="Scania">{t.scania}</option>}
-                            {t.daf && <option value="DAF">{t.daf}</option>}
-                            {/* Dynamically fetched unique names */}
                             {uniqueShipToPartyNames.map(name => <option key={name} value={name}>{name}</option>)}
                         </select>
 
-                        {/* NEW Filter: Forwarding Agent Name */}
                         <label className="block text-sm font-medium text-gray-400 mb-1 mt-3">{t.forwardingAgent}:</label>
                         <select value={searchForwardingAgentName} onChange={(e) => setSearchForwardingAgentName(e.target.value)} className="w-full p-2 rounded-md bg-gray-700">
                             <option value="all">{t.all}</option>
@@ -184,23 +164,22 @@ export default function OrderSearchTab() {
                         <h3 className="text-xl font-semibold mb-4 text-white">
                             {`${t.orderList} (${searchResult.length})`}
                         </h3>
-                        {searchResult.length > 0
+                        {searchResult.length > 0 
                             ? <OrderListTable orders={searchResult} onSelectOrder={handleSelectOrderForModal} />
                             : <p className="text-red-400 text-center mt-4">{t.noOrdersFound}</p>
                         }
                     </div>
                 )}
 
-                {globalSelectedOrderDetails && ( // Render OrderDetailsModal
+                {globalSelectedOrderDetails && ( 
                     <OrderDetailsModal
                         order={globalSelectedOrderDetails}
                         onClose={handleCloseOrderDetailsModal}
-                        onShowHistory={handleShowStatusHistory} // Pass a handler for history if needed
-                        onSaveNote={handleSaveNote} // Pass handler for saving notes from modal
+                        onShowHistory={handleShowStatusHistory} 
+                        onSaveNote={handleSaveNote} 
                         t={t}
                     />
                 )}
-                {/* StatusHistoryModal might be needed here if handleShowStatusHistory is fully implemented */}
             </CardContent>
         </Card>
     );
