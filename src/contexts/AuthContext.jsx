@@ -22,7 +22,12 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true); 
     const supabase = getSupabase(); 
 
-    const [firebaseInstances, setFirebaseInstances] = useState({ auth: null, db: null, appId: null });
+    // Instance Firebase budou uloženy zde, abychom je mohli použít v celém kontextu
+    const [firebaseInstances, setFirebaseInstances] = useState({
+        auth: null,
+        db: null,
+        appId: null
+    });
 
     useEffect(() => {
         const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
@@ -76,6 +81,7 @@ export const AuthProvider = ({ children }) => {
         setCurrentUserProfile(prev => ({ ...prev, ...updates }));
     };
 
+    // Memoizovaná hodnota kontextu, aby se předešlo zbytečným re-renderům
     const value = useMemo(() => ({
         currentUser,
         currentUserProfile,
