@@ -10,7 +10,7 @@ import TicketDetailsModal from '@/components/modals/TicketDetailsModal';
 
 export default function TicketsTab() {
     const { t } = useUI();
-    const { user, userProfile, allUsers, db, appId, supabase } = useAuth();
+    const authContext = useAuth(); // Použijeme celý kontextový objekt
 
     const [tickets, setTickets] = useState([]);
     const [newTicketTitle, setNewTicketTitle] = useState('');
@@ -25,14 +25,14 @@ export default function TicketsTab() {
     const ticketCategories = ["Inbound", "Outbound", "Picking", "Packing", "Admins", "IT/Údržba"];
 
     useEffect(() => {
-        if (!db || !appId) return;
-        const ticketsColRef = collection(db, `artifacts/${appId}/public/data/tickets`);
+        if (!authContext.db || !authContext.appId) return;
+        const ticketsColRef = collection(authContext.db, `artifacts/${authContext.appId}/public/data/tickets`);
         const q = query(ticketsColRef, orderBy('createdAt', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             setTickets(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         });
         return () => unsubscribe();
-    }, [db, appId]);
+    }, [authContext.db, authContext.appId]);
 
     const handleFileChange = (e) => {
         if (e.target.files[0]) setAttachment(e.target.files[0]);
@@ -41,8 +41,8 @@ export default function TicketsTab() {
     const handleCreateTicket = async (e) => {
         e.preventDefault();
         
-        if (!user) {
-            setMessage({ text: "Chyba: Uživatel není přihlášen.", type: 'error' });
+        if (!authContext.user) {
+            setMessage({ text: "Pro vytvoření úkolu musíte být přihlášen.", type: 'error' });
             return;
         }
         
@@ -55,26 +55,26 @@ export default function TicketsTab() {
         let attachmentUrl = null, attachmentName = null;
 
         if (attachment) {
-            const filePath = `${user.uid}/${Date.now()}_${attachment.name}`;
-            const { error: uploadError } = await supabase.storage.from('ticket-attachments').upload(filePath, attachment);
+            const filePath = `${authContext.user.uid}/${Date.now()}_${attachment.name}`;
+            const { error: uploadError } = await authContext.supabase.storage.from('ticket-attachments').upload(filePath, attachment);
             if (uploadError) {
                 setMessage({ text: `${t.ticketError} ${uploadError.message}`, type: 'error' });
                 return;
             }
-            const { data: { publicUrl } } = supabase.storage.from('ticket-attachments').getPublicUrl(filePath);
+            const { data: { publicUrl } } = authContext.supabase.storage.from('ticket-attachments').getPublicUrl(filePath);
             attachmentUrl = publicUrl;
             attachmentName = attachment.name;
         }
 
         try {
-            await addDoc(collection(db, `artifacts/${appId}/public/data/tickets`), {
+            await addDoc(collection(authContext.db, `artifacts/${authContext.appId}/public/data/tickets`), {
                 title: newTicketTitle.trim(),
                 description: newTicketDescription.trim(),
                 assignedTo: newTicketAssignee,
                 category: newTicketCategory,
                 status: 'Vytvořeno',
-                createdBy: user.uid,
-                createdByName: userProfile?.displayName || user.email,
+                createdBy: authContext.user.uid,
+                createdByName: authContext.userProfile?.displayName || authContext.user.email,
                 createdAt: new Date().toISOString(),
                 attachmentUrl,
                 attachmentName,
@@ -88,12 +88,13 @@ export default function TicketsTab() {
             if (fileInputRef.current) fileInputRef.current.value = "";
             setMessage({ text: t.ticketCreatedSuccess, type: 'success' });
         } catch (error) {
+            console.error("Error creating ticket:", error);
             setMessage({ text: `${t.ticketError} ${error.message}`, type: 'error' });
         }
     };
     
     const handleExport = () => {
-        if (allUsers) exportTicketsToXLSX(tickets, allUsers, t);
+        if (authContext.allUsers) exportTicketsToXLSX(tickets, authContext.allUsers, t);
     };
 
     return (
@@ -107,9 +108,7 @@ export default function TicketsTab() {
                         <FileDown className="w-5 h-5" /> {t.exportToXLSX}
                     </button>
                 </div>
-
                 {message.text && <div className={`p-3 mb-4 rounded-md text-sm ${message.type === 'success' ? 'bg-green-800 text-green-100' : 'bg-red-800 text-red-100'}`}>{message.text}</div>}
-
                 <form onSubmit={handleCreateTicket} className="space-y-4 mb-8 p-4 border border-gray-700 rounded-lg bg-gray-750">
                     <h3 className="text-xl font-semibold text-blue-300 mb-3">{t.createTicket}</h3>
                     <input type="text" value={newTicketTitle} onChange={(e) => setNewTicketTitle(e.target.value)} placeholder={t.ticketTitle} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500" />
@@ -120,7 +119,7 @@ export default function TicketsTab() {
                     </select>
                     <select value={newTicketAssignee} onChange={(e) => setNewTicketAssignee(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500">
                         <option value="">{t.selectUserToAssign}</option>
-                        {Array.isArray(allUsers) && allUsers.map(u => <option key={u.uid} value={u.uid}>{u.displayName || u.email}</option>)}
+                        {Array.isArray(authContext.allUsers) && authContext.allUsers.map(u => <option key={u.uid} value={u.uid}>{u.displayName || u.email}</option>)}
                     </select>
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
                     <button type="submit" className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 flex items-center justify-center gap-2">
@@ -142,14 +141,8 @@ export default function TicketsTab() {
                             {tickets.map((ticket) => (
                                 <tr key={ticket.id} onClick={() => setSelectedTicket(ticket)} className="border-t border-gray-600 cursor-pointer hover:bg-gray-600">
                                     <td className="py-3 px-4">{ticket.title}</td>
-                                    <td className="py-3 px-4">{allUsers.find(u => u.uid === ticket.assignedTo)?.displayName || 'N/A'}</td>
-                                    <td className="py-3 px-4">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                            ticket.status === 'Hotovo' ? 'bg-green-600 text-white' :
-                                            ticket.status === 'V řešení' ? 'bg-yellow-500 text-black' :
-                                            'bg-red-600 text-white'
-                                        }`}>{ticket.status || 'N/A'}</span>
-                                    </td>
+                                    <td className="py-3 px-4">{authContext.allUsers.find(u => u.uid === ticket.assignedTo)?.displayName || 'N/A'}</td>
+                                    <td className="py-3 px-4"><span className={`px-2 py-1 rounded-full text-xs font-semibold ${ticket.status === 'Hotovo' ? 'bg-green-600 text-white' : ticket.status === 'V řešení' ? 'bg-yellow-500 text-black' : 'bg-red-600 text-white'}`}>{ticket.status || 'N/A'}</span></td>
                                     <td className="py-3 px-4">{ticket.attachmentUrl && <Paperclip className="w-4 h-4 inline-block"/>}</td>
                                 </tr>
                             ))}

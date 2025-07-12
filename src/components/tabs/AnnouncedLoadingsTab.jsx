@@ -60,19 +60,15 @@ export default function AnnouncedLoadingsTab() {
 
     const handleSelectLoading = (loading) => {
         if (isLoadingData) {
-            alert("Data se stále načítají. Zkuste to prosím za chvíli.");
+            alert("Data zakázek se ještě načítají, zkuste to prosím za chvíli.");
             return;
         }
-        const relatedOrders = allOrdersData.filter(order => 
+        const relatedOrders = allOrdersData ? allOrdersData.filter(order => 
             (loading.order_numbers || []).includes(String(order["Delivery No"] || order["Delivery"]))
-        );
+        ) : [];
         setSelectedLoadingOrders(relatedOrders);
         setSelectedLoading(loading);
     };
-
-    if (isLoadingData) {
-        return <p className="text-center p-8">Načítání dat zakázek...</p>;
-    }
 
     return (
         <Card>
@@ -81,6 +77,7 @@ export default function AnnouncedLoadingsTab() {
                     <Ship className="w-6 h-6" /> {t.announcedLoadingsTab}
                 </h2>
                 {message.text && <div className={`p-3 mb-4 rounded-md text-sm ${message.type === 'success' ? 'bg-green-800 text-green-100' : 'bg-red-800 text-red-100'}`}>{message.text}</div>}
+                
                 <form onSubmit={handleSaveLoading} className="space-y-4 mb-8 p-4 border border-gray-700 rounded-lg bg-gray-750">
                     <h3 className="text-xl font-semibold text-blue-300 mb-3">{t.addLoading}</h3>
                     <div>
@@ -107,7 +104,7 @@ export default function AnnouncedLoadingsTab() {
                 <div className="space-y-3">
                     {loadings.map((loading) => (
                         <div key={loading.id} className="p-4 border border-gray-600 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors" onClick={() => handleSelectLoading(loading)}>
-                            <div className="flex justify-between items-center">
+                             <div className="flex justify-between items-center">
                                 <p><strong>{t.carrierName}:</strong> {loading.carrierName}</p>
                                 <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                                     loading.status === 'Naloženo' ? 'bg-green-600 text-white' :

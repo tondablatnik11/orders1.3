@@ -7,13 +7,7 @@ import { firebaseConfig } from '../lib/firebase';
 import { getSupabase } from '../lib/supabaseClient';
 
 export const AuthContext = createContext(null);
-export const useAuth = () => {
-    const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
-    return context;
-};
+export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
     const [currentUser, setCurrentUser] = useState(null);
@@ -29,7 +23,6 @@ export const AuthProvider = ({ children }) => {
         const auth = getAuth(app);
         const db = getFirestore(app);
         const appId = firebaseConfig.appId;
-
         setFirebaseInstances({ auth, db, appId });
 
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -64,15 +57,6 @@ export const AuthProvider = ({ children }) => {
         return () => unsubscribeUsers();
     }, [firebaseInstances.db, firebaseInstances.appId]);
 
-
-    const updateUserProfile = async (uid, updates) => {
-        const { db, appId } = firebaseInstances;
-        if (!db || !appId) throw new Error("Firestore or App ID not available.");
-        const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, uid);
-        await updateDoc(userProfileRef, updates);
-        setCurrentUserProfile(prev => ({ ...prev, ...updates }));
-    };
-
     const value = useMemo(() => ({
         currentUser,
         currentUserProfile,
@@ -89,7 +73,6 @@ export const AuthProvider = ({ children }) => {
             return signInWithPopup(firebaseInstances.auth, provider);
         },
         logout: () => signOut(firebaseInstances.auth),
-        updateUserProfile
     }), [currentUser, currentUserProfile, loading, allUsers, firebaseInstances, supabase]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
