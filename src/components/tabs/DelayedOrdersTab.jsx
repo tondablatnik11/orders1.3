@@ -52,7 +52,7 @@ export default function DelayedOrdersTab() {
             <CardContent>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-2xl font-semibold flex items-center gap-2 text-red-400">
-                        <ClipboardList className="w-6 h-6" /> {t.delayed} - TEST ({delayedOrders.length})
+                        <ClipboardList className="w-6 h-6" /> {t.delayed} ({delayedOrders.length})
                     </h2>
                     {/* Opravené volání funkce pro export */}
                     <button
