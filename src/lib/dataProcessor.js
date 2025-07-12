@@ -1,14 +1,18 @@
-import { startOfDay, format, isBefore, isAfter, parseISO, differenceInDays, subDays, startOfMonth, endOfMonth } from 'date-fns';
+import { startOfDay, format, isBefore, isAfter, parseISO, differenceInDays, subDays, startOfMonth, endOfMonth, addDays } from 'date-fns';
 import { getCurrentShift, parseExcelDate } from './utils';
 
 export const processData = (rawData, filters) => {
+    if (!rawData) {
+        return null;
+    }
+    
     const now = new Date();
     const today = startOfDay(now);
 
     let filteredData = [...rawData];
 
     // Apply filters
-    if (filters.timeRange !== 'all') {
+    if (filters && filters.timeRange !== 'all') {
         let startDate, endDate;
         if (filters.timeRange === 'today') {
             startDate = today;
@@ -34,11 +38,11 @@ export const processData = (rawData, filters) => {
             });
         }
     }
-
-    if (filters.deliveryType !== 'all') {
+    
+    if (filters && filters.deliveryType !== 'all') {
         filteredData = filteredData.filter(row => row["del.type"] === filters.deliveryType);
     }
-    if (filters.status !== 'all') {
+    if (filters && filters.status !== 'all') {
         filteredData = filteredData.filter(row => String(row.Status) === String(filters.status));
     }
 
@@ -49,7 +53,7 @@ export const processData = (rawData, filters) => {
         statusCounts: {}, deliveryTypes: {}, delayedOrdersList: [], dailySummaries: [],
         allAvailableDates: new Set(), currentShift: getCurrentShift(now), hourlyStatusSnapshots: {},
         shiftDoneCounts: { '1': 0, '2': 0 }, statusByDateCategory: {},
-        deliveryTypeByDateCategory: {}, statusByLoadingDate: {},
+        deliveryTypeByDateCategory: {}, statusByLoadingDate: {}, allOrdersData: filteredData
     };
 
     // Initialize hourly snapshots
@@ -114,12 +118,10 @@ export const processData = (rawData, filters) => {
                 ...row
             });
         }
-
-        if (format(parsedDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')) {
-            const hourKey = format(parsedDate, 'HH');
-            if(result.hourlyStatusSnapshots[hourKey]){
-                result.hourlyStatusSnapshots[hourKey][status] = (result.hourlyStatusSnapshots[hourKey][status] || 0) + 1;
-            }
+        
+        const hourKey = format(parsedDate, 'HH');
+        if(result.hourlyStatusSnapshots[hourKey]){
+             result.hourlyStatusSnapshots[hourKey][status] = (result.hourlyStatusSnapshots[hourKey][status] || 0) + 1;
         }
     });
 

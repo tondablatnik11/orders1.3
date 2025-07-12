@@ -37,17 +37,17 @@ export default function DashboardLayout() {
 
     return (
         <div className={`p-8 space-y-8 min-h-screen ${darkMode ? "bg-gray-950 text-gray-100" : "bg-white text-gray-900"} transition-colors duration-300 font-sans`}>
-            <AppHeader
-                onChatToggle={() => setIsChatOpen(!isChatOpen)}
-                onProfileToggle={() => setIsProfileOpen(!isProfileOpen)}
+            <AppHeader 
+                onChatToggle={() => setIsChatOpen(!isChatOpen)} 
+                onProfileToggle={() => setIsProfileOpen(!isProfileOpen)} 
             />
 
-            <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
+            <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} t={t} />
 
             <main>
                 {renderActiveTab()}
             </main>
-
+            
             {selectedOrderDetails && (
                 <OrderDetailsModal order={selectedOrderDetails} onClose={() => setSelectedOrderDetails(null)} />
             )}
@@ -64,7 +64,7 @@ export default function DashboardLayout() {
                         <h3 className="text-white font-semibold">{t.chatTab}</h3>
                         <button onClick={() => setIsChatOpen(false)} className="text-gray-400 hover:text-white"><XCircle className="w-5 h-5"/></button>
                     </header>
-                    <div className="flex-grow overflow-y-auto">
+                     <div className="flex-grow overflow-y-auto">
                         <ChatTab />
                     </div>
                 </div>
