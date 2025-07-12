@@ -1,4 +1,4 @@
-// src/lib/firebase.js - ZJEDNODUŠENO
+// src/lib/firebase.js - Zjednodušeno na minimum
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -8,15 +8,4 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const requiredKeys = ['apiKey', 'authDomain', 'projectId', 'appId'];
-const isConfigComplete = requiredKeys.every(key => firebaseConfig[key]);
-
-if (!isConfigComplete) {
-    console.warn("Firebase (lib): Konfigurace Firebase je neúplná. Firebase funkce nebudou dostupné.");
-}
-
-// Exportujeme pouze konfiguraci a flag o její kompletnosti
-export { 
-  firebaseConfig, 
-  isConfigComplete 
-};
+export { firebaseConfig };
