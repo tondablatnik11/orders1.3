@@ -12,7 +12,7 @@ import LoadingDetailsModal from '@/components/modals/LoadingDetailsModal';
 export default function AnnouncedLoadingsTab() {
     const { t } = useUI();
     const { db, appId, user } = useAuth();
-    const { allOrdersData } = useData();
+    const { allOrdersData, isLoadingData } = useData(); // Přidáno isLoadingData
     
     const [loadings, setLoadings] = useState([]);
     const [newLoading, setNewLoading] = useState({ loadingDate: '', carrierName: '', orderNumbers: '', notes: '' });
@@ -59,6 +59,10 @@ export default function AnnouncedLoadingsTab() {
     };
 
     const handleSelectLoading = (loading) => {
+        if (isLoadingData) {
+            alert("Data se ještě načítají, zkuste to za chvíli.");
+            return;
+        }
         const relatedOrders = allOrdersData.filter(order => 
             (loading.order_numbers || []).includes(String(order["Delivery No"] || order["Delivery"]))
         );

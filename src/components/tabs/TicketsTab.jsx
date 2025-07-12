@@ -4,16 +4,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUI } from '@/hooks/useUI';
 import { exportTicketsToXLSX } from '@/lib/exportUtils';
 import { Card, CardContent } from '../ui/Card';
-import { Ticket, Send, CheckCircle, Paperclip, FileDown } from 'lucide-react';
-import { collection, addDoc, query, onSnapshot, orderBy, updateDoc, doc } from 'firebase/firestore';
+import { Ticket, Send, Paperclip, FileDown } from 'lucide-react';
+import { collection, addDoc, query, onSnapshot, orderBy } from 'firebase/firestore';
 import TicketDetailsModal from '@/components/modals/TicketDetailsModal';
 
 export default function TicketsTab() {
     const { t } = useUI();
-    const auth = useAuth(); // Získáme celý auth kontext
-
-    // Destrukturujeme proměnné až zde, abychom měli jistotu, že jsou aktuální
-    const { user, userProfile, allUsers, db, appId, supabase } = auth;
+    // Získáme celý kontext jako jeden objekt, abychom měli vždy aktuální data
+    const authContext = useAuth(); 
 
     const [tickets, setTickets] = useState([]);
     const [newTicketTitle, setNewTicketTitle] = useState('');
@@ -28,17 +26,14 @@ export default function TicketsTab() {
     const ticketCategories = ["Inbound", "Outbound", "Picking", "Packing", "Admins", "IT/Údržba"];
 
     useEffect(() => {
-        if (!db || !appId) {
-            console.warn("TicketsTab: db nebo appId nejsou k dispozici.");
-            return;
-        }
-        const ticketsColRef = collection(db, `artifacts/${appId}/public/data/tickets`);
+        if (!authContext.db || !authContext.appId) return;
+        const ticketsColRef = collection(authContext.db, `artifacts/${authContext.appId}/public/data/tickets`);
         const q = query(ticketsColRef, orderBy('createdAt', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             setTickets(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         });
         return () => unsubscribe();
-    }, [db, appId]);
+    }, [authContext.db, authContext.appId]);
 
     const handleFileChange = (e) => {
         if (e.target.files && e.target.files[0]) {
@@ -49,7 +44,8 @@ export default function TicketsTab() {
     const handleCreateTicket = async (e) => {
         e.preventDefault();
         
-        if (!auth.user) {
+        // Používáme authContext.user přímo zde, abychom měli 100% jistotu aktuální hodnoty
+        if (!authContext.user) {
             setMessage({ text: "Pro vytvoření úkolu musíte být přihlášen.", type: 'error' });
             return;
         }
@@ -63,26 +59,26 @@ export default function TicketsTab() {
         let attachmentUrl = null, attachmentName = null;
 
         if (attachment) {
-            const filePath = `${auth.user.uid}/${Date.now()}_${attachment.name}`;
-            const { error: uploadError } = await auth.supabase.storage.from('ticket-attachments').upload(filePath, attachment);
+            const filePath = `${authContext.user.uid}/${Date.now()}_${attachment.name}`;
+            const { error: uploadError } = await authContext.supabase.storage.from('ticket-attachments').upload(filePath, attachment);
             if (uploadError) {
                 setMessage({ text: `${t.ticketError} ${uploadError.message}`, type: 'error' });
                 return;
             }
-            const { data: { publicUrl } } = auth.supabase.storage.from('ticket-attachments').getPublicUrl(filePath);
+            const { data: { publicUrl } } = authContext.supabase.storage.from('ticket-attachments').getPublicUrl(filePath);
             attachmentUrl = publicUrl;
             attachmentName = attachment.name;
         }
 
         try {
-            await addDoc(collection(auth.db, `artifacts/${auth.appId}/public/data/tickets`), {
+            await addDoc(collection(authContext.db, `artifacts/${authContext.appId}/public/data/tickets`), {
                 title: newTicketTitle.trim(),
                 description: newTicketDescription.trim(),
                 assignedTo: newTicketAssignee,
                 category: newTicketCategory,
                 status: 'Vytvořeno',
-                createdBy: auth.user.uid,
-                createdByName: auth.userProfile?.displayName || auth.user.email,
+                createdBy: authContext.user.uid,
+                createdByName: authContext.userProfile?.displayName || authContext.user.email,
                 createdAt: new Date().toISOString(),
                 attachmentUrl,
                 attachmentName,
@@ -95,7 +91,6 @@ export default function TicketsTab() {
             setAttachment(null);
             if (fileInputRef.current) fileInputRef.current.value = "";
             setMessage({ text: t.ticketCreatedSuccess, type: 'success' });
-
         } catch (error) {
             console.error("Error creating ticket:", error);
             setMessage({ text: `${t.ticketError} ${error.message}`, type: 'error' });
@@ -103,8 +98,8 @@ export default function TicketsTab() {
     };
     
     const handleExport = () => {
-        if (allUsers) {
-            exportTicketsToXLSX(tickets, allUsers, t);
+        if (authContext.allUsers) {
+            exportTicketsToXLSX(tickets, authContext.allUsers, t);
         }
     };
 
@@ -132,7 +127,7 @@ export default function TicketsTab() {
                         <label htmlFor="ticket-description" className="block text-sm font-medium text-gray-300 mb-1">{t.ticketDescription}:</label>
                         <textarea id="ticket-description" value={newTicketDescription} onChange={(e) => setNewTicketDescription(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500 h-24 resize-y" />
                     </div>
-                     <div>
+                    <div>
                         <label htmlFor="ticket-category" className="block text-sm font-medium text-gray-300 mb-1">Kategorie:</label>
                         <select id="ticket-category" value={newTicketCategory} onChange={(e) => setNewTicketCategory(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500">
                             <option value="">Vyberte kategorii</option>
@@ -143,7 +138,7 @@ export default function TicketsTab() {
                         <label htmlFor="ticket-assignee" className="block text-sm font-medium text-gray-300 mb-1">{t.assignTo}:</label>
                         <select id="ticket-assignee" value={newTicketAssignee} onChange={(e) => setNewTicketAssignee(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500">
                             <option value="">{t.selectUserToAssign}</option>
-                            {Array.isArray(allUsers) && allUsers.map(u => <option key={u.uid} value={u.uid}>{u.displayName || u.email}</option>)}
+                            {Array.isArray(authContext.allUsers) && authContext.allUsers.map(u => <option key={u.uid} value={u.uid}>{u.displayName || u.email}</option>)}
                         </select>
                     </div>
                     <div>
@@ -156,53 +151,36 @@ export default function TicketsTab() {
                 </form>
 
                 <div className="overflow-x-auto">
-                    {Array.isArray(tickets) && tickets.length > 0 ? (
-                        <table className="min-w-full bg-gray-700 rounded-lg">
-                            <thead className="bg-gray-600">
-                                <tr>
-                                    <th className="py-3 px-4 text-left text-sm font-semibold">{t.ticketTitle}</th>
-                                    <th className="py-3 px-4 text-left text-sm font-semibold">{t.assignedTo}</th>
-                                    <th className="py-3 px-4 text-left text-sm font-semibold">{t.statusTicket}</th>
-                                    <th className="py-3 px-4 text-left text-sm font-semibold">{t.attachment}</th>
+                    <table className="min-w-full bg-gray-700 rounded-lg">
+                        <thead className="bg-gray-600">
+                            <tr>
+                                <th className="py-3 px-4 text-left text-sm font-semibold">{t.ticketTitle}</th>
+                                <th className="py-3 px-4 text-left text-sm font-semibold">{t.assignedTo}</th>
+                                <th className="py-3 px-4 text-left text-sm font-semibold">{t.statusTicket}</th>
+                                <th className="py-3 px-4 text-left text-sm font-semibold">{t.attachment}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {tickets.map((ticket) => (
+                                <tr key={ticket.id} onClick={() => setSelectedTicket(ticket)} className="border-t border-gray-600 cursor-pointer hover:bg-gray-600">
+                                    <td className="py-3 px-4">{ticket.title}</td>
+                                    <td className="py-3 px-4">{authContext.allUsers.find(u => u.uid === ticket.assignedTo)?.displayName || 'N/A'}</td>
+                                    <td className="py-3 px-4">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                            ticket.status === 'Hotovo' ? 'bg-green-600 text-white' :
+                                            ticket.status === 'V řešení' ? 'bg-yellow-500 text-black' :
+                                            'bg-red-600 text-white'
+                                        }`}>{ticket.status || 'N/A'}</span>
+                                    </td>
+                                    <td className="py-3 px-4">{ticket.attachmentUrl && <Paperclip className="w-4 h-4 inline-block"/>}</td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {tickets.map((ticket) => (
-                                    <tr 
-                                        key={ticket.id} 
-                                        onClick={() => setSelectedTicket(ticket)}
-                                        className="border-t border-gray-600 cursor-pointer hover:bg-gray-600"
-                                    >
-                                        <td className="py-3 px-4">{ticket.title}</td>
-                                        <td className="py-3 px-4">{allUsers.find(u => u.uid === ticket.assignedTo)?.displayName || 'N/A'}</td>
-                                        <td className="py-3 px-4">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                                ticket.status === 'Hotovo' ? 'bg-green-600 text-white' :
-                                                ticket.status === 'V řešení' ? 'bg-yellow-500 text-black' :
-                                                'bg-red-600 text-white'
-                                            }`}>
-                                                {ticket.status || 'N/A'}
-                                            </span>
-                                        </td>
-                                        <td className="py-3 px-4">
-                                            {ticket.attachmentUrl && <Paperclip className="w-4 h-4 inline-block"/>}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    ) : (
-                         <p className="text-center text-gray-400">{t.noDataAvailable}</p>
-                    )}
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             </CardContent>
 
-            {selectedTicket && (
-                <TicketDetailsModal 
-                    ticket={selectedTicket}
-                    onClose={() => setSelectedTicket(null)}
-                />
-            )}
+            {selectedTicket && <TicketDetailsModal ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />}
         </Card>
     );
 }
