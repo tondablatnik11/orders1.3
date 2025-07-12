@@ -1,5 +1,21 @@
 import { startOfDay, format, isBefore, parseISO, differenceInDays } from 'date-fns';
 
+// Funkce pro parsování různých formátů data
+const parseDataDate = (dateInput) => {
+    if (!dateInput) return null;
+    // Nejprve zkusíme parsovat jako ISO string, což je formát z databáze
+    let date = parseISO(dateInput);
+    if (!isNaN(date.getTime())) return date;
+    
+    // Pokud selže, zkusíme parsovat jako Excel číslo
+    if (typeof dateInput === 'number') {
+        date = new Date(Math.round((dateInput - 25569) * 86400 * 1000));
+        if (!isNaN(date.getTime())) return date;
+    }
+    return null;
+};
+
+
 export const processData = (rawData) => {
     if (!rawData || rawData.length === 0) {
         return null;
@@ -17,16 +33,16 @@ export const processData = (rawData) => {
         statusCounts: {},
         deliveryTypes: {},
         delayedOrdersList: [],
-        dailySummaries: {},
     };
 
     const doneStatuses = [50, 60, 70];
+    const delayedStatuses = [10, 31, 35, 40];
     const today = startOfDay(new Date());
 
     rawData.forEach(row => {
         const status = Number(row.Status);
         if (isNaN(status)) return;
-
+        
         summary.total++;
         if (doneStatuses.includes(status)) summary.doneTotal++;
         if (status === 10) summary.newOrdersTotal++;
@@ -36,25 +52,22 @@ export const processData = (rawData) => {
 
         summary.statusCounts[status] = (summary.statusCounts[status] || 0) + 1;
         if(row["del.type"]) summary.deliveryTypes[row["del.type"]] = (summary.deliveryTypes[row["del.type"]] || 0) + 1;
-
-        const loadingDateStr = row["Loading Date"];
-        if (loadingDateStr) {
-            const loadingDate = parseISO(loadingDateStr);
-            if (!isNaN(loadingDate.getTime())) {
-                const dateKey = format(loadingDate, 'yyyy-MM-dd');
-                if (!summary.dailySummaries[dateKey]) {
-                    summary.dailySummaries[dateKey] = { date: dateKey, total: 0 };
-                }
-                summary.dailySummaries[dateKey].total++;
-                
-                if (isBefore(loadingDate, today) && !doneStatuses.includes(status)) {
-                    summary.delayed++;
-                    summary.delayedOrdersList.push({ ...row, delayDays: differenceInDays(today, loadingDate) });
-                }
-            }
+        
+        const loadingDate = parseDataDate(row["Loading Date"]);
+        
+        // Klíčová podmínka pro zpožděné zakázky
+        if (loadingDate && isBefore(loadingDate, today) && delayedStatuses.includes(status)) {
+            summary.delayed++;
+            summary.delayedOrdersList.push({ 
+                ...row, 
+                "Loading Date": loadingDate.toISOString(), // Uložíme jako ISO pro konzistenci
+                delayDays: differenceInDays(today, loadingDate) 
+            });
         }
     });
-
+    
     summary.remainingTotal = summary.total - summary.doneTotal;
+    summary.delayedOrdersList.sort((a, b) => b.delayDays - a.delayDays); // Seřadíme od největšího zpoždění
+
     return summary;
 };
