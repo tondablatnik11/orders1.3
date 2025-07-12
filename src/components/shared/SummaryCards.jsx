@@ -5,9 +5,7 @@ import { useUI } from '@/hooks/useUI';
 export default function SummaryCards({ summary }) {
     const { t } = useUI();
 
-    if (!summary) {
-        return null; // Nezobrazí nic, pokud nejsou data
-    }
+    if (!summary) return null;
 
     const cards = [
         { labelKey: 'total', value: summary.total, color: 'text-blue-400' },
@@ -25,7 +23,7 @@ export default function SummaryCards({ summary }) {
                 <Card key={card.labelKey}>
                     <CardContent>
                         <p className="text-gray-400">{t[card.labelKey]}</p>
-                        <p className={`text-3xl font-bold ${card.color}`}>{card.value}</p>
+                        <p className={`text-3xl font-bold ${card.color}`}>{card.value || 0}</p>
                     </CardContent>
                 </Card>
             ))}
