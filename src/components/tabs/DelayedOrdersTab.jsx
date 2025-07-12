@@ -13,8 +13,8 @@ export default function DelayedOrdersTab() {
     const [showAll, setShowAll] = useState(false);
     const [localNotes, setLocalNotes] = useState({});
 
-    if (!summary || !summary.delayedOrdersList || summary.delayedOrdersList.length === 0) {
-        return <Card><CardContent><p className="text-center p-8">{t.noDataAvailable}</p></CardContent></Card>;
+    if (!summary || !summary.delayedOrdersList) {
+        return <p className="text-center p-8">{t.noDataAvailable}</p>;
     }
 
     const handleNoteChange = (deliveryNo, text) => {
@@ -35,7 +35,7 @@ export default function DelayedOrdersTab() {
             <CardContent>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-2xl font-semibold flex items-center gap-2 text-red-400">
-                        <ClipboardList className="w-6 h-6" /> {t.delayedOrdersTab} ({delayedOrders.length})
+                        <ClipboardList className="w-6 h-6" /> {t.delayed} ({delayedOrders.length})
                     </h2>
                     <button className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700">
                         <FileDown className="w-5 h-5" /> {t.exportToXLSX}
