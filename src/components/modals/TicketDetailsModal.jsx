@@ -16,7 +16,6 @@ export default function TicketDetailsModal({ ticket, onClose }) {
 
     const ticketCreator = allUsers.find(u => u.uid === ticket.createdBy)?.displayName || 'Neznámý';
 
-    // Načtení komentářů pro tento ticket
     useEffect(() => {
         if (!db || !ticket) return;
         const commentsColRef = collection(db, `artifacts/${appId}/public/data/tickets/${ticket.id}/comments`);
@@ -27,7 +26,6 @@ export default function TicketDetailsModal({ ticket, onClose }) {
         return () => unsubscribe();
     }, [db, ticket, appId]);
     
-    // Auto-scroll na konec komentářů
     useEffect(() => {
         commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [comments]);
@@ -39,7 +37,7 @@ export default function TicketDetailsModal({ ticket, onClose }) {
     
     const handleAddComment = async (e) => {
         e.preventDefault();
-        if (!newComment.trim()) return;
+        if (!newComment.trim() || !user) return;
         
         const commentsColRef = collection(db, `artifacts/${appId}/public/data/tickets/${ticket.id}/comments`);
         await addDoc(commentsColRef, {
@@ -56,7 +54,6 @@ export default function TicketDetailsModal({ ticket, onClose }) {
     return (
         <Modal title={`${t.ticketTitle}: ${ticket.title}`} onClose={onClose}>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Levý sloupec s detaily ticketu */}
                 <div className="md:col-span-1 space-y-4 text-sm">
                     <div>
                         <p className="font-semibold text-gray-400">{t.statusTicket}</p>
@@ -67,6 +64,10 @@ export default function TicketDetailsModal({ ticket, onClose }) {
                         >
                            {statuses.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
+                    </div>
+                     <div>
+                        <p className="font-semibold text-gray-400">Kategorie</p>
+                        <p>{ticket.category || 'N/A'}</p>
                     </div>
                      <div>
                         <p className="font-semibold text-gray-400">{t.assignedTo}</p>
@@ -88,7 +89,6 @@ export default function TicketDetailsModal({ ticket, onClose }) {
                     )}
                 </div>
 
-                {/* Pravý sloupec s popisem a komentáři */}
                 <div className="md:col-span-2">
                     <div className="bg-gray-900 p-4 rounded-lg mb-4">
                         <h4 className="font-semibold mb-2">{t.ticketDescription}</h4>
