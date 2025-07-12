@@ -11,35 +11,49 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Zkontrolujeme, zda jsou všechny klíče přítomny
 const requiredKeys = ['apiKey', 'authDomain', 'projectId', 'appId'];
 const isConfigComplete = requiredKeys.every(key => firebaseConfig[key]);
 
-let app;
-let auth;
-let db;
-let appId; // Declare appId here to be exported
+let appInstance = null;
+let authInstance = null;
+let dbInstance = null;
+let appIDValue = null;
 
 if (isConfigComplete) {
-    // Prevence re-inicializace na straně klienta (kvůli Next.js Fast Refresh)
-    if (!getApps().length) {
-        app = initializeApp(firebaseConfig);
-        console.log("Firebase: Aplikace inicializována.");
-    } else {
-        app = getApps()[0];
-        console.log("Firebase: Aplikace již inicializována (používám existující instanci).");
+    try {
+        if (!getApps().length) {
+            appInstance = initializeApp(firebaseConfig);
+            console.log("Firebase (lib): Nová aplikace inicializována.");
+        } else {
+            appInstance = getApps()[0];
+            console.log("Firebase (lib): Používám existující instanci aplikace.");
+        }
+
+        authInstance = getAuth(appInstance);
+        dbInstance = getFirestore(appInstance);
+        appIDValue = firebaseConfig.appId;
+
+        console.log("Firebase (lib): Auth instance je:", authInstance ? 'OK' : 'NULL');
+        console.log("Firebase (lib): Firestore instance je:", dbInstance ? 'OK' : 'NULL');
+        console.log("Firebase (lib): App ID je:", appIDValue);
+
+    } catch (error) {
+        console.error("Firebase (lib): Chyba při inicializaci Firebase:", error);
+        // Ensure instances are explicitly null on error
+        appInstance = null;
+        authInstance = null;
+        dbInstance = null;
+        appIDValue = null;
     }
-    auth = getAuth(app);
-    db = getFirestore(app);
-    appId = firebaseConfig.appId; // Assign appId here
-
-    console.log("Firebase: Auth instance:", auth ? 'OK' : 'NULL/UNDEFINED');
-    console.log("Firebase: Firestore instance:", db ? 'OK' : 'NULL/UNDEFINED');
-    console.log("Firebase: App ID:", appId);
-
 } else {
-    console.warn("Firebase: Konfigurace je neúplná. Firebase funkce nebudou dostupné.");
-    // Zde je důležité zajistit, že auth a db jsou undefined, pokud konfigurace chybí
-    // Nicméně, let deklarace to již zajistí, pokud nejsou inicializovány.
+    console.warn("Firebase (lib): Konfigurace Firebase je neúplná. Firebase funkce nebudou dostupné.");
 }
 
-export { auth, db, appId, isConfigComplete };
+// Exportujeme pojmenované instance
+export { 
+  authInstance as auth, 
+  dbInstance as db, 
+  appIDValue as appId, 
+  isConfigComplete 
+};
