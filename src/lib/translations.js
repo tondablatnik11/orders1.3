@@ -170,6 +170,8 @@ export const translations = {
     noNotifications: "Žádná nová upozornění.",
     attachment: "Příloha",
     addAttachment: "Přidat přílohu",
+    xlsxLibNotLoaded: "XLSX knihovna není načtena. Zkuste prosím obnovit stránku.",
+    exportError: "Chyba při získávání dat pro export:",
   },
   en: {
     title: "Order Overview",
@@ -342,6 +344,8 @@ export const translations = {
     noNotifications: "No new notifications.",
     attachment: "Attachment",
     addAttachment: "Add Attachment",
+    xlsxLibNotLoaded: "XLSX library not loaded. Please try refreshing the page.",
+    exportError: "Error fetching data for export:",        
   },
   de: {
     title: "Auftragsübersicht",
@@ -514,5 +518,7 @@ export const translations = {
     noNotifications: "Keine neuen Benachrichtigungen.",
     attachment: "Anhang",
     addAttachment: "Anhang hinzufügen",
+    xlsxLibNotLoaded: "XLSX-Bibliothek nicht geladen. Bitte versuchen Sie, die Seite neu zu laden.",
+    exportError: "Fehler beim Abrufen von Daten für den Export:",
   },
 };
