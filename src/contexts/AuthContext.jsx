@@ -17,32 +17,35 @@ export const AuthProvider = ({ children }) => {
   const [isFirebaseReady, setIsFirebaseReady] = useState(false);
 
   useEffect(() => {
+    console.log("AuthContext: useEffect se spouští."); // KONTROLNÍ VÝPIS 1
     if (auth) {
       setIsFirebaseReady(true);
+      console.log("AuthContext: Firebase auth je připraveno."); // KONTROLNÍ VÝPIS 2
       const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        console.log("AuthContext: onAuthStateChanged listener se spustil."); // KONTROLNÍ VÝPIS 3
         if (user) {
+          console.log("AuthContext: Uživatel je přihlášen:", user.email); // KONTROLNÍ VÝPIS 4
           setCurrentUser(user);
+          // ... zbytek kódu pro načtení profilu
           const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, user.uid);
           const userProfileSnap = await getDoc(userProfileRef);
           if (userProfileSnap.exists()) {
             setCurrentUserProfile({ uid: user.uid, ...userProfileSnap.data() });
           } else {
-            const newProfile = {
-              email: user.email,
-              displayName: user.displayName || user.email.split('@')[0],
-              isAdmin: false,
-              function: '',
-            };
+            const newProfile = { email: user.email, displayName: user.displayName || user.email.split('@')[0], isAdmin: false, function: '' };
             await setDoc(userProfileRef, newProfile);
             setCurrentUserProfile({ uid: user.uid, ...newProfile });
           }
+
         } else {
+          console.log("AuthContext: Žádný uživatel není přihlášen."); // KONTROLNÍ VÝPIS 5
           setCurrentUser(null);
           setCurrentUserProfile(null);
         }
         setLoading(false);
       });
 
+      // ... zbytek useEffectu
       const usersCollectionRef = collection(db, `artifacts/${appId}/public/data/user_profiles`);
       const unsubscribeUsers = onSnapshot(usersCollectionRef, (snapshot) => {
         const usersList = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
@@ -54,6 +57,7 @@ export const AuthProvider = ({ children }) => {
         unsubscribeUsers();
       };
     } else {
+      console.error("AuthContext: Firebase auth NENÍ k dispozici!"); // KONTROLNÍ VÝPIS 6
       setLoading(false);
     }
   }, []);

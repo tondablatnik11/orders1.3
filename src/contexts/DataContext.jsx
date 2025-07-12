@@ -23,7 +23,10 @@ export const DataProvider = ({ children }) => {
   const supabase = getSupabase();
 
   const fetchData = useCallback(async () => {
+    console.log("DataContext: Spouštím fetchData. Aktuální uživatel:", currentUser?.email); // KONTROLNÍ VÝPIS 7
+
     if (!currentUser) {
+      console.log("DataContext: fetchData přerušeno, uživatel není přihlášen."); // KONTROLNÍ VÝPIS 8
       setAllOrdersData([]);
       setSummary(null);
       setIsLoadingData(false);
@@ -32,11 +35,19 @@ export const DataProvider = ({ children }) => {
 
     setIsLoadingData(true);
     try {
+      console.log("DataContext: Načítám data ze Supabase..."); // KONTROLNÍ VÝPIS 9
       const { data, error } = await supabase.from("deliveries").select('*');
-      if (error) throw error;
+
+      if (error) {
+        console.error("DataContext: CHYBA při načítání dat ze Supabase:", error); // KONTROLNÍ VÝPIS 10
+        throw error;
+      }
+
+      console.log(`DataContext: Ze Supabase se načetlo ${data?.length || 0} záznamů.`); // KONTROLNÍ VÝPIS 11
       setAllOrdersData(data || []);
+
     } catch (error) {
-      console.error("Error fetching data from Supabase:", error);
+      console.error("DataContext: Zachycena chyba v bloku fetchData:", error);
       setAllOrdersData([]);
     } finally {
       setIsLoadingData(false);
@@ -48,14 +59,18 @@ export const DataProvider = ({ children }) => {
   }, [fetchData]);
 
   useEffect(() => {
+    console.log(`DataContext: Data se změnila (počet: ${allOrdersData.length}), spouštím processData.`); // KONTROLNÍ VÝPIS 12
       if (allOrdersData.length > 0) {
         const processed = processData(allOrdersData, filters);
+        console.log("DataContext: Data byla zpracována, výsledek (summary):", processed); // KONTROLNÍ VÝPIS 13
         setSummary(processed);
       } else {
+        console.log("DataContext: Žádná data k zpracování, summary nastaveno na null."); // KONTROLNÍ VÝPIS 14
         setSummary(null);
       }
   }, [allOrdersData, filters]);
 
+  // ... zbytek souboru (handleSaveNote, handleFileUpload) zůstává stejný ...
   const handleSaveNote = useCallback(async (deliveryNo, newNote) => {
     const { error } = await supabase
         .from('deliveries')
@@ -98,12 +113,11 @@ export const DataProvider = ({ children }) => {
               alert('Chyba při nahrávání dat.');
           } else {
               alert('Data byla úspěšně nahrána!');
-              fetchData(); // Znovu načteme všechna data
+              fetchData();
           }
       };
       reader.readAsBinaryString(file);
   };
-
 
   const value = {
     allOrdersData,
