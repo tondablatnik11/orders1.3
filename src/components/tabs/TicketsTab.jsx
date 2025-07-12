@@ -4,8 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUI } from '@/hooks/useUI';
 import { exportTicketsToXLSX } from '@/lib/exportUtils';
 import { Card, CardContent } from '../ui/Card';
-import { Ticket, Send, CheckCircle, Paperclip, FileDown } from 'lucide-react';
-import { collection, addDoc, query, onSnapshot, orderBy, updateDoc, doc } from 'firebase/firestore';
+import { Ticket, Send, Paperclip, FileDown } from 'lucide-react';
+import { collection, addDoc, query, onSnapshot, orderBy } from 'firebase/firestore';
 import TicketDetailsModal from '@/components/modals/TicketDetailsModal';
 
 export default function TicketsTab() {
@@ -25,15 +25,11 @@ export default function TicketsTab() {
     const ticketCategories = ["Inbound", "Outbound", "Picking", "Packing", "Admins", "IT/Údržba"];
 
     useEffect(() => {
-        if (!db || !appId) {
-            console.warn("Firestore or App ID not available for TicketsTab.");
-            return;
-        }
+        if (!db || !appId) return;
         const ticketsColRef = collection(db, `artifacts/${appId}/public/data/tickets`);
         const q = query(ticketsColRef, orderBy('createdAt', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const fetchedTickets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setTickets(fetchedTickets);
+            setTickets(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         });
         return () => unsubscribe();
     }, [db, appId]);
@@ -47,10 +43,16 @@ export default function TicketsTab() {
     const handleCreateTicket = async (e) => {
         e.preventDefault();
         
-        if (!newTicketTitle || !newTicketDescription || !newTicketAssignee || !newTicketCategory || !user) {
+        if (!newTicketTitle.trim() || !newTicketDescription.trim() || !newTicketAssignee || !newTicketCategory) {
             setMessage({ text: t.fillAllFields || "Vyplňte všechna povinná pole.", type: 'error' });
             return;
         }
+
+        if (!user) {
+            setMessage({ text: "Pro vytvoření úkolu musíte být přihlášen.", type: 'error' });
+            return;
+        }
+
         setMessage({ text: '', type: '' });
         let attachmentUrl = null, attachmentName = null;
 
@@ -68,8 +70,8 @@ export default function TicketsTab() {
 
         try {
             await addDoc(collection(db, `artifacts/${appId}/public/data/tickets`), {
-                title: newTicketTitle,
-                description: newTicketDescription,
+                title: newTicketTitle.trim(),
+                description: newTicketDescription.trim(),
                 assignedTo: newTicketAssignee,
                 category: newTicketCategory,
                 status: 'Vytvořeno',
@@ -79,6 +81,7 @@ export default function TicketsTab() {
                 attachmentUrl,
                 attachmentName,
             });
+
             setNewTicketTitle('');
             setNewTicketDescription('');
             setNewTicketAssignee('');
@@ -86,6 +89,7 @@ export default function TicketsTab() {
             setAttachment(null);
             if (fileInputRef.current) fileInputRef.current.value = "";
             setMessage({ text: t.ticketCreatedSuccess, type: 'success' });
+
         } catch (error) {
             console.error("Error creating ticket:", error);
             setMessage({ text: `${t.ticketError} ${error.message}`, type: 'error' });

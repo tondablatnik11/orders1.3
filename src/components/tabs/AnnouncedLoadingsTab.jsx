@@ -59,10 +59,10 @@ export default function AnnouncedLoadingsTab() {
     };
 
     const handleSelectLoading = (loading) => {
-        const orders = allOrdersData.filter(order => 
+        const relatedOrders = allOrdersData.filter(order => 
             (loading.order_numbers || []).includes(String(order["Delivery No"] || order["Delivery"]))
         );
-        setSelectedLoadingOrders(orders);
+        setSelectedLoadingOrders(relatedOrders);
         setSelectedLoading(loading);
     };
 
@@ -75,7 +75,6 @@ export default function AnnouncedLoadingsTab() {
 
                 {message.text && <div className={`p-3 mb-4 rounded-md text-sm ${message.type === 'success' ? 'bg-green-800 text-green-100' : 'bg-red-800 text-red-100'}`}>{message.text}</div>}
 
-                {/* VRÁCENÝ FORMULÁŘ */}
                 <form onSubmit={handleSaveLoading} className="space-y-4 mb-8 p-4 border border-gray-700 rounded-lg bg-gray-750">
                     <h3 className="text-xl font-semibold text-blue-300 mb-3">{t.addLoading}</h3>
                     <div>
