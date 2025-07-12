@@ -3,23 +3,22 @@ import React, { useState, useEffect } from 'react';
 import { useUI } from '@/hooks/useUI';
 import { useData } from '@/hooks/useData';
 import AppHeader from './AppHeader';
-import TabNavigation from './TabNavigation';
+import TabNavigation from './TabNavigation'; // Odkomentováno
 import DashboardTab from '@/components/tabs/DashboardTab';
 import DelayedOrdersTab from '@/components/tabs/DelayedOrdersTab';
 
 export default function DashboardLayout() {
     const { t, darkMode } = useUI();
-    const { summary, isLoadingData } = useData(); // Změnil jsem isLoading na isLoadingData
-    const [activeTab, setActiveTab] = useState(1); // NASTAVENO NA 1 PRO TESTOVÁNÍ ZPOŽDĚNÝCH ZAKÁZEK
+    const { summary, isLoadingData } = useData(); 
+    const [activeTab, setActiveTab] = useState(0); // Změněno zpět na 0 pro výchozí záložku
 
-    // Log pro ověření, zda se DashboardLayout vykresluje
     useEffect(() => {
         console.log('DashboardLayout: Vykresluji se.');
     }, []);
 
     const renderActiveTab = () => {
         console.log('DashboardLayout: renderActiveTab spuštěn, activeTab je:', activeTab);
-        if (isLoadingData) { // Používám isLoadingData z DataContextu
+        if (isLoadingData) {
             return <p className="text-center p-8">Načítám data...</p>;
         }
         if (!summary) {
@@ -32,7 +31,8 @@ export default function DashboardLayout() {
                 return <DashboardTab />;
             case 1:
                 console.log('DashboardLayout: Vykresluji DelayedOrdersTab.');
-                return <DelayedOrdersTab />; // ZDE JE DelayedOrdersTab
+                return <DelayedOrdersTab />;
+            // Přidejte další záložky, pokud je máte v TabNavigation
             default:
                 console.log('DashboardLayout: Vykresluji výchozí DashboardTab.');
                 return <DashboardTab />;
@@ -42,8 +42,7 @@ export default function DashboardLayout() {
     return (
         <div className={`p-8 space-y-8 min-h-screen ${darkMode ? "bg-gray-950 text-gray-100" : "bg-white text-gray-900"}`}>
             <AppHeader />
-            {/* Navigaci záložek dočasně zakomentuji, abychom měli jistotu, že se testovací záložka vykresluje */}
-            {/* <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} /> */}
+            <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} /> {/* Odkomentováno */}
             <main>
                 {renderActiveTab()}
             </main>
