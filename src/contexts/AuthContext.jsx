@@ -2,7 +2,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, onSnapshot, updateDoc } from 'firebase/firestore'; 
-import { auth, db, appId } from '../lib/firebase'; // Ujistěte se, že toto jsou exportované proměnné
+import { auth, db, appId } from '../lib/firebase'; 
 import { getSupabase } from '../lib/supabaseClient'; 
 
 export const AuthContext = createContext(null);
@@ -23,8 +23,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    // Pokud Firebase nebo App ID nejsou k dispozici (kvůli neúplné konfiguraci),
-    // okamžitě nastavte loading na false, protože auth nebude fungovat.
+    // Pokud Firebase nebo App ID nejsou k dispozici, okamžitě ukončíme loading
     if (!auth || !db || !appId) {
         console.error("AuthContext: Firebase Auth/DB/App ID is not available, skipping auth listener setup.");
         setLoading(false);
@@ -64,27 +63,38 @@ export const AuthProvider = ({ children }) => {
                     console.error("AuthContext: Chyba při načítání všech uživatelů:", error);
                     setAllUsers([]); 
                 });
+                setLoading(false); 
                 return () => unsubscribeUsers(); 
             } else {
                 console.log('AuthContext: Žádný uživatel není přihlášen.');
                 setCurrentUser(null);
                 setCurrentUserProfile(null);
                 setAllUsers([]); 
+                setLoading(false); 
             }
         } catch (error) {
             console.error("AuthContext: Chyba uvnitř onAuthStateChanged callbacku (uživatelský profil/uživatelé):", error);
-        } finally {
-            // KLÍČOVÁ ZMĚNA: setLoading(false) je voláno VŽDY na konci, i při chybách,
-            // aby se aplikace neodsekla ve stavu "Načítání..."
-            console.log('AuthContext: onAuthStateChanged callback dokončen, nastavuji loading na false.');
-            setLoading(false); 
+            setLoading(false); // Zajistit, že se loading přepne na false i při chybě
         }
     });
+
+    // Přidání timeoutu, který vynutí loading na false po 5 sekundách,
+    // pokud onAuthStateChanged nedoběhne.
+    const timeoutId = setTimeout(() => {
+        if (loading) { // Pouze pokud je stále ve stavu načítání
+            console.warn("AuthContext: Timeout vypršel! onAuthStateChanged listener se nespustil/dokončil včas. Vynucuji loading: false.");
+            setLoading(false);
+            // Může to znamenat, že firebase autentizace je blokována, nebo API klíč má omezení.
+        }
+    }, 5000); // 5 sekund
+
     return () => {
-      console.log('AuthContext: odhlašuji onAuthStateChanged listener.');
+      console.log('AuthContext: odhlašuji onAuthStateChanged listener a čistím timeout.');
       unsubscribeAuth();
+      clearTimeout(timeoutId); // Vyčistit timeout, pokud se listener spustí dříve
     };
-  }, [db, appId]); 
+  }, [db, appId, loading]); // Přidána 'loading' do závislostí pro správné chování timeoutu
+
 
   const login = (email, password) => signInWithEmailAndPassword(auth, email, password);
   const register = (email, password) => createUserWithEmailAndPassword(auth, email, password);
