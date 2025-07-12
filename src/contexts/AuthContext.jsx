@@ -1,3 +1,4 @@
+// src/contexts/AuthContext.jsx
 'use client';
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
@@ -12,7 +13,7 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [currentUserProfile, setCurrentUserProfile] = useState(null);
   const [allUsers, setAllUsers] = useState([]); 
-  const [loading, setLoading] = useState(true); 
+  const [loading, setLoading] = useState(true); // Inicializováno na true
   const supabase = getSupabase(); 
 
   const updateUserProfile = async (uid, updates) => {
@@ -46,13 +47,13 @@ export const AuthProvider = ({ children }) => {
           console.error("AuthContext: Chyba při načítání všech uživatelů:", error);
           setAllUsers([]); 
         });
-        setLoading(false); 
+        setLoading(false); // Nastavit na false, když je uživatel přihlášen
         return () => unsubscribeUsers(); 
       } else {
         setCurrentUser(null);
         setCurrentUserProfile(null);
         setAllUsers([]); 
-        setLoading(false); 
+        setLoading(false); // Nastavit na false, když je uživatel odhlášen
       }
     });
     return () => unsubscribeAuth(); 
@@ -68,7 +69,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     console.log('AuthContext: Pokus o odhlášení. Instance Firebase auth:', auth);
     try {
-      if (auth) { // Zajistit, že auth není undefined
+      if (auth) { 
         await signOut(auth);
         console.log('AuthContext: signOut úspěšné.');
       } else {
