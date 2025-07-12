@@ -7,10 +7,9 @@ import { firebaseConfig } from '../lib/firebase';
 import { getSupabase } from '../lib/supabaseClient';
 
 export const AuthContext = createContext(null);
-
 export const useAuth = () => {
     const context = useContext(AuthContext);
-    if (context === undefined) {
+    if (!context) {
         throw new Error('useAuth must be used within an AuthProvider');
     }
     return context;
@@ -65,6 +64,7 @@ export const AuthProvider = ({ children }) => {
         return () => unsubscribeUsers();
     }, [firebaseInstances.db, firebaseInstances.appId]);
 
+
     const updateUserProfile = async (uid, updates) => {
         const { db, appId } = firebaseInstances;
         if (!db || !appId) throw new Error("Firestore or App ID not available.");
@@ -92,6 +92,5 @@ export const AuthProvider = ({ children }) => {
         updateUserProfile
     }), [currentUser, currentUserProfile, loading, allUsers, firebaseInstances, supabase]);
 
-    // KLÍČOVÁ ZMĚNA: Vykreslíme zbytek aplikace, až když je ověřování hotové.
-    return <AuthContext.Provider value={value}>{!loading ? children : null}</AuthContext.Provider>;
+    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
