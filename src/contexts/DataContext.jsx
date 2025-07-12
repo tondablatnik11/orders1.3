@@ -9,7 +9,7 @@ export const DataContext = createContext();
 export const useData = () => useContext(DataContext);
 
 export const DataProvider = ({ children }) => {
-  const [allOrdersData, setAllOrdersData] = useState(null);
+  const [allOrdersData, setAllOrdersData] = useState([]);
   const [summary, setSummary] = useState(null);
   const [filters, setFilters] = useState({
     timeRange: 'all',
@@ -25,7 +25,8 @@ export const DataProvider = ({ children }) => {
 
   const fetchData = useCallback(async () => {
     if (!currentUser) {
-      setAllOrdersData(null);
+      setAllOrdersData([]);
+      setSummary(null);
       setIsLoadingData(false);
       return;
     }
@@ -37,7 +38,7 @@ export const DataProvider = ({ children }) => {
       setAllOrdersData(data || []);
     } catch (error) {
       console.error("Error fetching data from Supabase:", error);
-      setAllOrdersData(null);
+      setAllOrdersData([]);
     } finally {
       setIsLoadingData(false);
     }
@@ -48,13 +49,13 @@ export const DataProvider = ({ children }) => {
   }, [fetchData]);
 
   useEffect(() => {
-    if (allOrdersData) {
+    if (!isLoadingData && allOrdersData && allOrdersData.length > 0) {
       const processed = processData(allOrdersData, filters);
       setSummary(processed);
     } else {
       setSummary(null);
     }
-  }, [allOrdersData, filters]);
+  }, [allOrdersData, filters, isLoadingData]);
 
   const handleSaveNote = useCallback(async (deliveryNo, newNote) => {
     const { error } = await supabase
@@ -69,10 +70,10 @@ export const DataProvider = ({ children }) => {
         ));
     }
   }, [supabase]);
-  
+
   const handleFileUpload = async (file) => {
       if (!file) return;
-      setIsLoadingData(true);
+      setIsLoadingData(true); // Set loading state
       const reader = new FileReader();
       reader.onload = async (evt) => {
           try {
@@ -98,7 +99,7 @@ export const DataProvider = ({ children }) => {
             if (error) throw error;
 
             alert('Data byla úspěšně nahrána!');
-            fetchData();
+            fetchData(); // Refresh all data
           } catch (error) {
             console.error('File upload error:', error);
             alert('Chyba při nahrávání dat.');
