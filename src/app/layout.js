@@ -1,6 +1,7 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { AppProviders } from "@/components/layout/AppProviders"; // Importuj novou komponentu
+// Ujistěte se, že import je "pojmenovaný" (s kudrnatými závorkami) a název přesně sedí
+import { AppProviders } from "@/components/layout/AppProviders";
 
 const inter = Inter({ subsets: ["latin"] });
 

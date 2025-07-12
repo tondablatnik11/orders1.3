@@ -1,22 +1,19 @@
 'use client';
-import { useAuth } from '@/hooks/useAuth'; // Importujeme náš hook
-import DashboardLayout from '@/components/layout/DashboardLayout';
-import LoginPage from '@/components/auth/Login'; 
 
-export default function Home() {
-  // Přímé a čisté získání hodnot z kontextu
-  const { currentUser, loading } = useAuth();
+import { AuthProvider } from '@/contexts/AuthContext';
+import { DataProvider } from '@/contexts/DataContext';
+import { UIProvider } from '@/contexts/UIContext';
 
-  // Zobrazit loader, dokud se neověří stav přihlášení
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-950 text-gray-100">
-        Načítání...
-      </div>
-    );
-  }
-
-  // Pokud je uživatel přihlášen, zobrazit Dashboard, jinak Login.
-  // Použití ternárního operátoru je zde ještě o kousek kratší a elegantnější.
-  return currentUser ? <DashboardLayout /> : <LoginPage />;
+// Ujistěte se, že exportovaná funkce se jmenuje přesně "AppProviders"
+export function AppProviders({ children }) {
+  return (
+    // Správné vnoření providerů, kde AuthProvider obaluje DataProvider
+    <UIProvider>
+      <AuthProvider>
+        <DataProvider>
+          {children}
+        </DataProvider>
+      </AuthProvider>
+    </UIProvider>
+  );
 }
