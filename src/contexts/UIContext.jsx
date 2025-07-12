@@ -1,8 +1,10 @@
 'use client';
-import React, { createContext, useState } from 'react';
+import React, { createContext, useState, useContext } from 'react';
 import { translations } from '../lib/translations';
 
-export const UIContext = createContext();
+export const UIContext = createContext(null);
+
+export const useUI = () => useContext(UIContext);
 
 export const UIProvider = ({ children }) => {
   const [lang, setLang] = useState('cz');
