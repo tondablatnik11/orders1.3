@@ -1,23 +1,17 @@
-import { Inter } from "next/font/google";
-import "./globals.css";
-// Ujistěte se, že import je "pojmenovaný" (s kudrnatými závorkami) a název přesně sedí
-import { AppProviders } from "@/components/layout/AppProviders";
+'use client';
 
-const inter = Inter({ subsets: ["latin"] });
+import { AuthProvider } from '@/contexts/AuthContext';
+import { DataProvider } from '@/contexts/DataContext';
+import { UIProvider } from '@/contexts/UIContext';
 
-export const metadata = {
-  title: "Přehled zakázek",
-  description: "Dashboard pro přehled zakázek",
-};
-
-export default function RootLayout({ children }) {
+export function AppProviders({ children }) {
   return (
-    <html lang="cs">
-      <body className={inter.className}>
-        <AppProviders>
+    <UIProvider>
+      <AuthProvider>
+        <DataProvider>
           {children}
-        </AppProviders>
-      </body>
-    </html>
+        </DataProvider>
+      </AuthProvider>
+    </UIProvider>
   );
 }
