@@ -12,7 +12,7 @@ export default function TicketsTab() {
     const { t } = useUI();
     const { user, userProfile, allUsers, db, appId, supabase } = useAuth(); // Z AuthContextu bereme i supabase pro storage
 
-    const [tickets, setTickets] = useState([]);
+    const [tickets, setTickets] = useState([]); // ZAJIŠTĚNO, ŽE JE POLE
     const [newTicketTitle, setNewTicketTitle] = useState('');
     const [newTicketDescription, setNewTicketDescription] = useState('');
     const [newTicketAssignee, setNewTicketAssignee] = useState('');
@@ -22,16 +22,20 @@ export default function TicketsTab() {
 
     useEffect(() => {
         if (!db || !appId) {
-            console.warn("Firestore or App ID not available for TicketsTab.");
+            console.warn("Firestore or App ID not available for TicketsTab. Skipping data fetch.");
+            setTickets([]); // Zajistit, že tickets je pole i při chybě inicializace
             return;
         }
         const ticketsColRef = collection(db, `artifacts/${appId}/public/data/tickets`);
         const q = query(ticketsColRef, orderBy('createdAt', 'desc')); // Řadit od nejnovějších
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            setTickets(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            const fetchedTickets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setTickets(fetchedTickets);
+            console.log("TicketsTab: Fetched tickets count:", fetchedTickets.length); // Ladicí log
         }, (error) => {
             console.error("Error fetching tickets:", error);
             setMessage({ text: `${t.ticketError} ${error.message}`, type: 'error' });
+            setTickets([]); // Zajistit, že tickets je pole i při chybě načítání
         });
         return () => unsubscribe();
     }, [db, appId, t]);
@@ -46,7 +50,7 @@ export default function TicketsTab() {
         e.preventDefault();
         // Kontrola všech povinných polí a přítomnosti uživatele
         if (!newTicketTitle || !newTicketDescription || !newTicketAssignee || !user || !db || !appId) {
-            setMessage({ text: t.ticketError + ' ' + t.fillAllFields, type: 'error' }); // Přidán nový překlad
+            setMessage({ text: t.ticketError + ' ' + (t.fillAllFields || 'Please fill all required fields.'), type: 'error' }); 
             return;
         }
 
@@ -54,7 +58,6 @@ export default function TicketsTab() {
         let attachmentUrl = null, attachmentName = null;
 
         if (attachment) {
-            // Cesta pro uložení souboru v Supabase Storage (uid uživatele pro oddělení souborů)
             const filePath = `${user.uid}/${Date.now()}_${attachment.name}`;
             const { error: uploadError } = await supabase.storage
                 .from('ticket-attachments') // Název vašeho bucketu v Supabase Storage
@@ -64,31 +67,28 @@ export default function TicketsTab() {
                 setMessage({ text: `${t.ticketError} ${uploadError.message}`, type: 'error' });
                 return;
             }
-            // Získání veřejné URL k nahranému souboru
             const { data: { publicUrl } } = supabase.storage.from('ticket-attachments').getPublicUrl(filePath);
             attachmentUrl = publicUrl;
             attachmentName = attachment.name;
         }
 
         try {
-            // Přidání dokumentu do Firestore
             await addDoc(collection(db, `artifacts/${appId}/public/data/tickets`), {
                 title: newTicketTitle,
                 description: newTicketDescription,
-                assignedTo: newTicketAssignee, // UID uživatele, kterému je ticket přiřazen
-                status: 'Open', // Výchozí status
+                assignedTo: newTicketAssignee, 
+                status: 'Open', 
                 createdBy: user.uid,
-                createdByName: userProfile?.displayName || user.email, // Jméno tvůrce
-                createdAt: new Date().toISOString(), // Čas vytvoření ve formátu ISO string
+                createdByName: userProfile?.displayName || user.email, 
+                createdAt: new Date().toISOString(), 
                 attachmentUrl,
                 attachmentName,
             });
-            // Reset formuláře po úspěšném vytvoření
             setNewTicketTitle('');
             setNewTicketDescription('');
             setNewTicketAssignee('');
             setAttachment(null);
-            if (fileInputRef.current) fileInputRef.current.value = ""; // Reset file inputu
+            if (fileInputRef.current) fileInputRef.current.value = ""; 
             setMessage({ text: t.ticketCreatedSuccess, type: 'success' });
         } catch (error) {
             console.error("Error creating ticket:", error);
@@ -110,7 +110,6 @@ export default function TicketsTab() {
     
     // Export ticketů do XLSX
     const handleExport = () => {
-        // exportTicketsToXLSX potřebuje tickets, allUsers a t
         exportTicketsToXLSX(tickets, allUsers, t);
     };
 
@@ -132,24 +131,25 @@ export default function TicketsTab() {
                     <h3 className="text-xl font-semibold text-blue-300 mb-3">{t.createTicket}</h3>
                     <div>
                         <label htmlFor="ticket-title" className="block text-sm font-medium text-gray-300 mb-1">{t.ticketTitle}:</label>
-                        <input type="text" id="ticket-title" value={newTicketTitle} onChange={(e) => setNewTicketTitle(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500" placeholder={t.ticketTitlePlaceholder} /> {/* Nový překlad */}
+                        <input type="text" id="ticket-title" value={newTicketTitle} onChange={(e) => setNewTicketTitle(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500" placeholder={t.ticketTitlePlaceholder} />
                     </div>
                     <div>
                         <label htmlFor="ticket-description" className="block text-sm font-medium text-gray-300 mb-1">{t.ticketDescription}:</label>
-                        <textarea id="ticket-description" value={newTicketDescription} onChange={(e) => setNewTicketDescription(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500 h-24 resize-y" placeholder={t.ticketDescriptionPlaceholder} /> {/* Nový překlad */}
+                        <textarea id="ticket-description" value={newTicketDescription} onChange={(e) => setNewTicketDescription(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500 h-24 resize-y" placeholder={t.ticketDescriptionPlaceholder} />
                     </div>
                     <div>
                         <label htmlFor="ticket-assignee" className="block text-sm font-medium text-gray-300 mb-1">{t.assignTo}:</label>
                         <select id="ticket-assignee" value={newTicketAssignee} onChange={(e) => setNewTicketAssignee(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500">
-                            <option value="">{t.selectUserToAssign}</option> {/* Nový překlad */}
-                            {allUsers.map(u => <option key={u.uid} value={u.uid}>{u.displayName || u.email}</option>)}
+                            <option value="">{t.selectUserToAssign}</option>
+                            {/* Zajistit, že allUsers je pole před mapováním */}
+                            {Array.isArray(allUsers) && allUsers.map(u => <option key={u.uid} value={u.uid}>{u.displayName || u.email}</option>)}
                         </select>
-                        {!allUsers.length && <p className="text-red-400 text-xs mt-1">{t.noUsersFound}</p>}
+                        {!Array.isArray(allUsers) || !allUsers.length && <p className="text-red-400 text-xs mt-1">{t.noUsersFound}</p>}
                     </div>
                     <div>
                         <label htmlFor="ticket-attachment" className="block text-sm font-medium text-gray-300 mb-1">{t.addAttachment}:</label>
                         <input type="file" id="ticket-attachment" ref={fileInputRef} onChange={handleFileChange} className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                        {attachment && <p className="text-xs text-gray-400 mt-1">{t.selectedAttachment}: {attachment.name}</p>} {/* Nový překlad */}
+                        {attachment && <p className="text-xs text-gray-400 mt-1">{t.selectedAttachment}: {attachment.name}</p>}
                     </div>
                     <button type="submit" className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 flex items-center justify-center gap-2">
                         <Send className="w-5 h-5" /> {t.createTicket}
@@ -157,7 +157,8 @@ export default function TicketsTab() {
                 </form>
 
                 <div className="overflow-x-auto">
-                    {tickets.length > 0 ? (
+                    {/* Zajistit, že tickets je pole před mapováním */}
+                    {Array.isArray(tickets) && tickets.length > 0 ? (
                         <table className="min-w-full bg-gray-700 rounded-lg">
                             <thead className="bg-gray-600">
                                 <tr>
@@ -172,7 +173,7 @@ export default function TicketsTab() {
                                 {tickets.map((ticket, index) => (
                                     <tr key={ticket.id} className={`border-t border-gray-600 ${index % 2 === 0 ? "bg-gray-750" : "bg-gray-700"}`}>
                                         <td className="py-3 px-4">{ticket.title}</td>
-                                        <td className="py-3 px-4">{allUsers.find(u => u.uid === ticket.assignedTo)?.displayName || 'N/A'}</td>
+                                        <td className="py-3 px-4">{Array.isArray(allUsers) && allUsers.find(u => u.uid === ticket.assignedTo)?.displayName || 'N/A'}</td> {/* Zajistit, že allUsers je pole */}
                                         <td className="py-3 px-4">
                                             <span className={`px-2 py-1 rounded-full text-xs font-semibold ${ticket.status === 'Open' ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}`}>
                                                 {ticket.status === 'Open' ? t.open : t.completed}
@@ -182,7 +183,6 @@ export default function TicketsTab() {
                                             {ticket.attachmentUrl && <a href={ticket.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline"><Paperclip className="w-4 h-4 inline-block mr-1"/>{ticket.attachmentName}</a>}
                                         </td>
                                         <td className="py-3 px-4">
-                                            {/* Možnost označit jako hotové pouze pokud je status 'Open' a uživatel je přiřazený */}
                                             {ticket.status === 'Open' && user && ticket.assignedTo === user.uid && (
                                                 <button onClick={() => handleMarkAsCompleted(ticket.id)} title={t.markAsCompleted} className="bg-green-600 text-white p-2 rounded-md text-sm hover:bg-green-700 flex items-center"><CheckCircle className="w-4 h-4"/></button>
                                             )}
