@@ -1,12 +1,10 @@
 import React from 'react';
+import { useUI } from '@/hooks/useUI';
 
 const TABS = [
     { id: 0, labelKey: 'dashboardTab' },
     { id: 1, labelKey: 'delayedOrdersTab' },
-    { id: 2, labelKey: 'orderSearchTab' },
-    { id: 3, labelKey: 'dailySummary' },
-    { id: 4, labelKey: 'announcedLoadingsTab' },
-    { id: 5, labelKey: 'ticketsTab' },
+    // Přidáme další záložky později
 ];
 
 export default function TabNavigation({ activeTab, setActiveTab }) {

@@ -4,19 +4,22 @@ import { useUI } from '@/hooks/useUI';
 import AppHeader from './AppHeader';
 import TabNavigation from './TabNavigation';
 import DashboardTab from '@/components/tabs/DashboardTab';
-// Budoucí záložky, prozatím zakomentované
-// import DelayedOrdersTab from '@/components/tabs/DelayedOrdersTab';
-// import OrderSearchTab from '@/components/tabs/OrderSearchTab';
+import { useData } from '@/hooks/useData';
 
 export default function DashboardLayout() {
     const { t, darkMode } = useUI();
     const [activeTab, setActiveTab] = useState(0);
+    const { summary } = useData();
 
     const renderActiveTab = () => {
+        if (!summary && activeTab !== 0) {
+             return <p className="text-center p-8">{t.uploadFilePrompt}</p>;
+        }
+        
         switch (activeTab) {
             case 0: return <DashboardTab />;
-            // case 1: return <DelayedOrdersTab />;
-            // case 2: return <OrderSearchTab />;
+            // Zde budou další záložky
+            // case 1: return <DelayedOrdersTab />; 
             default: return <DashboardTab />;
         }
     };
