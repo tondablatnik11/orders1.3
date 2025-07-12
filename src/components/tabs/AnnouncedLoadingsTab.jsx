@@ -1,25 +1,23 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth'; // Potřebujeme useAuth pro db, appId, user
+import { useAuth } from '@/hooks/useAuth';
 import { useUI } from '@/hooks/useUI';
-import { useData } from '@/hooks/useData'; // Potřebujeme useData pro allOrdersData, setSelectedOrderDetails
 import { Card, CardContent } from '@/components/ui/Card';
-import { Modal } from '@/components/ui/Modal'; // Modal komponenta
-import OrderListTable from '@/components/shared/OrderListTable'; // Tabulka pro seznam zakázek v modalu
-import { Ship, Send } from 'lucide-react'; // Přidán Send pro tlačítko Save
-import { collection, addDoc, query, onSnapshot, orderBy } from 'firebase/firestore'; // Firebase Firestore
-import { format, parseISO } from 'date-fns'; // Pro práci s daty
+import { Ship, Send } from 'lucide-react';
+import { collection, addDoc, query, onSnapshot, orderBy } from 'firebase/firestore';
+import { format, parseISO } from 'date-fns';
+import LoadingDetailsModal from '@/components/modals/LoadingDetailsModal'; // <-- Nový import
 
 export default function AnnouncedLoadingsTab() {
     const { t } = useUI();
-    const { db, appId, user } = useAuth(); // Získání Firebase dat z useAuth
-    const { allOrdersData, setSelectedOrderDetails } = useData(); // Získání dat zakázek a funkce pro modal z useData
+    const { db, appId, user } = useAuth();
     
     const [loadings, setLoadings] = useState([]);
     const [newLoading, setNewLoading] = useState({ loadingDate: '', carrierName: '', orderNumbers: '', notes: '' });
-    const [selectedLoadingDetails, setSelectedLoadingDetails] = useState(null);
-    const [message, setMessage] = useState({ text: '', type: '' }); // Pro zprávy o úspěchu/chybě
+    const [selectedLoading, setSelectedLoading] = useState(null); // <-- Stav pro vybranou nakládku
+    const [message, setMessage] = useState({ text: '', type: '' });
 
+    // Načítání avizovaných nakládek z Firestore
     useEffect(() => {
         if (!db || !appId) {
             console.warn("Firestore or App ID not available for AnnouncedLoadingsTab.");
@@ -44,15 +42,16 @@ export default function AnnouncedLoadingsTab() {
     const handleSaveLoading = async (e) => {
         e.preventDefault();
         if (!db || !appId || !user || !newLoading.loadingDate || !newLoading.carrierName) {
-            setMessage({ text: `${t.loadingError} ${t.fillAllFields}`, type: 'error' }); // Přidán nový překlad
+            setMessage({ text: `${t.loadingError} ${t.fillAllFields}`, type: 'error' });
             return;
         }
-        setMessage({ text: '', type: '' }); // Vyčistit předchozí zprávy
+        setMessage({ text: '', type: '' });
 
         try {
             await addDoc(collection(db, `artifacts/${appId}/public/data/announced_loadings`), {
                 ...newLoading,
                 order_numbers: newLoading.orderNumbers.split(',').map(n => n.trim()).filter(Boolean),
+                status: 'Ohlášeno', // Výchozí status
                 user_id: user.uid,
                 created_at: new Date().toISOString(),
             });
@@ -62,14 +61,6 @@ export default function AnnouncedLoadingsTab() {
             console.error("Error saving loading:", error);
             setMessage({ text: `${t.loadingError} ${error.message}`, type: 'error' });
         }
-    };
-
-    const handleSelectLoading = (loading) => {
-        // Filtrování zakázek podle čísel v nakládce
-        const orders = allOrdersData.filter(order => 
-            (loading.order_numbers || []).includes(String(order["Delivery No"] || order["Delivery"]))
-        );
-        setSelectedLoadingDetails({ ...loading, orders });
     };
 
     return (
@@ -93,7 +84,7 @@ export default function AnnouncedLoadingsTab() {
                     </div>
                     <div>
                         <label htmlFor="orderNumbers" className="block text-sm font-medium text-gray-300 mb-1">{t.orderNumbers}:</label>
-                        <textarea name="orderNumbers" id="orderNumbers" value={newLoading.orderNumbers} onChange={handleInputChange} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500 h-20 resize-y" placeholder={t.orderNumbersPlaceholder} /> {/* Nový překlad */}
+                        <textarea name="orderNumbers" id="orderNumbers" value={newLoading.orderNumbers} onChange={handleInputChange} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500 h-20 resize-y" placeholder={t.orderNumbersPlaceholder} />
                     </div>
                     <div>
                         <label htmlFor="notes" className="block text-sm font-medium text-gray-300 mb-1">{t.notes}:</label>
@@ -107,9 +98,18 @@ export default function AnnouncedLoadingsTab() {
                 <div className="space-y-3">
                     {loadings.length > 0 ? (
                         loadings.map((loading) => (
-                            <div key={loading.id} className="p-4 border border-gray-600 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors" onClick={() => handleSelectLoading(loading)}>
+                            <div key={loading.id} className="p-4 border border-gray-600 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors" onClick={() => setSelectedLoading(loading)}>
+                                <div className="flex justify-between items-center">
+                                    <p><strong>{t.carrierName}:</strong> {loading.carrierName}</p>
+                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                        loading.status === 'Naloženo' ? 'bg-green-600 text-white' :
+                                        loading.status === 'Připraveno' ? 'bg-yellow-500 text-black' :
+                                        'bg-blue-600 text-white'
+                                    }`}>
+                                        {loading.status || 'Ohlášeno'}
+                                    </span>
+                                </div>
                                 <p><strong>{t.loadingDate}:</strong> {format(parseISO(loading.loadingDate), 'dd/MM/yyyy')}</p>
-                                <p><strong>{t.carrierName}:</strong> {loading.carrierName}</p>
                                 <p className="text-sm text-gray-400 mt-1">{t.notes}: {loading.notes || t.noNotes}</p>
                             </div>
                         ))
@@ -117,13 +117,12 @@ export default function AnnouncedLoadingsTab() {
                         <p className="text-center text-gray-400">{t.noDataAvailable}</p>
                     )}
                 </div>
-                {selectedLoadingDetails && (
-                    <Modal title={t.loadingDetails} onClose={() => setSelectedLoadingDetails(null)}>
-                        <h3 className="text-lg font-bold mb-2 text-white">{selectedLoadingDetails.carrierName} - {format(parseISO(selectedLoadingDetails.loadingDate), 'dd/MM/yyyy')}</h3>
-                        <p className="mb-4 text-gray-300">{selectedLoadingDetails.notes || t.noNotes}</p>
-                        {/* OrderListTable je nyní univerzální, může přijímat onSelectOrder */}
-                        <OrderListTable orders={selectedLoadingDetails.orders} onSelectOrder={setSelectedOrderDetails} />
-                    </Modal>
+                
+                {selectedLoading && (
+                    <LoadingDetailsModal 
+                        loading={selectedLoading} 
+                        onClose={() => setSelectedLoading(null)} 
+                    />
                 )}
             </CardContent>
         </Card>
