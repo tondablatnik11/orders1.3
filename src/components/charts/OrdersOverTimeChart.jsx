@@ -1,19 +1,21 @@
 "use client";
 import React, { useState } from 'react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, Brush, AreaChart, Area } from 'recharts';
-import { useData } from '@/hooks/useData';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useUI } from '@/hooks/useUI';
 import { CHART_COLORS } from '@/lib/utils';
 import { Card, CardContent } from '../ui/Card';
 import { format } from 'date-fns';
 import { BarChart3, LineChart as LineChartIcon } from 'lucide-react';
 
-export default function OrdersOverTimeChart() {
-    const { summary } = useData();
+export default function OrdersOverTimeChart({ summary }) {
     const { t } = useUI();
     const [chartType, setChartType] = useState('bar');
 
-    const chartData = summary?.dailySummaries.map(day => ({
+    if (!summary || !summary.dailySummaries) {
+        return <p>{t.noDataAvailable}</p>;
+    }
+
+    const chartData = summary.dailySummaries.map(day => ({
         date: day.date,
         total: day.total,
         remaining: day.remaining,

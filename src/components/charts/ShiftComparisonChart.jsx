@@ -1,18 +1,20 @@
 "use client";
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { CHART_COLORS } from '@/lib/utils';
 import { Card, CardContent } from '../ui/Card';
 
-export default function ShiftComparisonChart() {
-    const { summary } = useData();
+export default function ShiftComparisonChart({ summary }) {
     const { t } = useUI();
 
+    if (!summary || !summary.shiftDoneCounts) {
+        return <p>{t.noDataAvailable}</p>;
+    }
+
     const chartData = [
-        { name: t.shift1Name, value: summary?.shiftDoneCounts?.['1'] || 0 },
-        { name: t.shift2Name, value: summary?.shiftDoneCounts?.['2'] || 0 },
+        { name: t.shift1Name, value: summary.shiftDoneCounts['1'] || 0 },
+        { name: t.shift2Name, value: summary.shiftDoneCounts['2'] || 0 },
     ];
     
     const hasData = chartData.some(d => d.value > 0);

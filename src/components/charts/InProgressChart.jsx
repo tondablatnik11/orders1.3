@@ -1,16 +1,18 @@
 "use client";
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { CHART_COLORS } from '@/lib/utils';
 import { Card, CardContent } from '../ui/Card';
 
-export default function InProgressChart() {
-    const { summary } = useData();
+export default function InProgressChart({ summary }) {
     const { t } = useUI();
 
-    const chartData = Object.entries(summary?.hourlyStatusSnapshots || {})
+    if (!summary || !summary.hourlyStatusSnapshots) {
+        return <p>{t.noDataAvailable}</p>;
+    }
+
+    const chartData = Object.entries(summary.hourlyStatusSnapshots)
         .map(([hour, statuses]) => ({
             hour: `${hour}:00`,
             status31: statuses['31'] || 0,

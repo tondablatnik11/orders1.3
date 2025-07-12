@@ -51,12 +51,13 @@ export default function DashboardTab() {
                 <DataFilters />
                 <SummaryCards summary={summary} />
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <StatusDistributionChart />
-                    <OrdersOverTimeChart />
-                    <InProgressChart />
-                    <ShipmentsChart />
-                    <ShiftComparisonChart />
-                    <OrderTypesChart />
+                    {/* Explicitně předáváme data, aby se komponenty správně aktualizovaly */}
+                    <StatusDistributionChart summary={summary} />
+                    <OrdersOverTimeChart summary={summary} />
+                    <InProgressChart summary={summary} />
+                    <ShipmentsChart summary={summary} />
+                    <ShiftComparisonChart summary={summary} />
+                    <OrderTypesChart summary={summary} />
                 </div>
             </div>
         </div>

@@ -1,16 +1,18 @@
 "use client";
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { CHART_COLORS } from '@/lib/utils';
 import { Card, CardContent } from '../ui/Card';
 
-export default function OrderTypesChart() {
-    const { summary } = useData();
+export default function OrderTypesChart({ summary }) {
     const { t } = useUI();
 
-    const chartData = Object.entries(summary?.deliveryTypes || {}).map(([type, count]) => ({
+    if (!summary || !summary.deliveryTypes) {
+        return <p>{t.noDataAvailable}</p>;
+    }
+
+    const chartData = Object.entries(summary.deliveryTypes).map(([type, count]) => ({
         name: type === 'P' ? t.pallets : t.carton,
         value: count,
     }));

@@ -1,16 +1,18 @@
 "use client";
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { CHART_COLORS } from '@/lib/utils';
 import { Card, CardContent } from '../ui/Card';
 
-export default function ShipmentsChart() {
-    const { summary } = useData();
+export default function ShipmentsChart({ summary }) {
     const { t } = useUI();
 
-    const chartData = Object.entries(summary?.hourlyStatusSnapshots || {})
+    if (!summary || !summary.hourlyStatusSnapshots) {
+        return <p>{t.noDataAvailable}</p>;
+    }
+
+    const chartData = Object.entries(summary.hourlyStatusSnapshots)
         .map(([hour, statuses]) => ({
             hour: `${hour}:00`,
             status50: statuses['50'] || 0,
