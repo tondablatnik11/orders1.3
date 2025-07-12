@@ -6,7 +6,9 @@ import AppHeader from './AppHeader';
 import TabNavigation from './TabNavigation'; 
 import DashboardTab from '@/components/tabs/DashboardTab';
 import DelayedOrdersTab from '@/components/tabs/DelayedOrdersTab';
-import OrderSearchTab from '@/components/tabs/OrderSearchTab'; // NOVÝ IMPORT
+import OrderSearchTab from '@/components/tabs/OrderSearchTab';
+import AnnouncedLoadingsTab from '@/components/tabs/AnnouncedLoadingsTab'; // NOVÝ IMPORT
+import TicketsTab from '@/components/tabs/TicketsTab'; // NOVÝ IMPORT
 
 export default function DashboardLayout() {
     const { t, darkMode } = useUI();
@@ -46,9 +48,12 @@ export default function DashboardLayout() {
                 return <DashboardTab />;
             case 1:
                 return <DelayedOrdersTab />;
-            case 2: // NOVÁ ZÁLOŽKA PRO VYHLEDÁVÁNÍ
+            case 2: 
                 return <OrderSearchTab />; 
-            // Přidejte další záložky, pokud je máte definované v TabNavigation
+            case 3: // Nová záložka pro Avizované nakládky
+                return <AnnouncedLoadingsTab />; 
+            case 4: // Nová záložka pro Tickety
+                return <TicketsTab />;
             default:
                 return <DashboardTab />;
         }

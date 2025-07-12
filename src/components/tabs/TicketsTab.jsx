@@ -1,29 +1,32 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useUI } from '@/hooks/useUI';
-import { exportTicketsToXLSX } from '@/lib/exportUtils';
-import { Card, CardContent } from '../ui/Card';
-import { Ticket, Send, CheckCircle, Paperclip, FileDown } from 'lucide-react';
-import { collection, addDoc, query, onSnapshot, orderBy, updateDoc, doc } from 'firebase/firestore';
-import { format, parseISO } from 'date-fns';
+import { useAuth } from '@/hooks/useAuth'; // Pro přístup k uživateli, uživatelskému profilu, db a appId
+import { useUI } from '@/hooks/useUI'; // Pro překlady
+import { exportTicketsToXLSX } from '@/lib/exportUtils'; // Funkce pro export
+import { Card, CardContent } from '../ui/Card'; // Komponenty Card
+import { Ticket, Send, CheckCircle, Paperclip, FileDown } from 'lucide-react'; // Ikony
+import { collection, addDoc, query, onSnapshot, orderBy, updateDoc, doc } from 'firebase/firestore'; // Firebase Firestore
+import { format, parseISO } from 'date-fns'; // Pro formátování dat
 
 export default function TicketsTab() {
     const { t } = useUI();
-    const { user, userProfile, allUsers, db, appId, supabase } = useAuth();
+    const { user, userProfile, allUsers, db, appId, supabase } = useAuth(); // Z AuthContextu bereme i supabase pro storage
 
     const [tickets, setTickets] = useState([]);
     const [newTicketTitle, setNewTicketTitle] = useState('');
     const [newTicketDescription, setNewTicketDescription] = useState('');
     const [newTicketAssignee, setNewTicketAssignee] = useState('');
-    const [message, setMessage] = useState({ text: '', type: '' });
-    const [attachment, setAttachment] = useState(null);
-    const fileInputRef = useRef(null);
+    const [message, setMessage] = useState({ text: '', type: '' }); // Pro zprávy o úspěchu/chybě
+    const [attachment, setAttachment] = useState(null); // Pro soubor přílohy
+    const fileInputRef = useRef(null); // Reference pro resetování inputu typu file
 
     useEffect(() => {
-        if (!db || !appId) return;
+        if (!db || !appId) {
+            console.warn("Firestore or App ID not available for TicketsTab.");
+            return;
+        }
         const ticketsColRef = collection(db, `artifacts/${appId}/public/data/tickets`);
-        const q = query(ticketsColRef, orderBy('createdAt', 'desc'));
+        const q = query(ticketsColRef, orderBy('createdAt', 'desc')); // Řadit od nejnovějších
         const unsubscribe = onSnapshot(q, (snapshot) => {
             setTickets(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         }, (error) => {
@@ -41,60 +44,73 @@ export default function TicketsTab() {
 
     const handleCreateTicket = async (e) => {
         e.preventDefault();
-        if (!newTicketTitle || !newTicketDescription || !newTicketAssignee || !user) {
-            setMessage({ text: t.ticketError + ' Vyplňte všechna pole.', type: 'error' });
+        // Kontrola všech povinných polí a přítomnosti uživatele
+        if (!newTicketTitle || !newTicketDescription || !newTicketAssignee || !user || !db || !appId) {
+            setMessage({ text: t.ticketError + ' ' + t.fillAllFields, type: 'error' }); // Přidán nový překlad
             return;
         }
 
-        setMessage({ text: '', type: '' });
+        setMessage({ text: '', type: '' }); // Vyčistit předchozí zprávy
         let attachmentUrl = null, attachmentName = null;
 
         if (attachment) {
+            // Cesta pro uložení souboru v Supabase Storage (uid uživatele pro oddělení souborů)
             const filePath = `${user.uid}/${Date.now()}_${attachment.name}`;
             const { error: uploadError } = await supabase.storage
-                .from('ticket-attachments')
+                .from('ticket-attachments') // Název vašeho bucketu v Supabase Storage
                 .upload(filePath, attachment);
 
             if (uploadError) {
                 setMessage({ text: `${t.ticketError} ${uploadError.message}`, type: 'error' });
                 return;
             }
+            // Získání veřejné URL k nahranému souboru
             const { data: { publicUrl } } = supabase.storage.from('ticket-attachments').getPublicUrl(filePath);
             attachmentUrl = publicUrl;
             attachmentName = attachment.name;
         }
 
         try {
+            // Přidání dokumentu do Firestore
             await addDoc(collection(db, `artifacts/${appId}/public/data/tickets`), {
                 title: newTicketTitle,
                 description: newTicketDescription,
-                assignedTo: newTicketAssignee,
-                status: 'Open',
+                assignedTo: newTicketAssignee, // UID uživatele, kterému je ticket přiřazen
+                status: 'Open', // Výchozí status
                 createdBy: user.uid,
-                createdByName: userProfile?.displayName || user.email,
-                createdAt: new Date().toISOString(),
+                createdByName: userProfile?.displayName || user.email, // Jméno tvůrce
+                createdAt: new Date().toISOString(), // Čas vytvoření ve formátu ISO string
                 attachmentUrl,
                 attachmentName,
             });
+            // Reset formuláře po úspěšném vytvoření
             setNewTicketTitle('');
             setNewTicketDescription('');
             setNewTicketAssignee('');
             setAttachment(null);
-            if (fileInputRef.current) fileInputRef.current.value = "";
+            if (fileInputRef.current) fileInputRef.current.value = ""; // Reset file inputu
             setMessage({ text: t.ticketCreatedSuccess, type: 'success' });
         } catch (error) {
+            console.error("Error creating ticket:", error);
             setMessage({ text: `${t.ticketError} ${error.message}`, type: 'error' });
         }
     };
 
     const handleMarkAsCompleted = async (ticketId) => {
         if (!db || !appId) return;
-        const ticketRef = doc(db, `artifacts/${appId}/public/data/tickets`, ticketId);
-        await updateDoc(ticketRef, { status: 'Completed', completedAt: new Date().toISOString() });
-        setMessage({ text: t.ticketUpdateSuccess, type: 'success' });
+        try {
+            const ticketRef = doc(db, `artifacts/${appId}/public/data/tickets`, ticketId);
+            await updateDoc(ticketRef, { status: 'Completed', completedAt: new Date().toISOString() });
+            setMessage({ text: t.ticketUpdateSuccess, type: 'success' });
+        } catch (error) {
+            console.error("Error updating ticket status:", error);
+            setMessage({ text: `${t.ticketError} ${error.message}`, type: 'error' });
+        }
     };
     
+    // Export ticketů do XLSX
     const handleExport = () => {
+        // exportTicketsToXLSX potřebuje tickets, allUsers a t
         exportTicketsToXLSX(tickets, allUsers, t);
     };
 
@@ -116,22 +132,24 @@ export default function TicketsTab() {
                     <h3 className="text-xl font-semibold text-blue-300 mb-3">{t.createTicket}</h3>
                     <div>
                         <label htmlFor="ticket-title" className="block text-sm font-medium text-gray-300 mb-1">{t.ticketTitle}:</label>
-                        <input type="text" id="ticket-title" value={newTicketTitle} onChange={(e) => setNewTicketTitle(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500" />
+                        <input type="text" id="ticket-title" value={newTicketTitle} onChange={(e) => setNewTicketTitle(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500" placeholder={t.ticketTitlePlaceholder} /> {/* Nový překlad */}
                     </div>
                     <div>
                         <label htmlFor="ticket-description" className="block text-sm font-medium text-gray-300 mb-1">{t.ticketDescription}:</label>
-                        <textarea id="ticket-description" value={newTicketDescription} onChange={(e) => setNewTicketDescription(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500 h-24" />
+                        <textarea id="ticket-description" value={newTicketDescription} onChange={(e) => setNewTicketDescription(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500 h-24 resize-y" placeholder={t.ticketDescriptionPlaceholder} /> {/* Nový překlad */}
                     </div>
                     <div>
                         <label htmlFor="ticket-assignee" className="block text-sm font-medium text-gray-300 mb-1">{t.assignTo}:</label>
                         <select id="ticket-assignee" value={newTicketAssignee} onChange={(e) => setNewTicketAssignee(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500">
-                            <option value="">{t.selectImport}</option>
+                            <option value="">{t.selectUserToAssign}</option> {/* Nový překlad */}
                             {allUsers.map(u => <option key={u.uid} value={u.uid}>{u.displayName || u.email}</option>)}
                         </select>
+                        {!allUsers.length && <p className="text-red-400 text-xs mt-1">{t.noUsersFound}</p>}
                     </div>
                     <div>
                         <label htmlFor="ticket-attachment" className="block text-sm font-medium text-gray-300 mb-1">{t.addAttachment}:</label>
                         <input type="file" id="ticket-attachment" ref={fileInputRef} onChange={handleFileChange} className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                        {attachment && <p className="text-xs text-gray-400 mt-1">{t.selectedAttachment}: {attachment.name}</p>} {/* Nový překlad */}
                     </div>
                     <button type="submit" className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 flex items-center justify-center gap-2">
                         <Send className="w-5 h-5" /> {t.createTicket}
@@ -164,6 +182,7 @@ export default function TicketsTab() {
                                             {ticket.attachmentUrl && <a href={ticket.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline"><Paperclip className="w-4 h-4 inline-block mr-1"/>{ticket.attachmentName}</a>}
                                         </td>
                                         <td className="py-3 px-4">
+                                            {/* Možnost označit jako hotové pouze pokud je status 'Open' a uživatel je přiřazený */}
                                             {ticket.status === 'Open' && user && ticket.assignedTo === user.uid && (
                                                 <button onClick={() => handleMarkAsCompleted(ticket.id)} title={t.markAsCompleted} className="bg-green-600 text-white p-2 rounded-md text-sm hover:bg-green-700 flex items-center"><CheckCircle className="w-4 h-4"/></button>
                                             )}
