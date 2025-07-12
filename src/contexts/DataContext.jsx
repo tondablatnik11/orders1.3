@@ -73,7 +73,7 @@ export const DataProvider = ({ children }) => {
 
   const handleFileUpload = async (file) => {
       if (!file) return;
-      setIsLoadingData(true);
+      setIsLoadingData(true); // Set loading state
       const reader = new FileReader();
       reader.onload = async (evt) => {
           try {
@@ -99,7 +99,7 @@ export const DataProvider = ({ children }) => {
             if (error) throw error;
 
             alert('Data byla úspěšně nahrána!');
-            fetchData();
+            fetchData(); // Refresh all data
           } catch (error) {
             console.error('File upload error:', error);
             alert('Chyba při nahrávání dat.');
