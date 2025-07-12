@@ -3,16 +3,12 @@ import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Lock, Mail } from 'lucide-react';
 
-// Importy potřebné pro Google přihlášení
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { auth } from '../../lib/firebase'; // Přímý import auth instance
-
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
-  const { login, register } = useAuth();
+  const { login, register, googleSignIn } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,13 +27,10 @@ const Login = () => {
     }
   };
 
-  // Plně funkční přihlášení přes Google
   const handleGoogleSignIn = async () => {
     setError('');
-    const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      // O zbytek (vytvoření profilu, atd.) se postará náš AuthContext
+      await googleSignIn();
     } catch (err) {
       setError('Přihlášení přes Google se nezdařilo.');
       console.error('Google Sign-in error:', err);
