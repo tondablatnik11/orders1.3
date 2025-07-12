@@ -2,8 +2,6 @@
 import React, { useState } from 'react';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
-import { useAuth } from '@/hooks/useAuth';
-import { exportDelayedOrdersXLSX } from '@/lib/exportUtils';
 import { format, parseISO } from 'date-fns';
 import { getDelayColorClass } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -12,28 +10,20 @@ import { FileDown, ClipboardList } from 'lucide-react';
 export default function DelayedOrdersTab() {
     const { summary, handleSaveNote } = useData();
     const { t } = useUI();
-    const { supabase } = useAuth();
     const [showAll, setShowAll] = useState(false);
     const [localNotes, setLocalNotes] = useState({});
 
-    if (!summary || !summary.delayedOrdersList) {
-        return <p className="text-center p-8">{t.noDataAvailable}</p>;
+    if (!summary || !summary.delayedOrdersList || summary.delayedOrdersList.length === 0) {
+        return <Card><CardContent><p className="text-center p-8">{t.noDataAvailable}</p></CardContent></Card>;
     }
 
-    const handleExport = () => {
-        exportDelayedOrdersXLSX(supabase, t);
-    };
-    
     const handleNoteChange = (deliveryNo, text) => {
         setLocalNotes(prev => ({ ...prev, [deliveryNo]: text }));
     };
 
-    const handleNoteBlur = (deliveryNo) => {
-        if (localNotes[deliveryNo] !== undefined) {
-            const originalNote = summary.delayedOrdersList.find(o => o.delivery === deliveryNo)?.note || '';
-            if (localNotes[deliveryNo] !== originalNote) {
-                handleSaveNote(deliveryNo, localNotes[deliveryNo]);
-            }
+    const handleNoteBlur = (deliveryNo, originalNote) => {
+        if (localNotes[deliveryNo] !== undefined && localNotes[deliveryNo] !== originalNote) {
+            handleSaveNote(deliveryNo, localNotes[deliveryNo]);
         }
     };
 
@@ -47,7 +37,7 @@ export default function DelayedOrdersTab() {
                     <h2 className="text-2xl font-semibold flex items-center gap-2 text-red-400">
                         <ClipboardList className="w-6 h-6" /> {t.delayed} ({delayedOrders.length})
                     </h2>
-                    <button onClick={handleExport} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700">
+                    <button className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700">
                         <FileDown className="w-5 h-5" /> {t.exportToXLSX}
                     </button>
                 </div>
@@ -63,18 +53,18 @@ export default function DelayedOrdersTab() {
                             </tr>
                         </thead>
                         <tbody>
-                            {displayedOrders.map((order, index) => (
-                                <tr key={order.delivery || index} className="border-t border-gray-600 hover:bg-gray-600">
-                                    <td className="py-3 px-4">{order.delivery}</td>
+                            {displayedOrders.map((order) => (
+                                <tr key={order["Delivery No"]} className="border-t border-gray-600 hover:bg-gray-600">
+                                    <td className="py-3 px-4">{order["Delivery No"]}</td>
                                     <td className={`py-3 px-4 font-semibold ${getDelayColorClass(order.delayDays)}`}>{order.delayDays}</td>
-                                    <td className="py-3 px-4">{format(parseISO(order.loadingDate), 'dd.MM.yyyy')}</td>
-                                    <td className="py-3 px-4">{order.status}</td>
+                                    <td className="py-3 px-4">{format(parseISO(order["Loading Date"]), 'dd.MM.yyyy')}</td>
+                                    <td className="py-3 px-4">{order.Status}</td>
                                     <td className="py-3 px-4">
                                         <input
                                             type="text"
-                                            value={localNotes[order.delivery] ?? order.note}
-                                            onChange={(e) => handleNoteChange(order.delivery, e.target.value)}
-                                            onBlur={() => handleNoteBlur(order.delivery)}
+                                            value={localNotes[order["Delivery No"]] ?? order.Note ?? ''}
+                                            onChange={(e) => handleNoteChange(order["Delivery No"], e.target.value)}
+                                            onBlur={() => handleNoteBlur(order["Delivery No"], order.Note)}
                                             className="w-full p-1 rounded-md bg-gray-600 border border-gray-500 text-sm"
                                         />
                                     </td>
