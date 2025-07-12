@@ -45,39 +45,12 @@ export const DataProvider = ({ children }) => {
       setSummary(null);
     }
   }, [allOrdersData]);
-  
-  const handleFileUpload = async (file) => {
-      if (!file) return;
-      setIsLoading(true);
-      const reader = new FileReader();
-      reader.onload = async (evt) => {
-          try {
-            const bstr = evt.target.result;
-            const wb = window.XLSX.read(bstr, { type: 'binary' });
-            const wsname = wb.SheetNames[0];
-            const ws = wb.Sheets[wsname];
-            const jsonData = window.XLSX.utils.sheet_to_json(ws);
-            const transformedData = jsonData.map(row => ({
-                "Delivery No": String(row["Delivery No"] || row["Delivery"]).trim(),
-                "Status": Number(row["Status"]),
-                "del.type": row["del.type"],
-                "Loading Date": new Date((row["Loading Date"] - 25569) * 86400 * 1000).toISOString(),
-            }));
-            const { error } = await supabase.from('deliveries').upsert(transformedData, { onConflict: 'Delivery No' });
-            if (error) throw error;
-            alert('Data byla úspěšně nahrána!');
-            fetchData();
-          } catch (error) {
-            console.error('File upload error:', error);
-            alert('Chyba při nahrávání dat.');
-            setIsLoading(false);
-          }
-      };
-      reader.readAsBinaryString(file);
-  };
 
+  const value = { summary, isLoading, allOrdersData, fetchData };
 
-  const value = { summary, isLoading, allOrdersData, handleFileUpload, fetchData };
-
-  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
+  return (
+    <DataContext.Provider value={value}>
+      {children}
+    </DataContext.Provider>
+  );
 };

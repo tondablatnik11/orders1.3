@@ -2,10 +2,9 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db, appId } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
 
 export const AuthContext = createContext(null);
-
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
@@ -16,7 +15,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, user.uid);
+        const userProfileRef = doc(db, "user_profiles", user.uid);
         const userProfileSnap = await getDoc(userProfileRef);
         if (userProfileSnap.exists()) {
           setCurrentUserProfile({ uid: user.uid, ...userProfileSnap.data() });
