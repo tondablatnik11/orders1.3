@@ -4,7 +4,8 @@ import { useUI } from '@/hooks/useUI';
 const TABS = [
     { id: 0, labelKey: 'dashboardTab' },
     { id: 1, labelKey: 'delayedOrdersTab' },
-    // Přidáme další záložky později
+    { id: 2, labelKey: 'orderSearchTab' }, // NOVÁ ZÁLOŽKA
+    // Přidáme další záložky později, pokud je máte definované
 ];
 
 export default function TabNavigation({ activeTab, setActiveTab }) {

@@ -6,6 +6,7 @@ import AppHeader from './AppHeader';
 import TabNavigation from './TabNavigation'; 
 import DashboardTab from '@/components/tabs/DashboardTab';
 import DelayedOrdersTab from '@/components/tabs/DelayedOrdersTab';
+import OrderSearchTab from '@/components/tabs/OrderSearchTab'; // NOVÝ IMPORT
 
 export default function DashboardLayout() {
     const { t, darkMode } = useUI();
@@ -32,13 +33,7 @@ export default function DashboardLayout() {
 
     }, []);
 
-    // Úklid logů, které již nejsou potřeba
-    useEffect(() => {
-        // console.log('DashboardLayout: Vykresluji se.'); 
-    }, []);
-
     const renderActiveTab = () => {
-        // console.log('DashboardLayout: renderActiveTab spuštěn, activeTab je:', activeTab); 
         if (isLoadingData) {
             return <p className="text-center p-8">Načítám data...</p>;
         }
@@ -48,14 +43,13 @@ export default function DashboardLayout() {
         
         switch (activeTab) {
             case 0:
-                // console.log('DashboardLayout: Vykresluji DashboardTab.'); 
                 return <DashboardTab />;
             case 1:
-                // console.log('DashboardLayout: Vykresluji DelayedOrdersTab.'); 
                 return <DelayedOrdersTab />;
-            // Přidejte další záložky, pokud je máte v TabNavigation
+            case 2: // NOVÁ ZÁLOŽKA PRO VYHLEDÁVÁNÍ
+                return <OrderSearchTab />; 
+            // Přidejte další záložky, pokud je máte definované v TabNavigation
             default:
-                // console.log('DashboardLayout: Vykresluji výchozí DashboardTab.'); 
                 return <DashboardTab />;
         }
     };
