@@ -21,7 +21,7 @@ export const DataProvider = ({ children }) => {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   const { currentUser } = useAuth();
-  const supabase = getSupabase();
+  const supabase = getSupabase(); // Supabase klient je inicializován zde a je připraven k použití
 
   const fetchData = useCallback(async () => {
     if (!currentUser) {
@@ -73,7 +73,7 @@ export const DataProvider = ({ children }) => {
 
   const handleFileUpload = async (file) => {
       if (!file) return;
-      setIsLoadingData(true); // Set loading state
+      setIsLoadingData(true); // Nastavení načítacího stavu
       const reader = new FileReader();
       reader.onload = async (evt) => {
           try {
@@ -99,9 +99,9 @@ export const DataProvider = ({ children }) => {
             if (error) throw error;
 
             alert('Data byla úspěšně nahrána!');
-            fetchData(); // Refresh all data
+            fetchData(); // Obnovení všech dat
           } catch (error) {
-            console.error('File upload error:', error);
+            console.error('Chyba při nahrávání souboru:', error);
             alert('Chyba při nahrávání dat.');
             setIsLoadingData(false);
           }
@@ -119,7 +119,8 @@ export const DataProvider = ({ children }) => {
     handleSaveNote,
     handleFileUpload,
     selectedOrderDetails,
-    setSelectedOrderDetails
+    setSelectedOrderDetails,
+    supabase, // Zpřístupnění instance supabase klienta v kontextu
   };
 
   return (
