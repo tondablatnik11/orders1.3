@@ -1,131 +1,162 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUI } from '@/hooks/useUI';
-import { useData } from '@/hooks/useData';
-import { Card, CardContent } from '@/components/ui/Card';
-import { Ship, Send } from 'lucide-react';
+import { exportTicketsToXLSX } from '@/lib/exportUtils';
+import { Card, CardContent } from '../ui/Card';
+import { Ticket, Send, Paperclip, FileDown } from 'lucide-react';
 import { collection, addDoc, query, onSnapshot, orderBy } from 'firebase/firestore';
-import { format, parseISO } from 'date-fns';
-import LoadingDetailsModal from '@/components/modals/LoadingDetailsModal';
+import TicketDetailsModal from '@/components/modals/TicketDetailsModal';
 
-export default function AnnouncedLoadingsTab() {
+export default function TicketsTab() {
     const { t } = useUI();
-    const { user, db, appId } = useAuth();
-    const { allOrdersData, isLoadingData } = useData(); 
-    
-    const [loadings, setLoadings] = useState([]);
-    const [newLoading, setNewLoading] = useState({ loadingDate: '', carrierName: '', orderNumbers: '', notes: '' });
-    const [selectedLoading, setSelectedLoading] = useState(null);
-    const [selectedLoadingOrders, setSelectedLoadingOrders] = useState([]);
+    const { user, userProfile, allUsers, db, appId, supabase, loading: authLoading } = useAuth();
+
+    const [tickets, setTickets] = useState([]);
+    const [newTicketTitle, setNewTicketTitle] = useState('');
+    const [newTicketDescription, setNewTicketDescription] = useState('');
+    const [newTicketCategory, setNewTicketCategory] = useState('');
+    const [newTicketAssignee, setNewTicketAssignee] = useState('');
     const [message, setMessage] = useState({ text: '', type: '' });
+    const [attachment, setAttachment] = useState(null);
+    const fileInputRef = useRef(null);
+    const [selectedTicket, setSelectedTicket] = useState(null);
+
+    const ticketCategories = ["Inbound", "Outbound", "Picking", "Packing", "Admins", "IT/Údržba"];
 
     useEffect(() => {
         if (!db || !appId) return;
-        const loadingsColRef = collection(db, `artifacts/${appId}/public/data/announced_loadings`);
-        const q = query(loadingsColRef, orderBy('created_at', 'desc'));
+        const ticketsColRef = collection(db, `artifacts/${appId}/public/data/tickets`);
+        const q = query(ticketsColRef, orderBy('createdAt', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            setLoadings(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            setTickets(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         });
         return () => unsubscribe();
-    }, [db, appId, t]);
+    }, [db, appId]);
 
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setNewLoading(prev => ({ ...prev, [name]: value }));
+    const handleFileChange = (e) => {
+        if (e.target.files[0]) setAttachment(e.target.files[0]);
     };
 
-    const handleSaveLoading = async (e) => {
+    const handleCreateTicket = async (e) => {
         e.preventDefault();
-        if (!user || !newLoading.loadingDate || !newLoading.carrierName) {
+        
+        if (!user) {
+            setMessage({ text: "Chyba: Uživatel není přihlášen.", type: 'error' });
+            return;
+        }
+        
+        if (!newTicketTitle.trim() || !newTicketDescription.trim() || !newTicketAssignee || !newTicketCategory) {
             setMessage({ text: t.fillAllFields || "Vyplňte všechna povinná pole.", type: 'error' });
             return;
         }
+        
         setMessage({ text: '', type: '' });
+        let attachmentUrl = null, attachmentName = null;
+
+        if (attachment) {
+            const filePath = `${user.uid}/${Date.now()}_${attachment.name}`;
+            const { error: uploadError } = await supabase.storage.from('ticket-attachments').upload(filePath, attachment);
+            if (uploadError) {
+                setMessage({ text: `${t.ticketError} ${uploadError.message}`, type: 'error' });
+                return;
+            }
+            const { data: { publicUrl } } = supabase.storage.from('ticket-attachments').getPublicUrl(filePath);
+            attachmentUrl = publicUrl;
+            attachmentName = attachment.name;
+        }
 
         try {
-            await addDoc(collection(db, `artifacts/${appId}/public/data/announced_loadings`), {
-                ...newLoading,
-                order_numbers: newLoading.orderNumbers.split(',').map(n => n.trim()).filter(Boolean),
-                status: 'Ohlášeno',
-                user_id: user.uid,
-                created_at: new Date().toISOString(),
+            await addDoc(collection(db, `artifacts/${appId}/public/data/tickets`), {
+                title: newTicketTitle.trim(),
+                description: newTicketDescription.trim(),
+                assignedTo: newTicketAssignee,
+                category: newTicketCategory,
+                status: 'Vytvořeno',
+                createdBy: user.uid,
+                createdByName: userProfile?.displayName || user.email,
+                createdAt: new Date().toISOString(),
+                attachmentUrl,
+                attachmentName,
             });
-            setNewLoading({ loadingDate: '', carrierName: '', orderNumbers: '', notes: '' });
-            setMessage({ text: t.loadingAddedSuccess, type: 'success' });
+
+            setNewTicketTitle('');
+            setNewTicketDescription('');
+            setNewTicketAssignee('');
+            setNewTicketCategory('');
+            setAttachment(null);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            setMessage({ text: t.ticketCreatedSuccess, type: 'success' });
         } catch (error) {
-            setMessage({ text: `${t.loadingError} ${error.message}`, type: 'error' });
+            console.error("Error creating ticket:", error);
+            setMessage({ text: `${t.ticketError} ${error.message}`, type: 'error' });
         }
+    };
+    
+    const handleExport = () => {
+        if (allUsers) exportTicketsToXLSX(tickets, allUsers, t);
     };
 
-    const handleSelectLoading = (loading) => {
-        if (isLoadingData) {
-            alert("Data zakázek se ještě načítají, zkuste to prosím za chvíli.");
-            return;
-        }
-        const relatedOrders = allOrdersData ? allOrdersData.filter(order => 
-            (loading.order_numbers || []).includes(String(order["Delivery No"] || order["Delivery"]))
-        ) : [];
-        setSelectedLoadingOrders(relatedOrders);
-        setSelectedLoading(loading);
-    };
+    if (authLoading) {
+        return <p className="text-center p-8">Načítání informací o uživateli...</p>;
+    }
 
     return (
         <Card>
             <CardContent>
-                <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2 text-cyan-400">
-                    <Ship className="w-6 h-6" /> {t.announcedLoadingsTab}
-                </h2>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-2xl font-semibold flex items-center gap-2 text-purple-400">
+                        <Ticket className="w-6 h-6" /> {t.ticketsTab}
+                    </h2>
+                    <button onClick={handleExport} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700">
+                        <FileDown className="w-5 h-5" /> {t.exportToXLSX}
+                    </button>
+                </div>
+
                 {message.text && <div className={`p-3 mb-4 rounded-md text-sm ${message.type === 'success' ? 'bg-green-800 text-green-100' : 'bg-red-800 text-red-100'}`}>{message.text}</div>}
-                
-                <form onSubmit={handleSaveLoading} className="space-y-4 mb-8 p-4 border border-gray-700 rounded-lg bg-gray-750">
-                    <h3 className="text-xl font-semibold text-blue-300 mb-3">{t.addLoading}</h3>
-                    <div>
-                        <label htmlFor="loadingDate" className="block text-sm font-medium text-gray-300 mb-1">{t.loadingDate}:</label>
-                        <input type="date" name="loadingDate" id="loadingDate" value={newLoading.loadingDate} onChange={handleInputChange} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500" />
-                    </div>
-                    <div>
-                        <label htmlFor="carrierName" className="block text-sm font-medium text-gray-300 mb-1">{t.carrierName}:</label>
-                        <input type="text" name="carrierName" id="carrierName" value={newLoading.carrierName} onChange={handleInputChange} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500" />
-                    </div>
-                    <div>
-                        <label htmlFor="orderNumbers" className="block text-sm font-medium text-gray-300 mb-1">{t.orderNumbers}:</label>
-                        <textarea name="orderNumbers" id="orderNumbers" value={newLoading.orderNumbers} onChange={handleInputChange} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500 h-20 resize-y" placeholder={t.orderNumbersPlaceholder} />
-                    </div>
-                    <div>
-                        <label htmlFor="notes" className="block text-sm font-medium text-gray-300 mb-1">{t.notes}:</label>
-                        <textarea name="notes" id="notes" value={newLoading.notes} onChange={handleInputChange} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500 h-20 resize-y" />
-                    </div>
+
+                <form onSubmit={handleCreateTicket} className="space-y-4 mb-8 p-4 border border-gray-700 rounded-lg bg-gray-750">
+                    <h3 className="text-xl font-semibold text-blue-300 mb-3">{t.createTicket}</h3>
+                    <input type="text" value={newTicketTitle} onChange={(e) => setNewTicketTitle(e.target.value)} placeholder={t.ticketTitle} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500" />
+                    <textarea value={newTicketDescription} onChange={(e) => setNewTicketDescription(e.target.value)} placeholder={t.ticketDescription} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500 h-24 resize-y" />
+                    <select value={newTicketCategory} onChange={(e) => setNewTicketCategory(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500">
+                        <option value="">Vyberte kategorii</option>
+                        {ticketCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    </select>
+                    <select value={newTicketAssignee} onChange={(e) => setNewTicketAssignee(e.target.value)} className="w-full p-2 rounded-md bg-gray-600 border border-gray-500">
+                        <option value="">{t.selectUserToAssign}</option>
+                        {Array.isArray(allUsers) && allUsers.map(u => <option key={u.uid} value={u.uid}>{u.displayName || u.email}</option>)}
+                    </select>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
                     <button type="submit" className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 flex items-center justify-center gap-2">
-                        <Send className="w-5 h-5" /> {t.saveLoading}
+                        <Send className="w-5 h-5" /> {t.createTicket}
                     </button>
                 </form>
 
-                <div className="space-y-3">
-                    {loadings.map((loading) => (
-                        <div key={loading.id} className="p-4 border border-gray-600 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors" onClick={() => handleSelectLoading(loading)}>
-                             <div className="flex justify-between items-center">
-                                <p><strong>{t.carrierName}:</strong> {loading.carrierName}</p>
-                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                    loading.status === 'Naloženo' ? 'bg-green-600 text-white' :
-                                    loading.status === 'Připraveno' ? 'bg-yellow-500 text-black' :
-                                    'bg-blue-600 text-white'
-                                }`}>{loading.status || 'Ohlášeno'}</span>
-                            </div>
-                            <p><strong>{t.loadingDate}:</strong> {format(parseISO(loading.loadingDate), 'dd/MM/yyyy')}</p>
-                            <p className="text-sm text-gray-400 mt-1">{t.notes}: {loading.notes || t.noNotes}</p>
-                        </div>
-                    ))}
+                <div className="overflow-x-auto">
+                    <table className="min-w-full bg-gray-700 rounded-lg">
+                        <thead className="bg-gray-600">
+                            <tr>
+                                <th className="py-3 px-4 text-left text-sm font-semibold">{t.ticketTitle}</th>
+                                <th className="py-3 px-4 text-left text-sm font-semibold">{t.assignedTo}</th>
+                                <th className="py-3 px-4 text-left text-sm font-semibold">{t.statusTicket}</th>
+                                <th className="py-3 px-4 text-left text-sm font-semibold">{t.attachment}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {tickets.map((ticket) => (
+                                <tr key={ticket.id} onClick={() => setSelectedTicket(ticket)} className="border-t border-gray-600 cursor-pointer hover:bg-gray-600">
+                                    <td className="py-3 px-4">{ticket.title}</td>
+                                    <td className="py-3 px-4">{allUsers.find(u => u.uid === ticket.assignedTo)?.displayName || 'N/A'}</td>
+                                    <td className="py-3 px-4"><span className={`px-2 py-1 rounded-full text-xs font-semibold ${ticket.status === 'Hotovo' ? 'bg-green-600 text-white' : ticket.status === 'V řešení' ? 'bg-yellow-500 text-black' : 'bg-red-600 text-white'}`}>{ticket.status || 'N/A'}</span></td>
+                                    <td className="py-3 px-4">{ticket.attachmentUrl && <Paperclip className="w-4 h-4 inline-block"/>}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
-                
-                {selectedLoading && (
-                    <LoadingDetailsModal 
-                        loading={selectedLoading} 
-                        orders={selectedLoadingOrders}
-                        onClose={() => setSelectedLoading(null)} 
-                    />
-                )}
             </CardContent>
+            {selectedTicket && <TicketDetailsModal ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />}
         </Card>
     );
 }

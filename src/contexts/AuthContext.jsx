@@ -1,79 +1,75 @@
 'use client';
-import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc, collection, onSnapshot, updateDoc } from 'firebase/firestore'; 
-import { firebaseConfig } from '../lib/firebase';
+import React, { createContext, useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import { getSupabase } from '../lib/supabaseClient';
+import { useAuth } from './AuthContext';
+import { processData } from '../lib/dataProcessor';
 
-export const AuthContext = createContext(null);
-export const useAuth = () => useContext(AuthContext);
+export const DataContext = createContext();
+export const useData = () => useContext(DataContext);
 
-export const AuthProvider = ({ children }) => {
-    const [currentUser, setCurrentUser] = useState(null);
-    const [currentUserProfile, setCurrentUserProfile] = useState(null);
-    const [allUsers, setAllUsers] = useState([]); 
-    const [loading, setLoading] = useState(true); 
-    const supabase = getSupabase(); 
+export const DataProvider = ({ children }) => {
+  const [allOrdersData, setAllOrdersData] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
+  const { currentUser, loading: authLoading } = useAuth(); // Získáme i stav načítání z AuthContextu
+  const supabase = getSupabase();
 
-    const [firebaseInstances, setFirebaseInstances] = useState({ auth: null, db: null, appId: null });
+  const fetchData = useCallback(async () => {
+    // Nezačneme, dokud se neověří uživatel
+    if (authLoading) return; 
 
-    useEffect(() => {
-        const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = firebaseConfig.appId;
-        setFirebaseInstances({ auth, db, appId });
+    if (!currentUser) {
+      setAllOrdersData([]);
+      setIsLoadingData(false);
+      return;
+    }
 
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                setCurrentUser(user);
-                const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, user.uid);
-                const userProfileSnap = await getDoc(userProfileRef);
-                if (userProfileSnap.exists()) {
-                    setCurrentUserProfile({ uid: user.uid, ...userProfileSnap.data() });
-                } else {
-                    const newProfile = { email: user.email, displayName: user.email.split('@')[0], function: '', isAdmin: false, createdAt: new Date().toISOString() };
-                    await setDoc(userProfileRef, newProfile);
-                    setCurrentUserProfile(newProfile);
-                }
-            } else {
-                setCurrentUser(null);
-                setCurrentUserProfile(null);
-                setAllUsers([]);
-            }
-            setLoading(false);
-        });
+    setIsLoadingData(true);
+    try {
+      const { data, error } = await supabase.from("deliveries").select('*');
+      if (error) throw error;
+      setAllOrdersData(data || []);
+    } catch (error) {
+      console.error("DataContext: Chyba při načítání dat:", error);
+      setAllOrdersData([]);
+    } finally {
+      setIsLoadingData(false);
+    }
+  }, [currentUser, authLoading, supabase]);
 
-        return () => unsubscribe();
-    }, []);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-    useEffect(() => {
-        if (!firebaseInstances.db || !firebaseInstances.appId) return;
-        const usersColRef = collection(firebaseInstances.db, `artifacts/${firebaseInstances.appId}/public/data/user_profiles`);
-        const unsubscribeUsers = onSnapshot(usersColRef, (snapshot) => {
-            setAllUsers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
-        });
-        return () => unsubscribeUsers();
-    }, [firebaseInstances.db, firebaseInstances.appId]);
+  useEffect(() => {
+    if (!isLoadingData && allOrdersData && allOrdersData.length > 0) {
+      const processed = processData(allOrdersData);
+      setSummary(processed);
+    } else if (!isLoadingData) {
+      setSummary(null);
+    }
+  }, [allOrdersData, isLoadingData]);
 
-    const value = useMemo(() => ({
-        currentUser,
-        currentUserProfile,
-        loading,
-        allUsers,
-        db: firebaseInstances.db,
-        appId: firebaseInstances.appId,
-        auth: firebaseInstances.auth,
-        supabase,
-        login: (email, password) => signInWithEmailAndPassword(firebaseInstances.auth, email, password),
-        register: (email, password) => createUserWithEmailAndPassword(firebaseInstances.auth, email, password),
-        googleSignIn: () => {
-            const provider = new GoogleAuthProvider();
-            return signInWithPopup(firebaseInstances.auth, provider);
-        },
-        logout: () => signOut(firebaseInstances.auth),
-    }), [currentUser, currentUserProfile, loading, allUsers, firebaseInstances, supabase]);
+  const handleSaveNote = useCallback(async (deliveryNo, newNote) => {
+    const { error } = await supabase.from('deliveries').update({ Note: newNote }).eq('"Delivery No"', deliveryNo.trim());
+    if (error) {
+        console.error("DataContext: Chyba při ukládání poznámky:", error);
+    } else {
+        fetchData(); 
+    }
+  }, [supabase, fetchData]);
+  
+  const value = useMemo(() => ({
+    allOrdersData,
+    summary,
+    isLoadingData,
+    refetchData: fetchData,
+    handleSaveNote,
+    selectedOrderDetails,
+    setSelectedOrderDetails,
+    supabase,
+  }), [allOrdersData, summary, isLoadingData, fetchData, handleSaveNote, selectedOrderDetails, supabase]);
 
-    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };
