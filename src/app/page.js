@@ -1,5 +1,8 @@
 'use client';
 
+console.log("APLIKACE BĚŽÍ: Hlavní komponenta page.js načtena!");
+// ...zbytek kódu
+
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { format, isBefore, startOfDay, differenceInDays, parseISO, addDays, subDays, startOfMonth, endOfMonth, isAfter } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from "recharts";
