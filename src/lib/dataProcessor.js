@@ -30,7 +30,7 @@ export const processData = (rawData) => {
         summary.total++;
         if (doneStatuses.includes(status)) summary.doneTotal++;
         if (status === 10) summary.newOrdersTotal++;
-        if (status >= 31 && status < 50) summary.inProgressTotal++;
+        if (status >= 30 && status < 50) summary.inProgressTotal++;
         if (row["del.type"] === 'P') summary.palletsTotal++;
         if (row["del.type"] === 'K') summary.cartonsTotal++;
 
