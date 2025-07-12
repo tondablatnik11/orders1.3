@@ -2,71 +2,46 @@
 import React, { createContext, useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import { getSupabase } from '../lib/supabaseClient';
 import { useAuth } from './AuthContext';
-import { processData } from '../lib/dataProcessor';
 
 export const DataContext = createContext();
 export const useData = () => useContext(DataContext);
 
 export const DataProvider = ({ children }) => {
-  const [allOrdersData, setAllOrdersData] = useState([]);
-  const [summary, setSummary] = useState(null);
-  const [isLoadingData, setIsLoadingData] = useState(true);
-  const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
-  const { currentUser } = useAuth();
-  const supabase = getSupabase();
+    const [allOrdersData, setAllOrdersData] = useState([]);
+    const [isLoadingData, setIsLoadingData] = useState(true);
+    const { currentUser, loading: authLoading } = useAuth(); // Získáme i stav načítání z AuthContextu
+    const supabase = getSupabase();
 
-  const fetchData = useCallback(async () => {
-    // Čekáme, dokud není dostupný přihlášený uživatel
-    if (!currentUser) {
-      setIsLoadingData(false);
-      return;
-    }
+    useEffect(() => {
+        const fetchData = async () => {
+            if (authLoading) return; // Nezačneme, dokud se neověří uživatel
 
-    setIsLoadingData(true);
-    try {
-      const { data, error } = await supabase.from("deliveries").select('*');
-      if (error) throw error;
-      setAllOrdersData(data || []);
-    } catch (error) {
-      console.error("DataContext: Chyba při načítání dat:", error);
-      setAllOrdersData([]);
-    } finally {
-      setIsLoadingData(false);
-    }
-  }, [currentUser, supabase]);
+            if (!currentUser) {
+                setAllOrdersData([]);
+                setIsLoadingData(false);
+                return;
+            }
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+            setIsLoadingData(true);
+            try {
+                const { data, error } = await supabase.from("deliveries").select('*');
+                if (error) throw error;
+                setAllOrdersData(data || []);
+            } catch (error) {
+                console.error("DataContext: Chyba při načítání dat:", error);
+                setAllOrdersData([]);
+            } finally {
+                setIsLoadingData(false);
+            }
+        };
 
-  useEffect(() => {
-    if (!isLoadingData && allOrdersData.length > 0) {
-      const processed = processData(allOrdersData);
-      setSummary(processed);
-    } else {
-      setSummary(null);
-    }
-  }, [allOrdersData, isLoadingData]);
+        fetchData();
+    }, [currentUser, authLoading, supabase]);
 
-  const handleSaveNote = useCallback(async (deliveryNo, newNote) => {
-    const { error } = await supabase.from('deliveries').update({ Note: newNote }).eq('"Delivery No"', deliveryNo.trim());
-    if (error) {
-        console.error("DataContext: Chyba při ukládání poznámky:", error);
-    } else {
-        fetchData(); 
-    }
-  }, [supabase, fetchData]);
-  
-  const value = useMemo(() => ({
-    allOrdersData,
-    summary,
-    isLoadingData,
-    refetchData: fetchData,
-    handleSaveNote,
-    selectedOrderDetails,
-    setSelectedOrderDetails,
-    supabase,
-  }), [allOrdersData, summary, isLoadingData, fetchData, handleSaveNote, selectedOrderDetails, supabase]);
+    const value = useMemo(() => ({
+        allOrdersData,
+        isLoadingData,
+    }), [allOrdersData, isLoadingData]);
 
-  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
+    return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };

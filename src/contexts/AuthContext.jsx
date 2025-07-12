@@ -7,9 +7,10 @@ import { firebaseConfig } from '../lib/firebase';
 import { getSupabase } from '../lib/supabaseClient';
 
 export const AuthContext = createContext(null);
+
 export const useAuth = () => {
     const context = useContext(AuthContext);
-    if (!context) {
+    if (context === undefined) {
         throw new Error('useAuth must be used within an AuthProvider');
     }
     return context;
@@ -22,12 +23,7 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true); 
     const supabase = getSupabase(); 
 
-    // Instance Firebase budou uloženy zde, abychom je mohli použít v celém kontextu
-    const [firebaseInstances, setFirebaseInstances] = useState({
-        auth: null,
-        db: null,
-        appId: null
-    });
+    const [firebaseInstances, setFirebaseInstances] = useState({ auth: null, db: null, appId: null });
 
     useEffect(() => {
         const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
@@ -62,16 +58,12 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         if (!firebaseInstances.db || !firebaseInstances.appId) return;
-
         const usersColRef = collection(firebaseInstances.db, `artifacts/${firebaseInstances.appId}/public/data/user_profiles`);
         const unsubscribeUsers = onSnapshot(usersColRef, (snapshot) => {
-            const fetchedUsers = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
-            setAllUsers(fetchedUsers);
+            setAllUsers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
         });
-
         return () => unsubscribeUsers();
     }, [firebaseInstances.db, firebaseInstances.appId]);
-
 
     const updateUserProfile = async (uid, updates) => {
         const { db, appId } = firebaseInstances;
@@ -81,7 +73,6 @@ export const AuthProvider = ({ children }) => {
         setCurrentUserProfile(prev => ({ ...prev, ...updates }));
     };
 
-    // Memoizovaná hodnota kontextu, aby se předešlo zbytečným re-renderům
     const value = useMemo(() => ({
         currentUser,
         currentUserProfile,
@@ -101,5 +92,6 @@ export const AuthProvider = ({ children }) => {
         updateUserProfile
     }), [currentUser, currentUserProfile, loading, allUsers, firebaseInstances, supabase]);
 
-    return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;
+    // KLÍČOVÁ ZMĚNA: Vykreslíme zbytek aplikace, až když je ověřování hotové.
+    return <AuthContext.Provider value={value}>{!loading ? children : null}</AuthContext.Provider>;
 };

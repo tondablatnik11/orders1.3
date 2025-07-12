@@ -42,7 +42,7 @@ export default function TicketsTab() {
         e.preventDefault();
         
         if (!user) {
-            setMessage({ text: "Pro vytvoření úkolu musíte být přihlášen.", type: 'error' });
+            setMessage({ text: "Chyba: Uživatel není přihlášen.", type: 'error' });
             return;
         }
         
@@ -88,7 +88,6 @@ export default function TicketsTab() {
             if (fileInputRef.current) fileInputRef.current.value = "";
             setMessage({ text: t.ticketCreatedSuccess, type: 'success' });
         } catch (error) {
-            console.error("Error creating ticket:", error);
             setMessage({ text: `${t.ticketError} ${error.message}`, type: 'error' });
         }
     };
