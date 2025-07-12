@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useUI } from '@/hooks/useUI';
 import { useData } from '@/hooks/useData';
 import AppHeader from './AppHeader';
-import TabNavigation from './TabNavigation'; // Odkomentováno
+import TabNavigation from './TabNavigation'; 
 import DashboardTab from '@/components/tabs/DashboardTab';
 import DelayedOrdersTab from '@/components/tabs/DelayedOrdersTab';
 

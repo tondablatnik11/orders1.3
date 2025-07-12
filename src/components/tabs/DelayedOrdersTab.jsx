@@ -1,21 +1,28 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react'; // Added useMemo
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { format, parseISO } from 'date-fns';
 import { getDelayColorClass } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/Card';
 import { FileDown, ClipboardList } from 'lucide-react';
-import { exportDelayedOrdersXLSX } from '@/lib/exportUtils'; // Importujte funkci exportu
+import { exportDelayedOrdersXLSX } from '@/lib/exportUtils';
+import OrderDetailsModal from '@/components/modals/OrderDetailsModal'; // Import OrderDetailsModal
+import StatusHistoryModal from '@/components/modals/StatusHistoryModal'; // Import StatusHistoryModal (pokud je potřeba)
 
 export default function DelayedOrdersTab() {
-    const { summary, handleSaveNote, supabase } = useData(); 
+    const { summary, handleSaveNote, supabase, setSelectedOrderDetails: setGlobalSelectedOrderDetails, selectedOrderDetails: globalSelectedOrderDetails } = useData(); 
     const { t } = useUI();
     const [showAll, setShowAll] = useState(false);
     const [localNotes, setLocalNotes] = useState({});
+    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' }); // Sorting state
+    const [showStatusHistoryModal, setShowStatusHistoryModal] = useState(false);
+    const [currentDeliveryNoForHistory, setCurrentDeliveryNoForHistory] = useState(null);
+    const [deliveryStatusLog, setDeliveryStatusLog] = useState([]);
+
 
     useEffect(() => {
-        console.log('DelayedOrdersTab: summary stav (dynamická data):', summary);
+        console.log('DelayedOrdersTab: summary stav (dynamická data):', summary); // Ponecháno pro ladění
         if (summary?.delayedOrdersList) {
             console.log('DelayedOrdersTab: délka delayedOrdersList (dynamická data):', summary.delayedOrdersList.length);
             if (summary.delayedOrdersList.length > 0) {
@@ -40,8 +47,98 @@ export default function DelayedOrdersTab() {
         }
     };
 
-    const delayedOrders = summary.delayedOrdersList;
-    const displayedOrders = showAll ? delayedOrders : delayedOrders.slice(0, 10);
+    // Logika řazení
+    const sortedOrders = useMemo(() => {
+        let sortableItems = [...summary.delayedOrdersList];
+        if (sortConfig.key !== null) {
+            sortableItems.sort((a, b) => {
+                let aValue = a[sortConfig.key];
+                let bValue = b[sortConfig.key];
+
+                // Speciální zacházení s řetězci data pro správné řazení
+                if (sortConfig.key === 'loadingDate') {
+                    aValue = parseISO(aValue || '');
+                    bValue = parseISO(bValue || '');
+                    if (isNaN(aValue.getTime())) aValue = new Date(0); // Neplatná data jako velmi stará
+                    if (isNaN(bValue.getTime())) bValue = new Date(0);
+                } else if (typeof aValue === 'string') {
+                    aValue = aValue.toLowerCase();
+                    bValue = bValue.toLowerCase();
+                }
+
+                if (aValue < bValue) {
+                    return sortConfig.direction === 'ascending' ? -1 : 1;
+                }
+                if (aValue > bValue) {
+                    return sortConfig.direction === 'ascending' ? 1 : -1;
+                }
+                return 0;
+            });
+        }
+        return sortableItems;
+    }, [summary.delayedOrdersList, sortConfig]);
+
+    const displayedOrders = showAll ? sortedOrders : sortedOrders.slice(0, 10);
+
+    const requestSort = (key) => {
+        let direction = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        } else if (sortConfig.key === key && sortConfig.direction === 'descending') {
+            direction = null; // Odebrat řazení, pokud se klikne potřetí
+            key = null;
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const getSortIndicator = (key) => {
+        if (sortConfig.key !== key) return '';
+        return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
+    };
+
+    // Obsluha modalu s detaily zakázky
+    const handleSelectOrder = (order) => {
+        // Převedeme data na konzistentní formát, který OrderDetailsModal očekává
+        setGlobalSelectedOrderDetails({ 
+            "Delivery No": order.delivery,
+            "Status": order.status,
+            "del.type": order.delType,
+            "Loading Date": order.loadingDate,
+            "Note": order.note,
+            "Forwarding agent name": order["Forwarding agent name"],
+            "Name of ship-to party": order["Name of ship-to party"],
+            "Total Weight": order["Total Weight"],
+            "Bill of lading": order["Bill of lading"],
+        });
+    };
+
+    const handleCloseOrderDetailsModal = () => {
+        setGlobalSelectedOrderDetails(null);
+    };
+
+    const handleShowStatusHistory = async (deliveryNo) => {
+        try {
+            // Použijte supabase z useData
+            const { data, error } = await supabase
+                .from('delivery_status_log')
+                .select('status, timestamp')
+                .eq('delivery_no', deliveryNo.trim())
+                .order('timestamp', { ascending: true });
+
+            if (error) {
+                console.error("Error fetching status history:", error.message);
+                setDeliveryStatusLog([]);
+            } else {
+                setDeliveryStatusLog(data || []);
+            }
+        } catch (e) {
+            console.error("Caught error fetching status history:", e);
+            setDeliveryStatusLog([]);
+        } finally {
+            setCurrentDeliveryNoForHistory(deliveryNo);
+            setShowStatusHistoryModal(true);
+        }
+    };
 
     console.log('DelayedOrdersTab: Počet zakázek k vykreslení (displayedOrders.length):', displayedOrders.length);
 
@@ -65,16 +162,24 @@ export default function DelayedOrdersTab() {
                         <table className="min-w-full bg-gray-700">
                             <thead className="bg-gray-600">
                                 <tr>
-                                    <th className="py-3 px-4 text-left text-sm font-semibold">{t.deliveryNo}</th>
-                                    <th className="py-3 px-4 text-left text-sm font-semibold">{t.delay}</th>
-                                    <th className="py-3 px-4 text-left text-sm font-semibold">{t.loadingDate}</th>
-                                    <th className="py-3 px-4 text-left text-sm font-semibold">{t.status}</th>
+                                    <th className="py-3 px-4 text-left text-sm font-semibold cursor-pointer" onClick={() => requestSort('delivery')}>
+                                        {t.deliveryNo}{getSortIndicator('delivery')}
+                                    </th>
+                                    <th className="py-3 px-4 text-left text-sm font-semibold cursor-pointer" onClick={() => requestSort('delayDays')}>
+                                        {t.delay}{getSortIndicator('delayDays')}
+                                    </th>
+                                    <th className="py-3 px-4 text-left text-sm font-semibold cursor-pointer" onClick={() => requestSort('loadingDate')}>
+                                        {t.loadingDate}{getSortIndicator('loadingDate')}
+                                    </th>
+                                    <th className="py-3 px-4 text-left text-sm font-semibold cursor-pointer" onClick={() => requestSort('status')}>
+                                        {t.status}{getSortIndicator('status')}
+                                    </th>
                                     <th className="py-3 px-4 text-left text-sm font-semibold">{t.note}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {displayedOrders.map((order) => {
-                                    console.log('DelayedOrdersTab: Vykresluji zakázku (dynamická data):', order.delivery, order);
+                                    console.log('DelayedOrdersTab: Vykresluji zakázku (dynamická data):', order.delivery, order); 
                                     
                                     if (!order.delivery) {
                                         console.warn('DelayedOrdersTab: Zakázka postrádá číslo dodávky pro klíč, přeskočeno:', order);
@@ -82,7 +187,11 @@ export default function DelayedOrdersTab() {
                                     }
 
                                     return (
-                                        <tr key={order.delivery} className="border-t border-gray-600 hover:bg-gray-600">
+                                        <tr 
+                                            key={order.delivery} 
+                                            className="border-t border-gray-600 cursor-pointer hover:bg-gray-600"
+                                            onClick={() => handleSelectOrder(order)} // Kliknutí pro otevření modalu
+                                        >
                                             <td className="py-3 px-4">{order.delivery}</td>
                                             <td className={`py-3 px-4 font-semibold ${getDelayColorClass(order.delayDays)}`}>{order.delayDays}</td>
                                             <td className="py-3 px-4">{order.loadingDate ? format(parseISO(order.loadingDate), 'dd.MM.yyyy') : 'N/A'}</td>
@@ -93,6 +202,7 @@ export default function DelayedOrdersTab() {
                                                     value={localNotes[order.delivery] ?? order.note ?? ''}
                                                     onChange={(e) => handleNoteChange(order.delivery, e.target.value)}
                                                     onBlur={() => handleNoteBlur(order.delivery, order.note)}
+                                                    onClick={(e) => e.stopPropagation()} // Zabrání kliknutí na řádek při kliknutí na input
                                                     className="w-full p-1 rounded-md bg-gray-600 border border-gray-500 text-sm"
                                                 />
                                             </td>
@@ -115,6 +225,22 @@ export default function DelayedOrdersTab() {
                     </div>
                 )}
             </CardContent>
+            {globalSelectedOrderDetails && ( // Vykreslí OrderDetailsModal, pokud je vybrána zakázka
+                <OrderDetailsModal
+                    order={globalSelectedOrderDetails}
+                    onClose={handleCloseOrderDetailsModal}
+                    onShowHistory={handleShowStatusHistory}
+                    onSaveNote={handleSaveNote} // Předáme handleSaveNote pro přímé aktualizace z modalu
+                    t={t}
+                />
+            )}
+            {showStatusHistoryModal && ( // Vykreslí StatusHistoryModal
+                <StatusHistoryModal
+                    history={deliveryStatusLog}
+                    onClose={() => setShowStatusHistoryModal(false)}
+                    t={t}
+                />
+            )}
         </Card>
     );
 }
