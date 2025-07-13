@@ -9,7 +9,8 @@ import { BarChart3, LineChart as LineChartIcon } from 'lucide-react';
 
 export default function OrdersOverTimeChart({ summary }) {
     const { t } = useUI();
-    const [chartType, setChartType] = useState('bar');
+    // OPRAVA: Výchozí graf je nyní čárový
+    const [chartType, setChartType] = useState('line');
 
     if (!summary || !summary.dailySummaries) {
         return <p>{t.noDataAvailable}</p>;
@@ -19,9 +20,9 @@ export default function OrdersOverTimeChart({ summary }) {
         date: day.date,
         total: day.total,
         remaining: day.remaining,
-        new: day.newOrders,
+        new: day.new, // Změna na `new` podle `dataProcessor`
         inProgress: day.inProgress,
-        completed: day.done,
+        completed: day.done, // Změna na `done` podle `dataProcessor`
     })) || [];
 
     if (chartData.length === 0) {

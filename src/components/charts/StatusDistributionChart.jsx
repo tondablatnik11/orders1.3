@@ -8,6 +8,7 @@ import { Card, CardContent } from '../ui/Card';
 import { BarChart3, PieChart as PieChartIcon } from 'lucide-react';
 
 const renderActiveShape = (props) => {
+    // Kód pro aktivní tvar koláče zůstává stejný
     const { cx, cy, midAngle, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
     const sin = Math.sin(- (Math.PI / 180) * midAngle);
     const cos = Math.cos(- (Math.PI / 180) * midAngle);
@@ -32,17 +33,17 @@ const renderActiveShape = (props) => {
     );
 };
 
-// Odstraněn prop `summary`, data se berou přímo z hooku useData
 export default function StatusDistributionChart() {
     const { summary } = useData();
     const { t } = useUI();
+    // OPRAVA: Výchozí graf je nyní skládaný sloupcový
     const [chartType, setChartType] = useState('stackedBar');
     const [activeIndex, setActiveIndex] = useState(0);
 
     const onPieEnter = useCallback((_, index) => setActiveIndex(index), []);
 
     const pieData = Object.entries(summary?.statusCounts || {}).map(([status, count]) => ({ name: `Status ${status}`, value: count })).filter(item => item.value > 0);
-    const stackedData = Object.values(summary?.statusByLoadingDate || {}).sort((a, b) => new Date(a.date.split('/').reverse().join('-')) - new Date(b.date.split('/').reverse().join('-')));
+    const stackedData = Object.values(summary?.statusByLoadingDate || {}).sort((a, b) => a.date.localeCompare(b.date, undefined, { numeric: true }));
     const uniqueStatuses = Array.from(new Set(summary?.allOrdersData?.map(row => Number(row.Status)).filter(s => !isNaN(s)))).sort((a, b) => a - b);
 
     if (pieData.length === 0) {
@@ -73,7 +74,7 @@ export default function StatusDistributionChart() {
                             <Tooltip contentStyle={{ backgroundColor: '#1F2937' }} itemStyle={{ color: '#E5E7EB' }} cursor={{ fill: 'rgba(107, 114, 128, 0.2)' }}/>
                             <Legend wrapperStyle={{ color: '#D1D5DB', paddingTop: '10px' }} />
                             {uniqueStatuses.map((status, index) => (
-                                <Bar key={`status-bar-${status}`} dataKey={`status${status}`} name={`Status ${status}`} fill={CHART_COLORS[index % CHART_COLORS.length]} stackId="statusStack" />
+                                <Bar key={`status-bar-${status}`} dataKey={`status${status}`} name={`Status ${status}`} fill={CHART_COLORS[index % CHART_COLORS.length]} stackId="statusStack" radius={[4, 4, 0, 0]} />
                             ))}
                         </BarChart>
                     )}

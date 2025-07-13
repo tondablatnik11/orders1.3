@@ -29,23 +29,28 @@ export const processData = (rawData) => {
         statusCounts: {},
         deliveryTypes: {},
         delayedOrdersList: [],
+        dailySummaries: new Map(),
+        statusByLoadingDate: {}, // Data pro skládaný sloupcový graf
+        allOrdersData: rawData, // Prochází původní data pro grafy
     };
 
     const doneStatuses = [50, 60, 70];
-    const delayedStatuses = [10, 31, 35, 40]; 
+    const inProgressStatuses = [31, 35, 40];
+    const newStatus = [10];
+    const remainingStatuses = [10, 31, 35, 40];
+    const delayedStatuses = [10, 31, 35, 40];
     const today = startOfDay(new Date());
 
     rawData.forEach(row => {
-        const status = Number(row.Status); 
+        const status = Number(row.Status);
         const deliveryIdentifier = String(row["Delivery No"] || row["Delivery"] || '').trim();
 
-        if (isNaN(status)) return; 
-        if (!deliveryIdentifier) return; 
+        if (isNaN(status) || !deliveryIdentifier) return;
 
         summary.total++;
         if (doneStatuses.includes(status)) summary.doneTotal++;
-        if (status === 10) summary.newOrdersTotal++;
-        if (status >= 30 && status < 50) summary.inProgressTotal++;
+        if (newStatus.includes(status)) summary.newOrdersTotal++;
+        if (inProgressStatuses.includes(status)) summary.inProgressTotal++;
         if (row["del.type"] === 'P') summary.palletsTotal++;
         if (row["del.type"] === 'K') summary.cartonsTotal++;
 
@@ -54,29 +59,48 @@ export const processData = (rawData) => {
 
         const loadingDate = parseDataDate(row["Loading Date"]);
 
+        if (loadingDate) {
+            const dateKey = format(startOfDay(loadingDate), 'yyyy-MM-dd');
+            if (!summary.dailySummaries.has(dateKey)) {
+                summary.dailySummaries.set(dateKey, { date: dateKey, total: 0, done: 0, remaining: 0, new: 0, inProgress: 0 });
+            }
+            const day = summary.dailySummaries.get(dateKey);
+            day.total++;
+            if (doneStatuses.includes(status)) day.done++;
+            if (remainingStatuses.includes(status)) day.remaining++;
+            if (newStatus.includes(status)) day.new++;
+            if (inProgressStatuses.includes(status)) day.inProgress++;
+
+            const chartDateKey = format(startOfDay(loadingDate), 'dd/MM');
+            if (!summary.statusByLoadingDate[chartDateKey]) {
+                summary.statusByLoadingDate[chartDateKey] = { date: chartDateKey };
+            }
+            summary.statusByLoadingDate[chartDateKey][`status${status}`] = (summary.statusByLoadingDate[chartDateKey][`status${status}`] || 0) + 1;
+        }
+
         if (loadingDate && isBefore(loadingDate, today) && delayedStatuses.includes(status)) {
             const delayDays = differenceInDays(today, loadingDate);
-            // KLÍČOVÁ ZMĚNA: Přidáváme podmínku pro vyloučení zakázek se zpožděním 0 dní
-            if (delayDays > 0) { 
+            if (delayDays > 0) {
                 summary.delayed++;
-                summary.delayedOrdersList.push({ 
-                    delivery: deliveryIdentifier, 
-                    status: status, 
+                summary.delayedOrdersList.push({
+                    delivery: deliveryIdentifier,
+                    status: status,
                     delType: row["del.type"],
-                    loadingDate: loadingDate.toISOString(), 
+                    loadingDate: loadingDate.toISOString(),
                     delayDays: delayDays,
                     note: row["Note"] || "",
-                    "Forwarding agent name": row["Forwarding agent name"] || "N/A", 
-                    "Name of ship-to party": row["Name of ship-to party"] || "N/A", 
-                    "Total Weight": row["Total Weight"] || "N/A", 
-                    "Bill of lading": row["Bill of lading"] || "N/A", 
+                    "Forwarding agent name": row["Forwarding agent name"] || "N/A",
+                    "Name of ship-to party": row["Name of ship-to party"] || "N/A",
+                    "Total Weight": row["Total Weight"] || "N/A",
+                    "Bill of lading": row["Bill of lading"] || "N/A",
                 });
             }
         }
     });
     
     summary.remainingTotal = summary.total - summary.doneTotal;
-    summary.delayedOrdersList.sort((a, b) => b.delayDays - a.delayDays); 
+    summary.delayedOrdersList.sort((a, b) => b.delayDays - a.delayDays);
+    summary.dailySummaries = Array.from(summary.dailySummaries.values());
 
     return summary;
 };
