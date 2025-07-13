@@ -3,6 +3,7 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, onSnapshot, updateDoc } from 'firebase/firestore';
 import { auth, db, appId } from '../lib/firebase';
+import { getSupabase } from '../lib/supabaseClient';
 
 export const AuthContext = createContext(null);
 
@@ -11,6 +12,7 @@ export const AuthProvider = ({ children }) => {
     const [currentUser, setCurrentUser] = useState(null);
     const [currentUserProfile, setCurrentUserProfile] = useState(null);
     const [allUsers, setAllUsers] = useState([]);
+    const supabase = getSupabase();
     
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -35,6 +37,7 @@ export const AuthProvider = ({ children }) => {
                 setStatus('unauthenticated');
             }
         });
+
         return () => unsubscribe();
     }, [appId]);
 
@@ -68,9 +71,17 @@ export const AuthProvider = ({ children }) => {
         currentUserProfile,
         allUsers,
         updateUserProfile,
+        db, // OPRAVA: Vráceno zpět
+        auth, // OPRAVA: Vráceno zpět
+        appId, // OPRAVA: Vráceno zpět
+        supabase, // OPRAVA: Vráceno zpět
         login: (email, password) => signInWithEmailAndPassword(auth, email, password),
+        register: (email, password) => createUserWithEmailAndPassword(auth, email, password),
+        googleSignIn: () => {
+            const provider = new GoogleAuthProvider();
+            return signInWithPopup(auth, provider);
+        },
         logout: () => signOut(auth),
-        // ... a další funkce, které chcete sdílet
     };
 
     return (
