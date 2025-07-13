@@ -1,11 +1,9 @@
-// src/lib/exportUtils.js - Updated to filter 0-day delays during export
 import { format, parseISO, startOfDay, isBefore, differenceInDays } from 'date-fns';
 
-// Pomocná funkce pro export do XLSX - může být definována lokálně nebo importována
 const exportToXLSX = (data, t, fileName = 'export') => {
     if (typeof window.XLSX === 'undefined') {
         console.error("XLSX library not loaded.");
-        alert(t.xlsxLibNotLoaded || "XLSX library not loaded. Please try refreshing the page."); // Použití překladu
+        alert(t.xlsxLibNotLoaded || "XLSX library not loaded. Please try refreshing the page.");
         return;
     }
      if (!data || data.length === 0) {
@@ -21,19 +19,18 @@ const exportToXLSX = (data, t, fileName = 'export') => {
 
 export const exportDelayedOrdersXLSX = async (supabaseClient, t) => {
     const today = startOfDay(new Date());
-    // Získáme data ze Supabase, filtrujeme jen ty, co mají datum nakládky před dneškem
-    // a nejsou ve stavech "hotovo"
-    // OPRAVA: Přidán .limit(10000) pro navýšení limitu i v exportu
+    
+    // DEFINITIVNÍ OPRAVA: Přidán .limit(10000) i zde.
     const { data, error } = await supabaseClient
         .from('deliveries')
         .select('"Delivery No", "Status", "del.type", "Loading Date", "Note", "Forwarding agent name", "Name of ship-to party", "Total Weight", "Bill of lading"')
-        .lt('"Loading Date"', today.toISOString())
+        .lt('"Loading Date"', today.toISOString()) 
         .not('Status', 'in', '(50,60,70)')
         .limit(10000); 
 
     if (error) {
         console.error('Error fetching delayed deliveries for XLSX export:', error.message);
-        alert(t.exportError + ` ${error.message}`); // Použití překladu pro chybu exportu
+        alert(t.exportError + ` ${error.message}`);
         return;
     }
 
@@ -71,7 +68,7 @@ export const exportDelayedOrdersXLSX = async (supabaseClient, t) => {
             [t.totalWeight]: item["Total Weight"] || 'N/A',
             [t.billOfLading]: item["Bill of lading"] || 'N/A',
         };
-    }).filter(item => item !== null); 
+    }).filter(item => item !== null);
     
     if (formattedData.length === 0) {
         alert(t.noDataAvailable || "No data to export after filtering 0-day delays.");
@@ -82,7 +79,6 @@ export const exportDelayedOrdersXLSX = async (supabaseClient, t) => {
     exportToXLSX(formattedData, t, t.delayed);
 };
 
-// Pokud máte v exportUtils.js i další exportní funkce, aktualizujte je také, např.:
 export const exportSearchResultsToXLSX = (searchData, t) => {
     const formattedData = searchData.map(order => ({
         [t.deliveryNo]: order["Delivery No"],
@@ -91,8 +87,7 @@ export const exportSearchResultsToXLSX = (searchData, t) => {
         [t.loadingDate]: order["Loading Date"] ? format(parseISO(order["Loading Date"]), 'dd/MM/yyyy') : 'N/A',
         [t.note]: order.Note,
     }));
-    // Použijte lokální exportToXLSX funkci
-    exportToXLSX(formattedData, t, t.searchOrders); // Předpokládám, že t.searchOrders je název pro export souboru
+    exportToXLSX(formattedData, t, t.searchOrders);
 };
 
 export const exportTicketsToXLSX = (tickets, allUsers, t) => {
@@ -105,6 +100,5 @@ export const exportTicketsToXLSX = (tickets, allUsers, t) => {
         [t.createdAt]: format(parseISO(ticket.createdAt), 'dd/MM/yyyy HH:mm'),
         [t.attachment]: ticket.attachmentName || 'N/A'
     }));
-    // Použijte lokální exportToXLSX funkci
-    exportToXLSX(formattedData, t, t.ticketsTab); // Předpokládám, že t.ticketsTab je název pro export souboru
+    exportToXLSX(formattedData, t, t.ticketsTab);
 };

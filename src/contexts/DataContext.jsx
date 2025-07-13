@@ -25,8 +25,7 @@ export const DataProvider = ({ children }) => {
 
     setIsLoadingData(true);
     try {
-      // OPRAVA: Přidán .limit(10000) pro navýšení limitu načtených záznamů z databáze.
-      // Toto zajistí, že se načte více než výchozích 1000 záznamů.
+      // DEFINITIVNÍ OPRAVA: Explicitně nastavujeme limit na 10000 záznamů.
       const { data, error } = await supabase.from("deliveries").select('*').limit(10000);
       if (error) throw error;
       setAllOrdersData(data || []);
