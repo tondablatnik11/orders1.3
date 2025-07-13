@@ -1,53 +1,58 @@
 'use client';
 import React, { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth'; // OPRAVENA CESTA K HOOKU
-import { useUI } from '@/hooks/useUI'; // NOVÝ IMPORT pro přístup k překladům
+import { useAuth } from '@/hooks/useAuth'; 
+import { useUI } from '@/hooks/useUI'; 
 import { Lock, Mail } from 'lucide-react';
+import toast from 'react-hot-toast'; // <-- PŘIDÁN IMPORT
 
 const Login = () => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState(''); // Ponecháno setPassword
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const { login, register, googleSignIn } = useAuth();
-  const { t } = useUI(); // Získání překladů
+  const { t } = useUI();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(''); // Vyčistit chyby před pokusem
+    setError('');
     try {
       if (isRegistering) {
         await register(email, password);
-        alert(t.registerSuccess || 'Registrace byla úspěšná! Nyní se můžete přihlásit.'); // Používáme překlad
-        setIsRegistering(false); // Po úspěšné registraci přepnout na přihlášení
+        toast.success(t.registerSuccess || 'Registrace byla úspěšná! Nyní se můžete přihlásit.'); // <-- ZMĚNA
+        setIsRegistering(false); 
       } else {
         await login(email, password);
       }
     } catch (err) {
-      setError(t.operationFailed || 'Operace se nezdařila. Zkontrolujte údaje nebo to zkuste znovu.'); // Používáme překlad
-      console.error(err);
+        const errorMessage = err.code === 'auth/invalid-credential' 
+            ? (t.loginError || 'Nesprávné uživatelské jméno nebo heslo.')
+            : (t.operationFailed || 'Operace se nezdařila.');
+        setError(errorMessage);
+        console.error(err);
     }
   };
 
   const handleGoogleSignIn = async () => {
-    setError(''); // Vyčistit chyby před pokusem
+    setError('');
     try {
       await googleSignIn();
     } catch (err) {
-      setError(t.googleSignInFailed || 'Přihlášení přes Google se nezdařilo.'); // Používáme překlad
+      setError(t.googleSignInFailed || 'Přihlášení přes Google se nezdařilo.'); // Zůstává jako error v UI
       console.error('Google Sign-in error:', err);
     }
   };
 
+  // ... zbytek JSX (beze změny)
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-950">
       <div className="p-8 border border-gray-700 rounded-xl bg-gray-800 shadow-2xl max-w-md w-full">
         <h2 className="text-3xl font-bold mb-6 text-center text-blue-400">
-          {isRegistering ? t.registerTitle : t.loginTitle} {/* Používáme překlady */}
+          {isRegistering ? t.registerTitle : t.loginTitle}
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">{t.username}</label> {/* Používáme překlad */}
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t.username}</label>
             <input
               type="email"
               value={email}
@@ -58,7 +63,7 @@ const Login = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">{t.password}</label> {/* Používáme překlad */}
+            <label className="block text-sm font-medium text-gray-300 mb-1">{t.password}</label>
             <input
               type="password"
               value={password}
@@ -73,7 +78,7 @@ const Login = () => {
 
           <button type="submit" className="w-full flex justify-center items-center gap-2 bg-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:bg-blue-700 transition-colors duration-200">
             <Lock className="w-5 h-5" />
-            {isRegistering ? t.createAccount : t.loginButton} {/* Používáme překlady */}
+            {isRegistering ? (t.register || 'Vytvořit účet') : t.loginButton}
           </button>
         </form>
 
@@ -82,18 +87,18 @@ const Login = () => {
                 <div className="w-full border-t border-gray-600"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-                <span className="bg-gray-800 px-2 text-gray-400">{t.or}</span> {/* Používáme překlad */}
+                <span className="bg-gray-800 px-2 text-gray-400">{t.or || 'nebo'}</span>
             </div>
         </div>
 
         <button onClick={handleGoogleSignIn} className="w-full flex justify-center items-center gap-2 bg-red-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:bg-red-700 transition-colors duration-200">
             <Mail className="w-5 h-5" />
-            {t.googleSignIn} {/* Používáme překlad */}
+            {t.googleSignIn}
         </button>
 
         <div className="text-center mt-6">
           <button onClick={() => setIsRegistering(!isRegistering)} className="text-sm text-blue-400 hover:underline">
-            {isRegistering ? t.alreadyHaveAccount : t.noAccountYet} {/* Používáme překlady */}
+            {isRegistering ? (t.alreadyHaveAccount || 'Už máte účet? Přihlaste se') : (t.noAccountYet || 'Nemáte účet? Zaregistrujte se')}
           </button>
         </div>
 

@@ -1,13 +1,14 @@
-import { format, parseISO, startOfDay, isBefore, differenceInDays } from 'date-fns';
+import { format, parseISO } from 'date-fns';
+import toast from 'react-hot-toast'; // <-- PŘIDÁN IMPORT
 
 // Obecná funkce pro vytvoření a stažení XLSX souboru
 const exportToXLSX = (data, fileName = 'export', t) => {
     if (typeof window.XLSX === 'undefined') {
-        alert(t.xlsxLibNotLoaded || "Knihovna pro export (XLSX) není načtena. Zkuste prosím obnovit stránku.");
+        toast.error(t.xlsxLibNotLoaded || "Knihovna pro export (XLSX) není načtena."); // <-- ZMĚNA
         return;
     }
      if (!data || data.length === 0) {
-        alert(t.noDataAvailable || "Nejsou k dispozici žádná data pro export.");
+        toast.error(t.noDataAvailable || "Nejsou k dispozici žádná data pro export."); // <-- ZMĚNA
         return;
     }
 
@@ -19,6 +20,10 @@ const exportToXLSX = (data, fileName = 'export', t) => {
 
 // --- Nová generická funkce pro export z modálních oken ---
 export const exportCustomOrdersToXLSX = (orders, title, t) => {
+    if (!orders || orders.length === 0) {
+        toast.error(t.noDataAvailable || "Nejsou k dispozici žádná data pro export.");
+        return;
+    }
     const formattedData = orders.map(order => ({
         [t.deliveryNo]: order["Delivery No"],
         [t.status]: order.Status,
@@ -35,6 +40,10 @@ export const exportCustomOrdersToXLSX = (orders, title, t) => {
 
 // --- Export pro zpožděné zakázky ---
 export const exportDelayedOrdersXLSX = (delayedOrders, t) => {
+    if (!delayedOrders || delayedOrders.length === 0) {
+        toast.error(t.noDataAvailable || "Nejsou žádné zpožděné zakázky k exportu."); // <-- ZMĚNA
+        return;
+    }
     const formattedData = delayedOrders.map(item => ({
         [t.deliveryNo]: item.delivery,
         [t.status]: item.status,
@@ -44,11 +53,7 @@ export const exportDelayedOrdersXLSX = (delayedOrders, t) => {
         [t.billOfLading]: item["Bill of lading"],
         [t.note]: item.note,
     }));
-    
-    if (formattedData.length === 0) {
-        alert(t.noDataAvailable || "Nejsou žádné zpožděné zakázky k exportu.");
-        return;
-    }
+
     exportToXLSX(formattedData, t.delayed, t);
 };
 
