@@ -20,10 +20,12 @@ export default function OrderSearchTab() {
     const [searchForwardingAgentName, setSearchForwardingAgentName] = useState("all");
     const [searchResult, setSearchResult] = useState(null);
 
-    const uniqueStatuses = useMemo(() =>
-        Array.from(new Set(allOrdersData.map(row => Number(row.Status)).filter(s => !isNaN(s)))).sort((a, b) => a - b),
-        [allOrdersData]
-    );
+    // UPRAVENO: Seznam statusů nyní vždy obsahuje 80 a 90
+    const uniqueStatuses = useMemo(() => {
+        const statusesFromData = allOrdersData.map(row => Number(row.Status)).filter(s => !isNaN(s));
+        const allAvailableStatuses = Array.from(new Set([...statusesFromData, 80, 90]));
+        return allAvailableStatuses.sort((a, b) => a - b);
+    }, [allOrdersData]);
 
     const uniqueShipToPartyNames = useMemo(() =>
         Array.from(new Set(allOrdersData.map(row => row["Name of ship-to party"]).filter(name => name))).sort(),
@@ -61,7 +63,6 @@ export default function OrderSearchTab() {
             return deliveryMatch && loadingDateMatch && statusMatch && shipToPartyMatch && forwardingAgentMatch;
         });
         
-        // Mapování dat pro tabulku a export. Udržuje všechny potřebné klíče.
         const mappedResults = filtered.map(order => ({
             "Delivery No": (order["Delivery No"] || order["Delivery"])?.trim(),
             "Status": Number(order.Status),
@@ -108,7 +109,6 @@ export default function OrderSearchTab() {
                         </button>
                     )}
                 </div>
-                {/* Formulář pro vyhledávání zůstává stejný */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"> 
                     <div className="col-span-1">
                         <label className="block text-sm font-medium text-gray-400 mb-1">{t.deliveryNo}:</label>
