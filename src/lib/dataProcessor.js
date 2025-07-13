@@ -1,4 +1,5 @@
-import { startOfDay, format, isBefore, parseISO, differenceInDays } from 'date-fns';
+import { startOfDay, format, isBefore, parseISO, differenceInDays, getHours } from 'date-fns';
+import { getCurrentShift } from './utils';
 
 const parseDataDate = (dateInput) => {
     if (!dateInput) return null;
@@ -31,14 +32,15 @@ export const processData = (rawData) => {
         delayedOrdersList: [],
         dailySummaries: new Map(),
         statusByLoadingDate: {},
+        shiftDoneCounts: { '1': 0, '2': 0 },
         allOrdersData: rawData,
     };
 
-    const doneStatuses = [50, 60, 70];
+    // UPRAVENO: Přidány statusy 80 a 90 do hotových zakázek
+    const doneStatuses = [50, 60, 70, 80, 90];
     const inProgressStatuses = [31, 35, 40];
     const newStatus = [10];
-    // UPRAVENO: Přidán status 30 pro výpočet "Zbývá"
-    const remainingStatuses = [10, 30, 31, 35, 40]; 
+    const remainingStatuses = [10, 30, 31, 35, 40];
     const today = startOfDay(new Date());
 
     rawData.forEach(row => {
@@ -47,7 +49,16 @@ export const processData = (rawData) => {
 
         if (isNaN(status) || !deliveryIdentifier) return;
 
-        if (doneStatuses.includes(status)) summary.doneTotal++;
+        if (doneStatuses.includes(status)) {
+            summary.doneTotal++;
+            const completionDate = parseDataDate(row["Loading Date"]);
+            if (completionDate) {
+                const shift = getCurrentShift(completionDate);
+                if (shift) {
+                    summary.shiftDoneCounts[shift]++;
+                }
+            }
+        }
         if (newStatus.includes(status)) summary.newOrdersTotal++;
         if (inProgressStatuses.includes(status)) summary.inProgressTotal++;
         if (row["del.type"] === 'P') summary.palletsTotal++;
@@ -66,7 +77,7 @@ export const processData = (rawData) => {
             const day = summary.dailySummaries.get(dateKey);
             day.total++;
             if (doneStatuses.includes(status)) day.done++;
-            if (remainingStatuses.includes(status)) day.remaining++; // Nově počítáno podle definice
+            if (remainingStatuses.includes(status)) day.remaining++;
             if (newStatus.includes(status)) day.new++;
             if (inProgressStatuses.includes(status)) day.inProgress++;
 

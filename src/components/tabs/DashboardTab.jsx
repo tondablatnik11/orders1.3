@@ -3,7 +3,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
-import StatusDistributionChart from '@/components/charts/StatusDistributionChart'; // Přejmenováno zpět
+import StatusDistributionChart from '@/components/charts/StatusDistributionChart';
+import ShiftComparisonChart from '@/components/charts/ShiftComparisonChart';
+import OrderTypesChart from '@/components/charts/OrderTypesChart';
 import { format, startOfDay, addDays, subDays, parseISO } from 'date-fns';
 import { cs } from 'date-fns/locale';
 import { UploadCloud, CheckCircle, Clock, Hourglass, PlusCircle, Truck, Box, Info, FileDown, ClipboardList } from 'lucide-react';
@@ -119,6 +121,10 @@ export default function DashboardTab() {
             </div>
             
             <div className="space-y-8 mt-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <ShiftComparisonChart summary={summary} />
+                    <OrderTypesChart summary={summary} />
+                </div>
                 <StatusDistributionChart />
                 <OrdersOverTimeChart summary={summary} />
             </div>
