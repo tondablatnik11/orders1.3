@@ -69,31 +69,28 @@ export const processData = (rawData) => {
             if (newStatus.includes(status)) day.new++;
             if (inProgressStatuses.includes(status)) day.inProgress++;
 
-            // OPRAVA LOGIKY PRO GRAF: Nyní sleduje aktuální statusy zakázek podle data nakládky.
+            // OPRAVA: Používáme jednotný klíč 'yyyy-MM-dd' pro seskupování, aby se zamezilo duplicitám.
             if (!summary.statusByLoadingDate[dateKey]) {
                 summary.statusByLoadingDate[dateKey] = { date: dateKey };
             }
             summary.statusByLoadingDate[dateKey][`status${status}`] = (summary.statusByLoadingDate[dateKey][`status${status}`] || 0) + 1;
         }
-
-        // OPRAVA VÝPOČTU ZPOŽDĚNÝCH ZAKÁZEK
+        
+        // OPRAVA KONTROLY ZPOŽDĚNÝCH ZAKÁZEK
         if (loadingDate && isBefore(loadingDate, today) && remainingStatuses.includes(status)) {
-            const delayDays = differenceInDays(today, loadingDate);
-            if (delayDays > 0) { // Počítáme jen reálné zpoždění (více než 0 dní)
-                summary.delayed++;
-                summary.delayedOrdersList.push({
-                    delivery: deliveryIdentifier,
-                    status: status,
-                    delType: row["del.type"],
-                    loadingDate: loadingDate.toISOString(),
-                    delayDays: delayDays,
-                    note: row["Note"] || "",
-                    "Forwarding agent name": row["Forwarding agent name"] || "N/A",
-                    "Name of ship-to party": row["Name of ship-to party"] || "N/A",
-                    "Total Weight": row["Total Weight"] || "N/A",
-                    "Bill of lading": row["Bill of lading"] || "N/A",
-                });
-            }
+            summary.delayed++;
+            summary.delayedOrdersList.push({
+                delivery: deliveryIdentifier,
+                status: status,
+                delType: row["del.type"],
+                loadingDate: loadingDate.toISOString(),
+                delayDays: differenceInDays(today, loadingDate),
+                note: row["Note"] || "",
+                "Forwarding agent name": row["Forwarding agent name"] || "N/A",
+                "Name of ship-to party": row["Name of ship-to party"] || "N/A",
+                "Total Weight": row["Total Weight"] || "N/A",
+                "Bill of lading": row["Bill of lading"] || "N/A",
+            });
         }
     });
     

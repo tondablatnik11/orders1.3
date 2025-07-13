@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -10,9 +10,8 @@ import OrderListTable from '@/components/shared/OrderListTable';
 import { format, startOfDay, addDays, subDays, parseISO } from 'date-fns';
 import { cs } from 'date-fns/locale';
 import { ClipboardList, UploadCloud, FileDown } from 'lucide-react';
-import { exportCustomOrdersToXLSX } from '@/lib/exportUtils'; // Nový import
+import { exportCustomOrdersToXLSX } from '@/lib/exportUtils';
 
-// --- Nová vnořená komponenta pro Modální okno se seznamem zakázek ---
 const OrderListModal = ({ isOpen, onClose, title, orders, onSelectOrder, t }) => {
     if (!isOpen) return null;
     return (
@@ -32,9 +31,8 @@ const OrderListModal = ({ isOpen, onClose, title, orders, onSelectOrder, t }) =>
     );
 };
 
-// --- Upravená karta pro denní přehled s klikatelnými statistikami ---
-const DailyOverviewCard = ({ title, stats, t, onStatClick, date }) => (
-    <div className="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700 min-w-48 flex-shrink-0">
+const DailyOverviewCard = React.forwardRef(({ title, stats, t, onStatClick, date }, ref) => (
+    <div ref={ref} className="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700 min-w-48 flex-shrink-0">
         <p className="text-gray-400 text-center font-semibold mb-3">{title}</p>
         {stats ? (
             <div className="text-sm space-y-2">
@@ -46,7 +44,8 @@ const DailyOverviewCard = ({ title, stats, t, onStatClick, date }) => (
             </div>
         ) : <div className="text-center text-gray-500 text-sm flex items-center justify-center h-24">{t.noDataAvailable}</div>}
     </div>
-);
+));
+DailyOverviewCard.displayName = 'DailyOverviewCard';
 
 
 export default function DashboardTab() {
@@ -54,9 +53,21 @@ export default function DashboardTab() {
     const { t } = useUI();
     const [modalState, setModalState] = useState({ isOpen: false, title: '', orders: [] });
 
+    const scrollContainerRef = useRef(null);
+    const todayCardRef = useRef(null);
+    
+    useEffect(() => {
+        if (scrollContainerRef.current && todayCardRef.current) {
+            const container = scrollContainerRef.current;
+            const todayCard = todayCardRef.current;
+            const scrollAmount = todayCard.offsetLeft - (container.offsetWidth / 2) + (todayCard.offsetWidth / 2);
+            container.scrollTo({ left: scrollAmount, behavior: 'smooth' });
+        }
+    }, [isLoadingData, summary]); // Spustí se po načtení dat
+
     const today = startOfDay(new Date());
-    const datesForOverview = Array.from({ length: 15 }).map((_, i) => { // Zobrazení 15 dnů
-        const date = addDays(subDays(today, 7), i); // 7 dní zpět, dnes a 7 dní dopředu
+    const datesForOverview = Array.from({ length: 20 }).map((_, i) => { // Zobrazení 20 dnů
+        const date = addDays(subDays(today, 10), i); // 10 dní zpět, dnes a 9 dní dopředu
         let label;
         if (format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')) label = t.today;
         else if (format(date, 'yyyy-MM-dd') === format(subDays(today, 1), 'yyyy-MM-dd')) label = t.yesterday;
@@ -72,7 +83,6 @@ export default function DashboardTab() {
         
         const filteredOrders = allOrdersData.filter(order => {
             if (!order["Loading Date"]) return false;
-            // Porovnání data bez ohledu na čas
             const orderDate = startOfDay(parseISO(order["Loading Date"]));
             if (orderDate.getTime() !== date.getTime()) return false;
 
@@ -117,13 +127,14 @@ export default function DashboardTab() {
                 <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
                     <ClipboardList className="w-6 h-6 text-green-400" /> Denní přehled stavu
                 </h2>
-                <div className="flex space-x-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+                <div ref={scrollContainerRef} className="flex space-x-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
                     {datesForOverview.map((d) => {
                         const dateStr = format(d.date, 'yyyy-MM-dd');
+                        const isToday = format(d.date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
                         const dailyStats = summary.dailySummaries.find(s => s.date === dateStr);
                         const displayLabel = `${d.label} (${format(d.date, 'dd.MM.')})`;
                         return (
-                            <DailyOverviewCard key={dateStr} title={displayLabel} stats={dailyStats} t={t} onStatClick={handleStatClick} date={d.date} />
+                            <DailyOverviewCard ref={isToday ? todayCardRef : null} key={dateStr} title={displayLabel} stats={dailyStats} t={t} onStatClick={handleStatClick} date={d.date} />
                         );
                     })}
                 </div>
