@@ -9,8 +9,8 @@ import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
 import OrderListTable from '@/components/shared/OrderListTable';
 import { format, startOfDay, addDays, subDays, parseISO } from 'date-fns';
 import { cs } from 'date-fns/locale';
-// OPRAVA: Zajištění, že všechny ikony jsou správně naimportovány
-import { UploadCloud, CheckCircle, Clock, Hourglass, PlusCircle, Pallet, Box, Info, FileDown, ClipboardList } from 'lucide-react';
+// OPRAVA: Ikona 'Pallet' byla přejmenována na 'Truck', aby odpovídala lucide-react knihovně.
+import { UploadCloud, CheckCircle, Clock, Hourglass, PlusCircle, Truck, Box, Info, FileDown, ClipboardList } from 'lucide-react';
 import { exportCustomOrdersToXLSX } from '@/lib/exportUtils';
 
 // --- Komponenta pro modální okno ---
@@ -141,7 +141,7 @@ export default function DashboardTab() {
         { labelKey: 'remaining', value: summary.remainingTotal, icon: Clock, color: 'bg-yellow-500' },
         { labelKey: 'inProgress', value: summary.inProgressTotal, icon: Hourglass, color: 'bg-orange-500' },
         { labelKey: 'newOrders', value: summary.newOrdersTotal, icon: PlusCircle, color: 'bg-purple-500' },
-        { labelKey: 'pallets', value: summary.palletsTotal, icon: Pallet, color: 'bg-pink-500' },
+        { labelKey: 'pallets', value: summary.palletsTotal, icon: Truck, color: 'bg-pink-500' },
         { labelKey: 'carton', value: summary.cartonsTotal, icon: Box, color: 'bg-cyan-500' },
     ];
     
