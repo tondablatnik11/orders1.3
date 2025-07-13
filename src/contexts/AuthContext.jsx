@@ -1,10 +1,9 @@
 'use client';
 import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
-// Importujeme z nových, centralizovaných modulů
-import { auth, db, appId } from '../lib/firebase';
-import { getSupabase } from '../lib/supabaseClient';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, onSnapshot, updateDoc } from 'firebase/firestore';
+import { auth, db, appId } from '../lib/firebase';
+import { getSupabase } from '../lib/supabaseClient';
 
 export const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
@@ -37,7 +36,7 @@ export const AuthProvider = ({ children }) => {
             setLoading(false);
         });
         return () => unsubscribe();
-    }, []); // Zde není potřeba `db` a `appId` jako závislost, inicializace proběhne jednou.
+    }, []);
 
     useEffect(() => {
         if (!db || !appId) return;
@@ -47,21 +46,19 @@ export const AuthProvider = ({ children }) => {
         });
         return () => unsubscribeUsers();
     }, [db, appId]);
-    
-    // OPRAVA: Přidána chybějící funkce pro aktualizaci profilu.
+
     const updateUserProfile = async (uid, profileData) => {
         const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, uid);
         await updateDoc(userProfileRef, profileData);
-        // Po aktualizaci znovu načteme profil pro zajištění konzistence
         const userProfileSnap = await getDoc(userProfileRef);
         if (userProfileSnap.exists()) {
             setCurrentUserProfile({ uid, ...userProfileSnap.data() });
         }
     };
 
-
     const value = useMemo(() => ({
         currentUser,
+        user: currentUser, // OPRAVA: Přidán alias 'user' pro zajištění konzistence
         currentUserProfile,
         loading,
         allUsers,
@@ -76,7 +73,7 @@ export const AuthProvider = ({ children }) => {
             return signInWithPopup(auth, provider);
         },
         logout: () => signOut(auth),
-        updateUserProfile // Přidání funkce do kontextu
+        updateUserProfile
     }), [currentUser, currentUserProfile, loading, allUsers, db, appId, auth, supabase]);
 
     return <AuthContext.Provider value={value}>{!loading ? children : null}</AuthContext.Provider>;
