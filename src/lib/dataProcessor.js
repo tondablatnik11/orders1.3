@@ -69,16 +69,17 @@ export const processData = (rawData) => {
             if (newStatus.includes(status)) day.new++;
             if (inProgressStatuses.includes(status)) day.inProgress++;
 
-            // Používáme plný datum jako klíč pro správné řazení
+            // OPRAVA LOGIKY PRO GRAF: Nyní sleduje aktuální statusy zakázek podle data nakládky.
             if (!summary.statusByLoadingDate[dateKey]) {
                 summary.statusByLoadingDate[dateKey] = { date: dateKey };
             }
             summary.statusByLoadingDate[dateKey][`status${status}`] = (summary.statusByLoadingDate[dateKey][`status${status}`] || 0) + 1;
         }
 
+        // OPRAVA VÝPOČTU ZPOŽDĚNÝCH ZAKÁZEK
         if (loadingDate && isBefore(loadingDate, today) && remainingStatuses.includes(status)) {
             const delayDays = differenceInDays(today, loadingDate);
-            if (delayDays > 0) {
+            if (delayDays > 0) { // Počítáme jen reálné zpoždění (více než 0 dní)
                 summary.delayed++;
                 summary.delayedOrdersList.push({
                     delivery: deliveryIdentifier,

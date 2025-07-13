@@ -9,14 +9,23 @@ import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
 import OrderListTable from '@/components/shared/OrderListTable';
 import { format, startOfDay, addDays, subDays, parseISO } from 'date-fns';
 import { cs } from 'date-fns/locale';
-import { ClipboardList, UploadCloud } from 'lucide-react';
+import { ClipboardList, UploadCloud, FileDown } from 'lucide-react';
+import { exportCustomOrdersToXLSX } from '@/lib/exportUtils'; // Nový import
 
 // --- Nová vnořená komponenta pro Modální okno se seznamem zakázek ---
-const OrderListModal = ({ isOpen, onClose, title, orders, onSelectOrder }) => {
+const OrderListModal = ({ isOpen, onClose, title, orders, onSelectOrder, t }) => {
     if (!isOpen) return null;
     return (
         <Modal title={title} onClose={onClose}>
-            <div className="max-h-[70vh] overflow-y-auto">
+            <div className="flex justify-end mb-4">
+                <button
+                    onClick={() => exportCustomOrdersToXLSX(orders, title, t)}
+                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700"
+                >
+                    <FileDown className="w-5 h-5" /> {t.exportToXLSX}
+                </button>
+            </div>
+            <div className="max-h-[65vh] overflow-y-auto">
                 <OrderListTable orders={orders} onSelectOrder={onSelectOrder} />
             </div>
         </Modal>
@@ -29,11 +38,11 @@ const DailyOverviewCard = ({ title, stats, t, onStatClick, date }) => (
         <p className="text-gray-400 text-center font-semibold mb-3">{title}</p>
         {stats ? (
             <div className="text-sm space-y-2">
-                <p className="cursor-pointer hover:text-blue-400" onClick={() => onStatClick(date, 'total', t.total)}>{t.total}: <strong className="float-right">{stats.total}</strong></p>
-                <p className="cursor-pointer hover:text-green-400" onClick={() => onStatClick(date, 'done', t.done)}>{t.done}: <strong className="text-green-300 float-right">{stats.done}</strong></p>
-                <p className="cursor-pointer hover:text-yellow-400" onClick={() => onStatClick(date, 'remaining', t.remaining)}>{t.remaining}: <strong className="text-yellow-300 float-right">{stats.remaining}</strong></p>
-                <p className="cursor-pointer hover:text-orange-400" onClick={() => onStatClick(date, 'inProgress', t.inProgress)}>{t.inProgress}: <strong className="text-orange-300 float-right">{stats.inProgress}</strong></p>
-                <p className="cursor-pointer hover:text-purple-400" onClick={() => onStatClick(date, 'new', t.newOrders)}>{t.newOrders}: <strong className="text-purple-300 float-right">{stats.new}</strong></p>
+                <p className="cursor-pointer hover:text-blue-400 transition-colors" onClick={() => onStatClick(date, 'total', t.total)}>{t.total}: <strong className="float-right">{stats.total}</strong></p>
+                <p className="cursor-pointer hover:text-green-400 transition-colors" onClick={() => onStatClick(date, 'done', t.done)}>{t.done}: <strong className="text-green-300 float-right">{stats.done}</strong></p>
+                <p className="cursor-pointer hover:text-yellow-400 transition-colors" onClick={() => onStatClick(date, 'remaining', t.remaining)}>{t.remaining}: <strong className="text-yellow-300 float-right">{stats.remaining}</strong></p>
+                <p className="cursor-pointer hover:text-orange-400 transition-colors" onClick={() => onStatClick(date, 'inProgress', t.inProgress)}>{t.inProgress}: <strong className="text-orange-300 float-right">{stats.inProgress}</strong></p>
+                <p className="cursor-pointer hover:text-purple-400 transition-colors" onClick={() => onStatClick(date, 'new', t.newOrders)}>{t.newOrders}: <strong className="text-purple-300 float-right">{stats.new}</strong></p>
             </div>
         ) : <div className="text-center text-gray-500 text-sm flex items-center justify-center h-24">{t.noDataAvailable}</div>}
     </div>
@@ -46,8 +55,8 @@ export default function DashboardTab() {
     const [modalState, setModalState] = useState({ isOpen: false, title: '', orders: [] });
 
     const today = startOfDay(new Date());
-    const datesForOverview = Array.from({ length: 10 }).map((_, i) => {
-        const date = addDays(subDays(today, 3), i);
+    const datesForOverview = Array.from({ length: 15 }).map((_, i) => { // Zobrazení 15 dnů
+        const date = addDays(subDays(today, 7), i); // 7 dní zpět, dnes a 7 dní dopředu
         let label;
         if (format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')) label = t.today;
         else if (format(date, 'yyyy-MM-dd') === format(subDays(today, 1), 'yyyy-MM-dd')) label = t.yesterday;
@@ -63,8 +72,9 @@ export default function DashboardTab() {
         
         const filteredOrders = allOrdersData.filter(order => {
             if (!order["Loading Date"]) return false;
-            const orderDate = format(parseISO(order["Loading Date"]), 'yyyy-MM-dd');
-            if(orderDate !== format(date, 'yyyy-MM-dd')) return false;
+            // Porovnání data bez ohledu na čas
+            const orderDate = startOfDay(parseISO(order["Loading Date"]));
+            if (orderDate.getTime() !== date.getTime()) return false;
 
             const status = Number(order.Status);
             switch (type) {
@@ -130,6 +140,7 @@ export default function DashboardTab() {
                 title={modalState.title}
                 orders={modalState.orders}
                 onSelectOrder={(order) => setSelectedOrderDetails(order)}
+                t={t}
             />
         </div>
     );

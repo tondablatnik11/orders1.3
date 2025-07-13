@@ -1,95 +1,75 @@
 import { format, parseISO, startOfDay, isBefore, differenceInDays } from 'date-fns';
 
-const exportToXLSX = (data, t, fileName = 'export') => {
+// Obecná funkce pro vytvoření a stažení XLSX souboru
+const exportToXLSX = (data, fileName = 'export', t) => {
     if (typeof window.XLSX === 'undefined') {
-        console.error("XLSX library not loaded.");
-        alert(t.xlsxLibNotLoaded || "XLSX library not loaded. Please try refreshing the page.");
+        alert(t.xlsxLibNotLoaded || "Knihovna pro export (XLSX) není načtena. Zkuste prosím obnovit stránku.");
         return;
     }
      if (!data || data.length === 0) {
-        alert(t.noDataAvailable || "No data to export.");
+        alert(t.noDataAvailable || "Nejsou k dispozici žádná data pro export.");
         return;
     }
-    
+
     const ws = window.XLSX.utils.json_to_sheet(data);
     const wb = window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(wb, ws, "Data");
-    window.XLSX.writeFile(wb, `${fileName}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+    window.XLSX.writeFile(wb, `${fileName.replace(/ /g, '_')}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
 };
 
-export const exportDelayedOrdersXLSX = async (supabaseClient, t) => {
-    const today = startOfDay(new Date());
-    
-    // OPRAVA: Explicitně navyšujeme limit na 10000 záznamů i v dotazu pro export.
-    const { data, error } = await supabaseClient
-        .from('deliveries')
-        .select('"Delivery No", "Status", "del.type", "Loading Date", "Note", "Forwarding agent name", "Name of ship-to party", "Total Weight", "Bill of lading"')
-        .lt('"Loading Date"', today.toISOString()) 
-        .not('Status', 'in', '(50,60,70)')
-        .limit(10000); 
+// --- Nová generická funkce pro export z modálních oken ---
+export const exportCustomOrdersToXLSX = (orders, title, t) => {
+    const formattedData = orders.map(order => ({
+        [t.deliveryNo]: order["Delivery No"],
+        [t.status]: order.Status,
+        [t.deliveryType]: order["del.type"],
+        [t.loadingDate]: order["Loading Date"] ? format(parseISO(order["Loading Date"]), 'dd/MM/yyyy') : 'N/A',
+        [t.forwardingAgent]: order["Forwarding agent name"],
+        [t.shipToPartyName]: order["Name of ship-to party"],
+        [t.totalWeight]: order["Total Weight"],
+        [t.billOfLading]: order["Bill of lading"],
+        [t.note]: order.Note,
+    }));
+    exportToXLSX(formattedData, title, t);
+};
 
-    if (error) {
-        console.error('Error fetching delayed deliveries for XLSX export:', error.message);
-        alert(t.exportError + ` ${error.message}`);
-        return;
-    }
-
-    const formattedData = data.map(item => {
-        let parsedDate = null;
-        if (item["Loading Date"]) {
-            try {
-                parsedDate = parseISO(item["Loading Date"]);
-                if (isNaN(parsedDate.getTime())) {
-                    parsedDate = null; 
-                }
-            } catch (e) {
-                console.error("Error parsing date for export:", item["Loading Date"], e);
-                parsedDate = null;
-            }
-        }
-
-        const delayDays = (parsedDate && isBefore(parsedDate, today) && ![50, 60, 70].includes(Number(item.Status)))
-            ? differenceInDays(today, parsedDate)
-            : 0;
-        
-        if (delayDays === 0) {
-            return null; 
-        }
-
-        return {
-            [t.deliveryNo]: item["Delivery No"],
-            [t.status]: item.Status,
-            [t.deliveryType]: item["del.type"],
-            [t.loadingDate]: parsedDate ? format(parsedDate, 'dd.MM.yyyy') : 'N/A',
-            [t.delay]: delayDays,
-            [t.note]: item.Note || '',
-            [t.forwardingAgent]: item["Forwarding agent name"] || 'N/A',
-            [t.shipToPartyName]: item["Name of ship-to party"] || 'N/A',
-            [t.totalWeight]: item["Total Weight"] || 'N/A',
-            [t.billOfLading]: item["Bill of lading"] || 'N/A',
-        };
-    }).filter(item => item !== null);
+// --- Export pro zpožděné zakázky ---
+export const exportDelayedOrdersXLSX = (delayedOrders, t) => {
+    const formattedData = delayedOrders.map(item => ({
+        [t.deliveryNo]: item.delivery,
+        [t.status]: item.status,
+        [t.deliveryType]: item.delType,
+        [t.loadingDate]: item.loadingDate ? format(parseISO(item.loadingDate), 'dd.MM.yyyy') : 'N/A',
+        [t.delay]: item.delayDays,
+        [t.billOfLading]: item["Bill of lading"],
+        [t.note]: item.note,
+    }));
     
     if (formattedData.length === 0) {
-        alert(t.noDataAvailable || "No data to export after filtering 0-day delays.");
-        console.log("No data to export after filtering 0-day delays.");
+        alert(t.noDataAvailable || "Nejsou žádné zpožděné zakázky k exportu.");
         return;
     }
-
-    exportToXLSX(formattedData, t, t.delayed);
+    exportToXLSX(formattedData, t.delayed, t);
 };
 
+
+// --- Export pro výsledky vyhledávání ---
 export const exportSearchResultsToXLSX = (searchData, t) => {
     const formattedData = searchData.map(order => ({
         [t.deliveryNo]: order["Delivery No"],
         [t.status]: order.Status,
         [t.deliveryType]: order["del.type"],
         [t.loadingDate]: order["Loading Date"] ? format(parseISO(order["Loading Date"]), 'dd/MM/yyyy') : 'N/A',
+        [t.forwardingAgent]: order["Forwarding agent name"],
+        [t.shipToPartyName]: order["Name of ship-to party"],
+        [t.totalWeight]: order["Total Weight"],
+        [t.billOfLading]: order["Bill of lading"],
         [t.note]: order.Note,
     }));
-    exportToXLSX(formattedData, t, t.searchOrders);
+    exportToXLSX(formattedData, t.searchOrders, t);
 };
 
+// --- Export pro tickety ---
 export const exportTicketsToXLSX = (tickets, allUsers, t) => {
     const formattedData = tickets.map(ticket => ({
         [t.ticketTitle]: ticket.title,
@@ -100,5 +80,5 @@ export const exportTicketsToXLSX = (tickets, allUsers, t) => {
         [t.createdAt]: format(parseISO(ticket.createdAt), 'dd/MM/yyyy HH:mm'),
         [t.attachment]: ticket.attachmentName || 'N/A'
     }));
-    exportToXLSX(formattedData, t, t.ticketsTab);
+    exportToXLSX(formattedData, t.ticketsTab, t);
 };
