@@ -25,7 +25,8 @@ export const DataProvider = ({ children }) => {
 
     setIsLoadingData(true);
     try {
-      const { data, error } = await supabase.from("deliveries").select('*');
+      // OPRAVA: Přidán .limit(10000) pro navýšení limitu načtených záznamů z databáze.
+      const { data, error } = await supabase.from("deliveries").select('*').limit(10000);
       if (error) throw error;
       setAllOrdersData(data || []);
     } catch (error) {
@@ -52,24 +53,20 @@ export const DataProvider = ({ children }) => {
   const handleSaveNote = useCallback(async (deliveryNo, newNote) => {
     const { error } = await supabase.from('deliveries').update({ Note: newNote }).eq('"Delivery No"', deliveryNo.trim());
     if (error) {
-      console.error("DataContext: Chyba při ukládání poznámky:", error);
+        console.error("DataContext: Chyba při ukládání poznámky:", error);
     } else {
-      // Místo plného refetch, bychom v produkční aplikaci aktualizovali jen lokální stav.
-      // Pro jednoduchost a zaručení konzistence ponecháváme refetch.
-      fetchData();
+        fetchData(); 
     }
   }, [supabase, fetchData]);
   
-  // Přesunuto z UI komponent pro centralizaci logiky
   const handleFileUpload = useCallback(async (file) => {
-    if (!file || typeof XLSX === 'undefined') return;
+    if (!file || typeof window.XLSX === 'undefined') return;
 
-    // Funkce pro parsování data z Excelu
     const parseExcelDate = (excelDate) => {
         if (typeof excelDate === 'number') {
             return new Date((excelDate - 25569) * 86400 * 1000).toISOString();
         }
-        return null; // Vrací null, pokud formát není číslo
+        return null;
     };
 
     const reader = new FileReader();
@@ -85,19 +82,19 @@ export const DataProvider = ({ children }) => {
                 "Delivery No": String(row["Delivery No"] || row["Delivery"] || '').trim(),
                 "Status": Number(row["Status"]),
                 "del.type": row["del.type"],
-                "Loading Date": parseExcelDate(row["Loading Date"]), // Použití bezpečné parsovací funkce
+                "Loading Date": parseExcelDate(row["Loading Date"]),
                 "Note": row["Note"] || "",
                 "Forwarding agent name": row["Forwarding agent name"],
                 "Name of ship-to party": row["Name of ship-to party"],
                 "Total Weight": row["Total Weight"],
                 "Bill of lading": row["Bill of lading"],
-            })).filter(row => row["Delivery No"]); // Odstranění řádků bez čísla dodávky
+            })).filter(row => row["Delivery No"]);
 
             if (transformedData.length > 0) {
               const { error } = await supabase.from('deliveries').upsert(transformedData, { onConflict: 'Delivery No' });
               if (error) throw error;
               alert('Data byla úspěšně nahrána!');
-              fetchData(); // Znovu načteme data pro aktualizaci UI
+              fetchData();
             } else {
               alert('Nenalezena žádná platná data k nahrání.');
             }
@@ -112,10 +109,10 @@ export const DataProvider = ({ children }) => {
   const value = useMemo(() => ({
     allOrdersData,
     summary,
-    isLoadingData, // Přejmenováno z isLoading na isLoadingData pro konzistenci
+    isLoadingData,
     refetchData: fetchData,
     handleSaveNote,
-    handleFileUpload, // Poskytnutí funkce pro nahrávání
+    handleFileUpload,
     selectedOrderDetails,
     setSelectedOrderDetails,
     supabase,

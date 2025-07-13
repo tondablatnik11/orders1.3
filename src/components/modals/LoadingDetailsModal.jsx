@@ -5,10 +5,9 @@ import { useUI } from '@/hooks/useUI';
 import { Modal } from '@/components/ui/Modal';
 import { collection, doc, updateDoc, addDoc, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { format, parseISO } from 'date-fns';
-import OrderListTable from '@/components/shared/OrderListTable';
+// OrderListTable se již nepoužívá, proto je import smazán.
 import { Send, Check } from 'lucide-react';
 
-// OPRAVA: Přidán chybějící prop `orders`
 export default function LoadingDetailsModal({ loading, orders, onClose }) {
     const { t } = useUI();
     const { db, appId, user, userProfile } = useAuth();
@@ -73,6 +72,7 @@ export default function LoadingDetailsModal({ loading, orders, onClose }) {
     return (
         <Modal title={t.loadingDetails} onClose={onClose}>
             <div className="space-y-4 text-gray-200">
+                {/* Horní část modálu zůstává stejná */}
                 <div className="flex items-end gap-2">
                     <div className="flex-grow">
                         <label className="block text-sm font-medium text-gray-400 mb-1">{t.status}:</label>
@@ -104,10 +104,37 @@ export default function LoadingDetailsModal({ loading, orders, onClose }) {
                 <div>
                     <h4 className="font-semibold mt-2 mb-2">{t.orderList || 'Seznam zakázek'}</h4>
                     <div className="max-h-56 overflow-y-auto">
-                        <OrderListTable orders={orders} onSelectOrder={() => {}} size="small" />
+                        {/* Nová tabulka s požadovanými sloupci */}
+                        <table className="min-w-full bg-gray-700 rounded-lg">
+                            <thead className="bg-gray-600">
+                                <tr>
+                                    <th className="py-2 px-2 text-left text-xs font-semibold">{t.deliveryNo}</th>
+                                    <th className="py-2 px-2 text-left text-xs font-semibold">{t.status}</th>
+                                    <th className="py-2 px-2 text-left text-xs font-semibold">{t.deliveryType}</th>
+                                    <th className="py-2 px-2 text-left text-xs font-semibold">{t.loadingDate}</th>
+                                    <th className="py-2 px-2 text-left text-xs font-semibold">{t.forwardingAgent}</th>
+                                    <th className="py-2 px-2 text-left text-xs font-semibold">{t.shipToPartyName}</th>
+                                    <th className="py-2 px-2 text-left text-xs font-semibold">{t.totalWeight}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {orders && orders.map((order, index) => (
+                                    <tr key={order["Delivery No"] || index} className="border-t border-gray-600">
+                                        <td className="py-1 px-2 text-sm">{order["Delivery No"]}</td>
+                                        <td className="py-1 px-2 text-sm">{order.Status}</td>
+                                        <td className="py-1 px-2 text-sm">{order["del.type"]}</td>
+                                        <td className="py-1 px-2 text-sm">{order["Loading Date"] ? format(parseISO(order["Loading Date"]), 'dd/MM/yyyy') : 'N/A'}</td>
+                                        <td className="py-1 px-2 text-sm">{order["Forwarding agent name"] || 'N/A'}</td>
+                                        <td className="py-1 px-2 text-sm">{order["Name of ship-to party"] || 'N/A'}</td>
+                                        <td className="py-1 px-2 text-sm">{order["Total Weight"] || 'N/A'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-
+                
+                {/* Sekce s komentáři zůstává stejná */}
                 <div>
                     <h4 className="font-semibold mt-2 mb-2">Komentáře</h4>
                     <div className="flex flex-col h-64 bg-gray-900 rounded-lg p-3">
