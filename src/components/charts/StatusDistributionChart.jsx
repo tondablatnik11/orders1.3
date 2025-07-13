@@ -8,7 +8,6 @@ import { Card, CardContent } from '../ui/Card';
 import { BarChart3, PieChart as PieChartIcon } from 'lucide-react';
 
 const renderActiveShape = (props) => {
-    // Kód pro aktivní tvar koláče zůstává stejný
     const { cx, cy, midAngle, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
     const sin = Math.sin(- (Math.PI / 180) * midAngle);
     const cos = Math.cos(- (Math.PI / 180) * midAngle);
@@ -36,14 +35,21 @@ const renderActiveShape = (props) => {
 export default function StatusDistributionChart() {
     const { summary } = useData();
     const { t } = useUI();
-    // OPRAVA: Výchozí graf je nyní skládaný sloupcový
     const [chartType, setChartType] = useState('stackedBar');
     const [activeIndex, setActiveIndex] = useState(0);
 
     const onPieEnter = useCallback((_, index) => setActiveIndex(index), []);
 
     const pieData = Object.entries(summary?.statusCounts || {}).map(([status, count]) => ({ name: `Status ${status}`, value: count })).filter(item => item.value > 0);
-    const stackedData = Object.values(summary?.statusByLoadingDate || {}).sort((a, b) => a.date.localeCompare(b.date, undefined, { numeric: true }));
+    
+    // OPRAVA: Správné řazení dat pro graf podle skutečného data
+    const parseChartDate = (dateStr) => { // formát "dd/MM"
+      const [day, month] = dateStr.split('/');
+      // Vytvoříme plné datum pro správné porovnání (rok není důležitý, pokud je stejný pro všechna data)
+      return new Date(new Date().getFullYear(), parseInt(month) - 1, parseInt(day));
+    };
+    const stackedData = Object.values(summary?.statusByLoadingDate || {}).sort((a, b) => parseChartDate(a.date) - parseChartDate(b.date));
+
     const uniqueStatuses = Array.from(new Set(summary?.allOrdersData?.map(row => Number(row.Status)).filter(s => !isNaN(s)))).sort((a, b) => a - b);
 
     if (pieData.length === 0) {

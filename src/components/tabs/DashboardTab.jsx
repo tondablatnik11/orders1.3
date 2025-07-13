@@ -6,32 +6,29 @@ import { Card, CardContent } from '@/components/ui/Card';
 import StatusDistributionChart from '@/components/charts/StatusDistributionChart';
 import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
 import { format, startOfDay, addDays, subDays } from 'date-fns';
+import { cs } from 'date-fns/locale';
 import { ClipboardList, UploadCloud } from 'lucide-react';
 
 const SummaryCard = ({ title, value, colorClass = "text-blue-400" }) => (
-    <Card>
-        <CardContent>
-            <p className="text-gray-400">{title}</p>
-            <p className={`text-4xl font-bold ${colorClass}`}>{value || 0}</p>
-        </CardContent>
-    </Card>
+    <div className="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700 h-full">
+        <p className="text-sm text-gray-400">{title}</p>
+        <p className={`text-4xl font-bold ${colorClass}`}>{value || 0}</p>
+    </div>
 );
 
 const DailyOverviewCard = ({ title, stats, t }) => (
-    <Card>
-        <CardContent>
-            <p className="text-gray-400 text-center font-semibold mb-3">{title}</p>
-            {stats ? (
-                <div className="text-sm space-y-1">
-                    <p>{t.total}: <strong>{stats.total}</strong></p>
-                    <p>{t.done}: <strong className="text-green-300">{stats.done}</strong></p>
-                    <p>{t.remaining}: <strong className="text-yellow-300">{stats.remaining}</strong></p>
-                    <p>{t.inProgress}: <strong className="text-orange-300">{stats.inProgress}</strong></p>
-                    <p>{t.newOrders}: <strong className="text-purple-300">{stats.new}</strong></p>
-                </div>
-            ) : <p className="text-center text-gray-400 text-sm">{t.noDataAvailable}</p>}
-        </CardContent>
-    </Card>
+    <div className="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700 min-w-48">
+        <p className="text-gray-400 text-center font-semibold mb-3">{title}</p>
+        {stats ? (
+            <div className="text-sm space-y-1">
+                <p>{t.total}: <strong className="float-right">{stats.total}</strong></p>
+                <p>{t.done}: <strong className="text-green-300 float-right">{stats.done}</strong></p>
+                <p>{t.remaining}: <strong className="text-yellow-300 float-right">{stats.remaining}</strong></p>
+                <p>{t.inProgress}: <strong className="text-orange-300 float-right">{stats.inProgress}</strong></p>
+                <p>{t.newOrders}: <strong className="text-purple-300 float-right">{stats.new}</strong></p>
+            </div>
+        ) : <div className="text-center text-gray-500 text-sm flex items-center justify-center h-24">{t.noDataAvailable}</div>}
+    </div>
 );
 
 export default function DashboardTab() {
@@ -40,12 +37,14 @@ export default function DashboardTab() {
 
     const today = startOfDay(new Date());
     const datesForOverview = [
-        { date: subDays(today, 2), label: t.older },
+        { date: subDays(today, 2), label: 'Předevčírem' },
         { date: subDays(today, 1), label: t.yesterday },
         { date: today, label: t.today },
-        { date: addDays(today, 1), label: t.future },
-        { date: addDays(today, 2), label: t.future },
-        { date: addDays(today, 3), label: t.future },
+        { date: addDays(today, 1), label: 'Zítra' },
+        { date: addDays(today, 2), label: format(addDays(today, 2), 'EEEE', { locale: cs }) },
+        { date: addDays(today, 3), label: format(addDays(today, 3), 'EEEE', { locale: cs }) },
+        { date: addDays(today, 4), label: format(addDays(today, 4), 'EEEE', { locale: cs }) },
+        { date: addDays(today, 5), label: format(addDays(today, 5), 'EEEE', { locale: cs }) },
     ];
 
     if (isLoadingData) {
@@ -84,16 +83,16 @@ export default function DashboardTab() {
                 ))}
             </div>
 
-            {/* Denní přehledy */}
+            {/* Denní přehledy s horizontálním scrollováním */}
             <div className="mt-8">
                 <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
                     <ClipboardList className="w-6 h-6 text-green-400" /> Denní přehled stavu
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-                    {datesForOverview.map((d, index) => {
+                <div className="flex space-x-6 overflow-x-auto pb-4">
+                    {datesForOverview.map((d) => {
                         const dateStr = format(d.date, 'yyyy-MM-dd');
                         const dailyStats = summary.dailySummaries.find(s => s.date === dateStr);
-                        const displayLabel = index < 3 ? d.label : format(d.date, 'dd/MM/yyyy');
+                        const displayLabel = `${d.label} (${format(d.date, 'dd.MM.')})`;
                         return (
                             <DailyOverviewCard key={dateStr} title={displayLabel} stats={dailyStats} t={t} />
                         );
@@ -101,10 +100,10 @@ export default function DashboardTab() {
                 </div>
             </div>
             
-            {/* Hlavní grafy */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+            {/* Hlavní grafy - nyní pod sebou na celou šířku */}
+            <div className="space-y-8 mt-8">
                 <StatusDistributionChart />
-                <OrdersOverTimeChart />
+                <OrdersOverTimeChart summary={summary} />
             </div>
         </div>
     );

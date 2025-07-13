@@ -9,26 +9,31 @@ import { BarChart3, LineChart as LineChartIcon } from 'lucide-react';
 
 export default function OrdersOverTimeChart({ summary }) {
     const { t } = useUI();
-    // OPRAVA: Výchozí graf je nyní čárový
     const [chartType, setChartType] = useState('line');
 
-    if (!summary || !summary.dailySummaries) {
-        return <p>{t.noDataAvailable}</p>;
+    // OPRAVA: Kontrola dat se nyní provádí korektně.
+    if (!summary || !summary.dailySummaries || summary.dailySummaries.length === 0) {
+       return (
+            <Card>
+                <CardContent>
+                    <h2 className="text-xl font-semibold mb-2">{t.ordersOverTime}</h2>
+                    <div className="flex items-center justify-center h-[320px]">
+                        <p className="text-center text-gray-500">{t.noDataAvailable}</p>
+                    </div>
+                </CardContent>
+            </Card>
+       );
     }
 
     const chartData = summary.dailySummaries.map(day => ({
         date: day.date,
         total: day.total,
         remaining: day.remaining,
-        new: day.new, // Změna na `new` podle `dataProcessor`
+        new: day.new,
         inProgress: day.inProgress,
-        completed: day.done, // Změna na `done` podle `dataProcessor`
+        completed: day.done,
     })) || [];
-
-    if (chartData.length === 0) {
-       return <Card><CardContent><h2 className="text-xl font-semibold mb-2">{t.ordersOverTime}</h2><p className="text-center p-8">{t.noDataAvailable}</p></CardContent></Card>
-    }
-
+    
     return (
         <Card>
             <CardContent>
