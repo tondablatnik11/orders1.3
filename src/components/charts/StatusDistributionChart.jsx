@@ -32,6 +32,7 @@ const renderActiveShape = (props) => {
     );
 };
 
+// Odstraněn prop `summary`, data se berou přímo z hooku useData
 export default function StatusDistributionChart() {
     const { summary } = useData();
     const { t } = useUI();

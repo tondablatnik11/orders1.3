@@ -1,17 +1,19 @@
-'use client';
+import './globals.css';
+import { AppProviders } from '@/components/layout/AppProviders';
 
-import { AuthProvider } from '@/contexts/AuthContext';
-import { DataProvider } from '@/contexts/DataContext';
-import { UIProvider } from '@/contexts/UIContext';
+export const metadata = {
+  title: 'Přehled zakázek',
+  description: 'Aplikace pro sledování a správu zakázek',
+};
 
-export function AppProviders({ children }) {
+export default function RootLayout({ children }) {
   return (
-    <UIProvider>
-      <AuthProvider>
-        <DataProvider>
+    <html lang="cs">
+      <body>
+        <AppProviders>
           {children}
-        </DataProvider>
-      </AuthProvider>
-    </UIProvider>
+        </AppProviders>
+      </body>
+    </html>
   );
 }
