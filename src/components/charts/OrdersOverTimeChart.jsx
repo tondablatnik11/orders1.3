@@ -4,7 +4,7 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContai
 import { useUI } from '@/hooks/useUI';
 import { CHART_COLORS } from '@/lib/utils';
 import { Card, CardContent } from '../ui/Card';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { BarChart3, LineChart as LineChartIcon } from 'lucide-react';
 
 export default function OrdersOverTimeChart({ summary }) {
@@ -24,7 +24,7 @@ export default function OrdersOverTimeChart({ summary }) {
        );
     }
     
-    // OPRAVA: Řazení dat podle data pro správné vykreslení čárového grafu
+    // OPRAVA: Data jsou nyní explicitně řazena podle data, což zajišťuje správné vykreslení čárového grafu.
     const chartData = summary.dailySummaries
         .map(day => ({
             ...day,
@@ -50,7 +50,7 @@ export default function OrdersOverTimeChart({ summary }) {
                 <ResponsiveContainer width="100%" height={320}>
                     {chartType === 'bar' ? (
                         <BarChart data={chartData}>
-                            <XAxis dataKey="date" stroke="#9CA3AF" tickFormatter={(tick) => format(new Date(tick), 'dd/MM')} tick={{ fontSize: 12 }} />
+                            <XAxis dataKey="date" stroke="#9CA3AF" tickFormatter={(tick) => format(parseISO(tick), 'dd/MM')} tick={{ fontSize: 12 }} />
                             <YAxis stroke="#9CA3AF" allowDecimals={false} tick={{ fill: "#D1D5DB" }}/>
                             <Tooltip contentStyle={{ backgroundColor: '#1F2937' }} itemStyle={{ color: '#E5E7EB' }} cursor={{ fill: 'rgba(107, 114, 128, 0.2)' }}/>
                             <Legend wrapperStyle={{ color: '#D1D5DB', paddingTop: '10px' }}/>
@@ -60,7 +60,7 @@ export default function OrdersOverTimeChart({ summary }) {
                         </BarChart>
                     ) : (
                         <LineChart data={chartData}>
-                             <XAxis dataKey="date" stroke="#9CA3AF" tickFormatter={(tick) => format(new Date(tick), 'dd/MM')} tick={{ fontSize: 12 }} />
+                             <XAxis dataKey="date" stroke="#9CA3AF" tickFormatter={(tick) => format(parseISO(tick), 'dd/MM')} tick={{ fontSize: 12 }} />
                             <YAxis stroke="#9CA3AF" allowDecimals={false} tick={{ fill: "#D1D5DB" }}/>
                             <Tooltip contentStyle={{ backgroundColor: '#1F2937' }} itemStyle={{ color: '#E5E7EB' }} cursor={{ stroke: '#4A5568' }}/>
                             <Legend wrapperStyle={{ color: '#D1D5DB', paddingTop: '10px' }}/>

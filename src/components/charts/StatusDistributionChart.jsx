@@ -6,7 +6,7 @@ import { useUI } from '@/hooks/useUI';
 import { CHART_COLORS } from '@/lib/utils';
 import { Card, CardContent } from '../ui/Card';
 import { BarChart3, PieChart as PieChartIcon } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 export default function StatusDistributionChart() {
     const { summary } = useData();
@@ -15,15 +15,13 @@ export default function StatusDistributionChart() {
 
     const pieData = Object.entries(summary?.statusCounts || {}).map(([status, count]) => ({ name: `Status ${status}`, value: count })).filter(item => item.value > 0);
     
+    // OPRAVA: Zajištění správného řazení a formátování dat pro graf
     const stackedData = Object.values(summary?.statusByLoadingDate || {})
-        .map(d => ({ ...d, date: format(new Date(d.date), 'dd/MM')}))
-        .sort((a, b) => {
-            const [dayA, monthA] = a.date.split('/');
-            const [dayB, monthB] = b.date.split('/');
-            const dateA = new Date(2000, parseInt(monthA) - 1, parseInt(dayA));
-            const dateB = new Date(2000, parseInt(monthB) - 1, parseInt(dayB));
-            return dateA - dateB;
-        });
+        .sort((a, b) => new Date(a.date) - new Date(b.date)) // Řazení podle plného data
+        .map(d => ({ 
+            ...d, 
+            date: format(parseISO(d.date), 'dd/MM') // Formátování až pro zobrazení
+        }));
 
     const uniqueStatuses = Array.from(new Set(summary?.allOrdersData?.map(row => Number(row.Status)).filter(s => !isNaN(s)))).sort((a, b) => a - b);
 
