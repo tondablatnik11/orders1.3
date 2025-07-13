@@ -20,7 +20,7 @@ const exportToXLSX = (data, t, fileName = 'export') => {
 export const exportDelayedOrdersXLSX = async (supabaseClient, t) => {
     const today = startOfDay(new Date());
     
-    // DEFINITIVNÍ OPRAVA: Přidán .limit(10000) i zde.
+    // OPRAVA: Explicitně navyšujeme limit na 10000 záznamů i v dotazu pro export.
     const { data, error } = await supabaseClient
         .from('deliveries')
         .select('"Delivery No", "Status", "del.type", "Loading Date", "Note", "Forwarding agent name", "Name of ship-to party", "Total Weight", "Bill of lading"')
