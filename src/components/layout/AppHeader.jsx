@@ -3,12 +3,13 @@ import React from 'react';
 import { useUI } from '@/hooks/useUI';
 import { useAuth } from '@/hooks/useAuth';
 import { useData } from '@/hooks/useData';
-import { Globe, Sun, Moon, Lock, UploadCloud } from 'lucide-react';
+// PŘIDÁNO: Ikona pro nastavení
+import { Globe, Sun, Moon, Lock, UploadCloud, Settings } from 'lucide-react';
 
-export default function AppHeader() {
+// UPRAVENO: Komponenta nyní přijímá setActiveTab jako prop
+export default function AppHeader({ setActiveTab }) {
     const { t, darkMode, toggleTheme, toggleLang } = useUI();
     const { currentUserProfile, logout } = useAuth();
-    // Používáme centralizovanou funkci z DataContext
     const { handleFileUpload } = useData(); 
 
     return (
@@ -16,8 +17,16 @@ export default function AppHeader() {
             <h1 className="text-4xl font-bold">{t.title}</h1>
             <div className="flex items-center gap-6">
                 {currentUserProfile && (
-                    <div className="flex items-center gap-4 text-white">
+                    <div className="flex items-center gap-2 text-white">
                         <span className="font-semibold">{currentUserProfile.displayName}</span>
+                        {/* PŘIDÁNO: Tlačítko pro nastavení */}
+                        <button 
+                            onClick={() => setActiveTab(5)} 
+                            className="p-2 rounded-full hover:bg-gray-700 transition-colors"
+                            title="Nastavení"
+                        >
+                            <Settings className="w-5 h-5 text-gray-400" />
+                        </button>
                     </div>
                 )}
                 

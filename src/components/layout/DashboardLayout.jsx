@@ -9,7 +9,7 @@ import DelayedOrdersTab from '@/components/tabs/DelayedOrdersTab';
 import OrderSearchTab from '@/components/tabs/OrderSearchTab';
 import AnnouncedLoadingsTab from '@/components/tabs/AnnouncedLoadingsTab';
 import TicketsTab from '@/components/tabs/TicketsTab';
-import SettingsTab from '@/components/tabs/SettingsTab'; // <-- PŘIDÁNO
+import SettingsTab from '@/components/tabs/SettingsTab';
 
 export default function DashboardLayout() {
     const { t, darkMode } = useUI();
@@ -31,7 +31,7 @@ export default function DashboardLayout() {
     }, []);
 
     const renderActiveTab = () => {
-        // Pro Nastavení nepotřebujeme kontrolovat data, tak to dáme mimo podmínku
+        // Logika pro zobrazení záložky Nastavení (id 5)
         if (activeTab === 5) {
             return <SettingsTab />;
         }
@@ -55,7 +55,8 @@ export default function DashboardLayout() {
 
     return (
         <div className={`p-8 space-y-8 min-h-screen ${darkMode ? "bg-gray-950 text-gray-100" : "bg-white text-gray-900"}`}>
-            <AppHeader />
+            {/* UPRAVENO: Předáváme funkci setActiveTab do hlavičky */}
+            <AppHeader setActiveTab={setActiveTab} />
             <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
             <main>
                 {renderActiveTab()}
