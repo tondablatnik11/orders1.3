@@ -15,7 +15,7 @@ import ChatTab from '@/components/tabs/ChatTab';
 
 export default function DashboardLayout() {
     const { t, darkMode } = useUI();
-    const { summary, isLoadingData } = useData(); 
+    const { summary, isLoadingData, handleFileUpload } = useData(); // handleFileUpload zde může zůstat, pokud ho chcete používat jinde
     const { userProfile, loading: authLoading } = useAuth();
     const [activeTab, setActiveTab] = useState(0); 
 
@@ -32,7 +32,6 @@ export default function DashboardLayout() {
     }, []);
 
     const renderActiveTab = () => {
-        // Logika pro zobrazení speciálních záložek, které nepotřebují 'summary' data
         if (activeTab === 5) {
             return <SettingsTab initialProfile={userProfile} />;
         }
@@ -40,26 +39,20 @@ export default function DashboardLayout() {
             return <ChatTab />;
         }
 
-        // Zobrazení načítací obrazovky, pokud se načítají jakákoliv data
         if (isLoadingData || authLoading) {
             return <p className="text-center p-8">Načítám data...</p>;
         }
         
-        // Zobrazení výzvy k nahrání souboru, pokud chybí data pro hlavní záložky
+        // UPRAVENO: Odstraněna duplicitní logika nahrávacího tlačítka
         if (!summary) {
             return (
                  <div className="text-center mt-12">
                      <p className="mb-6 text-xl text-gray-400">{t.uploadFilePrompt}</p>
-                     <label className="cursor-pointer inline-flex items-center gap-3 bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg shadow-lg text-lg">
-                        <UploadCloud className="w-6 h-6" />
-                        <span>{t.upload}</span>
-                        <input type="file" accept=".xlsx, .xls" className="hidden" onChange={(e) => handleFileUpload(e.target.files[0])} />
-                    </label>
+                     {/* Tlačítko pro nahrávání je nyní spravováno pouze v AppHeader */}
                 </div>
             );
         }
         
-        // Zobrazení standardních záložek
         switch (activeTab) {
             case 0: return <DashboardTab />;
             case 1: return <DelayedOrdersTab />;
