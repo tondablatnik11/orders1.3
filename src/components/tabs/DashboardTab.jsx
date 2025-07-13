@@ -7,10 +7,11 @@ import StatusDistributionChart from '@/components/charts/StatusDistributionChart
 import { UploadCloud } from 'lucide-react';
 
 export default function DashboardTab() {
-    const { summary, isLoading, handleFileUpload } = useData();
+    // Používáme isLoadingData a centralizovaný handleFileUpload
+    const { summary, isLoadingData, handleFileUpload } = useData();
     const { t } = useUI();
 
-    if (isLoading) {
+    if (isLoadingData) {
         return <p className="text-center p-8">Načítám data...</p>;
     }
 
@@ -31,8 +32,8 @@ export default function DashboardTab() {
         <div className="space-y-10">
             <SummaryCards summary={summary} />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <StatusDistributionChart summary={summary} />
-                {/* Add other charts here once this is confirmed to work */}
+                <StatusDistributionChart />
+                {/* Zde můžete přidat další grafy */}
             </div>
         </div>
     );

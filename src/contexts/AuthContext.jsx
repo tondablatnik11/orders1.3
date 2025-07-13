@@ -1,10 +1,10 @@
 'use client';
 import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc, collection, onSnapshot, updateDoc } from 'firebase/firestore'; 
-import { firebaseConfig } from '../lib/firebase';
+// Importujeme z nových, centralizovaných modulů
+import { auth, db, appId } from '../lib/firebase';
 import { getSupabase } from '../lib/supabaseClient';
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { doc, getDoc, setDoc, collection, onSnapshot, updateDoc } from 'firebase/firestore';
 
 export const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
@@ -12,19 +12,11 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
     const [currentUser, setCurrentUser] = useState(null);
     const [currentUserProfile, setCurrentUserProfile] = useState(null);
-    const [allUsers, setAllUsers] = useState([]); 
-    const [loading, setLoading] = useState(true); 
-    const supabase = getSupabase(); 
-
-    const [firebaseInstances, setFirebaseInstances] = useState({ auth: null, db: null, appId: null });
+    const [allUsers, setAllUsers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const supabase = getSupabase();
 
     useEffect(() => {
-        const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = firebaseConfig.appId;
-        setFirebaseInstances({ auth, db, appId });
-
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 setCurrentUser(user);
@@ -45,34 +37,47 @@ export const AuthProvider = ({ children }) => {
             setLoading(false);
         });
         return () => unsubscribe();
-    }, []);
+    }, []); // Zde není potřeba `db` a `appId` jako závislost, inicializace proběhne jednou.
 
     useEffect(() => {
-        if (!firebaseInstances.db || !firebaseInstances.appId) return;
-        const usersColRef = collection(firebaseInstances.db, `artifacts/${firebaseInstances.appId}/public/data/user_profiles`);
+        if (!db || !appId) return;
+        const usersColRef = collection(db, `artifacts/${appId}/public/data/user_profiles`);
         const unsubscribeUsers = onSnapshot(usersColRef, (snapshot) => {
             setAllUsers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
         });
         return () => unsubscribeUsers();
-    }, [firebaseInstances.db, firebaseInstances.appId]);
+    }, [db, appId]);
+    
+    // OPRAVA: Přidána chybějící funkce pro aktualizaci profilu.
+    const updateUserProfile = async (uid, profileData) => {
+        const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, uid);
+        await updateDoc(userProfileRef, profileData);
+        // Po aktualizaci znovu načteme profil pro zajištění konzistence
+        const userProfileSnap = await getDoc(userProfileRef);
+        if (userProfileSnap.exists()) {
+            setCurrentUserProfile({ uid, ...userProfileSnap.data() });
+        }
+    };
+
 
     const value = useMemo(() => ({
         currentUser,
         currentUserProfile,
         loading,
         allUsers,
-        db: firebaseInstances.db,
-        appId: firebaseInstances.appId,
-        auth: firebaseInstances.auth,
+        db,
+        appId,
+        auth,
         supabase,
-        login: (email, password) => signInWithEmailAndPassword(firebaseInstances.auth, email, password),
-        register: (email, password) => createUserWithEmailAndPassword(firebaseInstances.auth, email, password),
+        login: (email, password) => signInWithEmailAndPassword(auth, email, password),
+        register: (email, password) => createUserWithEmailAndPassword(auth, email, password),
         googleSignIn: () => {
             const provider = new GoogleAuthProvider();
-            return signInWithPopup(firebaseInstances.auth, provider);
+            return signInWithPopup(auth, provider);
         },
-        logout: () => signOut(firebaseInstances.auth),
-    }), [currentUser, currentUserProfile, loading, allUsers, firebaseInstances, supabase]);
+        logout: () => signOut(auth),
+        updateUserProfile // Přidání funkce do kontextu
+    }), [currentUser, currentUserProfile, loading, allUsers, db, appId, auth, supabase]);
 
     return <AuthContext.Provider value={value}>{!loading ? children : null}</AuthContext.Provider>;
 };

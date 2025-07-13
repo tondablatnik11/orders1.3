@@ -11,7 +11,7 @@ import OrderDetailsModal from '@/components/modals/OrderDetailsModal';
 import StatusHistoryModal from '@/components/modals/StatusHistoryModal';
 
 export default function DelayedOrdersTab() {
-    const { summary, handleSaveNote, supabase, setSelectedOrderDetails: setGlobalSelectedOrderDetails, selectedOrderDetails: globalSelectedOrderDetails } = useData(); 
+    const { summary, handleSaveNote, supabase, setSelectedOrderDetails: setGlobalSelectedOrderDetails, selectedOrderDetails: globalSelectedOrderDetails } = useData();
     const { t } = useUI();
     const [showAll, setShowAll] = useState(false);
     const [localNotes, setLocalNotes] = useState({});
@@ -20,32 +20,15 @@ export default function DelayedOrdersTab() {
     const [currentDeliveryNoForHistory, setCurrentDeliveryNoForHistory] = useState(null);
     const [deliveryStatusLog, setDeliveryStatusLog] = useState([]);
 
-
-    // Není potřeba logovat summary v useEffect, pokud není specifické ladění potřeba
-    // useEffect(() => { /* ... */ }, [summary]);
-
-
-    if (!summary || !summary.delayedOrdersList) {
-        console.log('DelayedOrdersTab: Není k dispozici žádná data pro zpožděné zakázky.');
-        return <p className="text-center p-8">{t.noDataAvailable}</p>;
-    }
-
-    const handleNoteChange = (deliveryNo, text) => {
-        setLocalNotes(prev => ({ ...prev, [deliveryNo]: text }));
-    };
-
-    const handleNoteBlur = (deliveryNo, originalNote) => {
-        if (localNotes[deliveryNo] !== undefined && localNotes[deliveryNo] !== originalNote) {
-            handleSaveNote(deliveryNo, localNotes[deliveryNo]);
-        }
-    };
-
-    // Použijte useMemo pro řazení dat
     const sortedOrders = useMemo(() => {
-        // Zde se delayedOrders získává přímo ze summary
-        const allDelayedOrders = summary.delayedOrdersList; 
-        
-        let sortableItems = [...allDelayedOrders]; 
+        // Guard clause: Pokud data (summary) nebo seznam zpožděných objednávek neexistují, vrať prázdné pole.
+        // Tímto se předchází pádu aplikace při prvním renderování.
+        if (!summary || !summary.delayedOrdersList) {
+            return [];
+        }
+
+        const allDelayedOrders = summary.delayedOrdersList;
+        let sortableItems = [...allDelayedOrders];
         if (sortConfig.key !== null) {
             sortableItems.sort((a, b) => {
                 let aValue = a[sortConfig.key];
@@ -54,7 +37,7 @@ export default function DelayedOrdersTab() {
                 if (sortConfig.key === 'loadingDate') {
                     aValue = parseISO(aValue || '');
                     bValue = parseISO(bValue || '');
-                    if (isNaN(aValue.getTime())) aValue = new Date(0); 
+                    if (isNaN(aValue.getTime())) aValue = new Date(0);
                     if (isNaN(bValue.getTime())) bValue = new Date(0);
                 } else if (typeof aValue === 'string') {
                     aValue = aValue.toLowerCase();
@@ -71,9 +54,8 @@ export default function DelayedOrdersTab() {
             });
         }
         return sortableItems;
-    }, [summary.delayedOrdersList, sortConfig]);
+    }, [summary, sortConfig]); // Závislost na celém objektu 'summary' je robustnější.
 
-    // displayedOrders nyní používá sortedOrders
     const displayedOrders = showAll ? sortedOrders : sortedOrders.slice(0, 10);
 
     const requestSort = (key) => {
@@ -81,10 +63,25 @@ export default function DelayedOrdersTab() {
         if (sortConfig.key === key && sortConfig.direction === 'ascending') {
             direction = 'descending';
         } else if (sortConfig.key === key && sortConfig.direction === 'descending') {
-            direction = null; 
+            direction = null;
             key = null;
         }
         setSortConfig({ key, direction });
+    };
+    
+    // Tato kontrola je teď bezpečná, protože `useMemo` již nezpůsobí pád.
+    if (!summary || !summary.delayedOrdersList) {
+        return <p className="text-center p-8">{t.noDataAvailable}</p>;
+    }
+    
+    const handleNoteChange = (deliveryNo, text) => {
+        setLocalNotes(prev => ({ ...prev, [deliveryNo]: text }));
+    };
+
+    const handleNoteBlur = (deliveryNo, originalNote) => {
+        if (localNotes[deliveryNo] !== undefined && localNotes[deliveryNo] !== originalNote) {
+            handleSaveNote(deliveryNo, localNotes[deliveryNo]);
+        }
     };
 
     const getSortIndicator = (key) => {
@@ -93,7 +90,7 @@ export default function DelayedOrdersTab() {
     };
 
     const handleSelectOrder = (order) => {
-        setGlobalSelectedOrderDetails({ 
+        setGlobalSelectedOrderDetails({
             "Delivery No": order.delivery,
             "Status": order.status,
             "del.type": order.delType,
@@ -133,13 +130,12 @@ export default function DelayedOrdersTab() {
         }
     };
 
-
     return (
         <Card>
             <CardContent>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-2xl font-semibold flex items-center gap-2 text-red-400">
-                        <ClipboardList className="w-6 h-6" /> {t.delayed} ({summary.delayedOrdersList.length}) 
+                        <ClipboardList className="w-6 h-6" /> {t.delayed} ({summary.delayedOrdersList.length})
                     </h2>
                     <button
                         onClick={() => exportDelayedOrdersXLSX(supabase, t)}
@@ -170,18 +166,15 @@ export default function DelayedOrdersTab() {
                             </thead>
                             <tbody>
                                 {displayedOrders.map((order) => {
-                                    // console.log('DelayedOrdersTab: Vykresluji zakázku (dynamická data):', order.delivery, order); // Méně verbose
-                                    
                                     if (!order.delivery) {
-                                        console.warn('DelayedOrdersTab: Zakázka postrádá číslo dodávky pro klíč, přeskočeno:', order);
                                         return null;
                                     }
 
                                     return (
-                                        <tr 
-                                            key={order.delivery} 
+                                        <tr
+                                            key={order.delivery}
                                             className="border-t border-gray-600 cursor-pointer hover:bg-gray-600"
-                                            onClick={() => handleSelectOrder(order)} 
+                                            onClick={() => handleSelectOrder(order)}
                                         >
                                             <td className="py-3 px-4">{order.delivery}</td>
                                             <td className={`py-3 px-4 font-semibold ${getDelayColorClass(order.delayDays)}`}>{order.delayDays}</td>
@@ -193,7 +186,7 @@ export default function DelayedOrdersTab() {
                                                     value={localNotes[order.delivery] ?? order.note ?? ''}
                                                     onChange={(e) => handleNoteChange(order.delivery, e.target.value)}
                                                     onBlur={() => handleNoteBlur(order.delivery, order.note)}
-                                                    onClick={(e) => e.stopPropagation()} 
+                                                    onClick={(e) => e.stopPropagation()}
                                                     className="w-full p-1 rounded-md bg-gray-600 border border-gray-500 text-sm"
                                                 />
                                             </td>
@@ -208,7 +201,7 @@ export default function DelayedOrdersTab() {
                          </p>
                     )}
                 </div>
-                {sortedOrders.length > 10 && ( 
+                {sortedOrders.length > 10 && (
                     <div className="text-center mt-4">
                         <button onClick={() => setShowAll(!showAll)} className="text-blue-400 hover:underline">
                             {showAll ? t.showLess : `${t.showMore} (${sortedOrders.length - 10} ${t.moreItems})`}
@@ -216,16 +209,16 @@ export default function DelayedOrdersTab() {
                     </div>
                 )}
             </CardContent>
-            {globalSelectedOrderDetails && ( 
+            {globalSelectedOrderDetails && (
                 <OrderDetailsModal
                     order={globalSelectedOrderDetails}
                     onClose={handleCloseOrderDetailsModal}
                     onShowHistory={handleShowStatusHistory}
-                    onSaveNote={handleSaveNote} 
+                    onSaveNote={handleSaveNote}
                     t={t}
                 />
             )}
-            {showStatusHistoryModal && ( 
+            {showStatusHistoryModal && (
                 <StatusHistoryModal
                     history={deliveryStatusLog}
                     onClose={() => setShowStatusHistoryModal(false)}
