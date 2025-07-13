@@ -18,7 +18,7 @@ export const processData = (rawData) => {
     }
 
     const summary = {
-        total: 0,
+        total: rawData.length,
         doneTotal: 0,
         remainingTotal: 0,
         inProgressTotal: 0,
@@ -30,15 +30,14 @@ export const processData = (rawData) => {
         deliveryTypes: {},
         delayedOrdersList: [],
         dailySummaries: new Map(),
-        statusByLoadingDate: {}, // Data pro skládaný sloupcový graf
-        allOrdersData: rawData, // Prochází původní data pro grafy
+        statusByLoadingDate: {},
+        allOrdersData: rawData,
     };
 
     const doneStatuses = [50, 60, 70];
     const inProgressStatuses = [31, 35, 40];
     const newStatus = [10];
     const remainingStatuses = [10, 31, 35, 40];
-    const delayedStatuses = [10, 31, 35, 40];
     const today = startOfDay(new Date());
 
     rawData.forEach(row => {
@@ -47,7 +46,6 @@ export const processData = (rawData) => {
 
         if (isNaN(status) || !deliveryIdentifier) return;
 
-        summary.total++;
         if (doneStatuses.includes(status)) summary.doneTotal++;
         if (newStatus.includes(status)) summary.newOrdersTotal++;
         if (inProgressStatuses.includes(status)) summary.inProgressTotal++;
@@ -71,14 +69,14 @@ export const processData = (rawData) => {
             if (newStatus.includes(status)) day.new++;
             if (inProgressStatuses.includes(status)) day.inProgress++;
 
-            const chartDateKey = format(startOfDay(loadingDate), 'dd/MM');
-            if (!summary.statusByLoadingDate[chartDateKey]) {
-                summary.statusByLoadingDate[chartDateKey] = { date: chartDateKey };
+            // Používáme plný datum jako klíč pro správné řazení
+            if (!summary.statusByLoadingDate[dateKey]) {
+                summary.statusByLoadingDate[dateKey] = { date: dateKey };
             }
-            summary.statusByLoadingDate[chartDateKey][`status${status}`] = (summary.statusByLoadingDate[chartDateKey][`status${status}`] || 0) + 1;
+            summary.statusByLoadingDate[dateKey][`status${status}`] = (summary.statusByLoadingDate[dateKey][`status${status}`] || 0) + 1;
         }
 
-        if (loadingDate && isBefore(loadingDate, today) && delayedStatuses.includes(status)) {
+        if (loadingDate && isBefore(loadingDate, today) && remainingStatuses.includes(status)) {
             const delayDays = differenceInDays(today, loadingDate);
             if (delayDays > 0) {
                 summary.delayed++;
@@ -100,7 +98,7 @@ export const processData = (rawData) => {
     
     summary.remainingTotal = summary.total - summary.doneTotal;
     summary.delayedOrdersList.sort((a, b) => b.delayDays - a.delayDays);
-    summary.dailySummaries = Array.from(summary.dailySummaries.values());
+    summary.dailySummaries = Array.from(summary.dailySummaries.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
 
     return summary;
 };

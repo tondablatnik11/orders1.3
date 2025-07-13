@@ -11,7 +11,6 @@ export default function OrdersOverTimeChart({ summary }) {
     const { t } = useUI();
     const [chartType, setChartType] = useState('line');
 
-    // OPRAVA: Kontrola dat se nyní provádí korektně.
     if (!summary || !summary.dailySummaries || summary.dailySummaries.length === 0) {
        return (
             <Card>
@@ -24,16 +23,20 @@ export default function OrdersOverTimeChart({ summary }) {
             </Card>
        );
     }
-
-    const chartData = summary.dailySummaries.map(day => ({
-        date: day.date,
-        total: day.total,
-        remaining: day.remaining,
-        new: day.new,
-        inProgress: day.inProgress,
-        completed: day.done,
-    })) || [];
     
+    // OPRAVA: Řazení dat podle data pro správné vykreslení čárového grafu
+    const chartData = summary.dailySummaries
+        .map(day => ({
+            ...day,
+            date: day.date, 
+            total: day.total,
+            remaining: day.remaining,
+            new: day.new,
+            inProgress: day.inProgress,
+            completed: day.done,
+        }))
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+
     return (
         <Card>
             <CardContent>
