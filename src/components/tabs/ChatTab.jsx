@@ -1,22 +1,75 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUI } from '@/hooks/useUI';
 import { Card, CardContent } from '../ui/Card';
 import { Send, MessageSquare } from 'lucide-react';
+import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
+import { format } from 'date-fns';
 
 export default function ChatTab() {
-    const { user, allUsers } = useAuth();
+    const { user, userProfile, allUsers, db, appId } = useAuth();
     const { t } = useUI();
     const [selectedUser, setSelectedUser] = useState(null);
+    const [messages, setMessages] = useState([]);
+    const [newMessage, setNewMessage] = useState("");
+    const messagesEndRef = useRef(null);
 
-    // Odfiltrujeme aktuálně přihlášeného uživatele ze seznamu
+    // Vytvoření unikátního ID pro konverzaci mezi dvěma uživateli
+    const getConversationId = (uid1, uid2) => {
+        return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
+    };
+
+    // Listener pro načítání zpráv v reálném čase
+    useEffect(() => {
+        if (!selectedUser || !user) return;
+
+        const conversationId = getConversationId(user.uid, selectedUser.uid);
+        const messagesRef = collection(db, `artifacts/${appId}/public/data/conversations/${conversationId}/messages`);
+        const q = query(messagesRef, orderBy("timestamp", "asc"));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        });
+
+        return () => unsubscribe();
+    }, [selectedUser, user, db, appId]);
+    
+    // Automatické scrollování dolů při nové zprávě
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
+
+    const handleSendMessage = async (e) => {
+        e.preventDefault();
+        if (!newMessage.trim() || !user || !selectedUser) return;
+
+        const conversationId = getConversationId(user.uid, selectedUser.uid);
+        const messagesRef = collection(db, `artifacts/${appId}/public/data/conversations/${conversationId}/messages`);
+
+        await addDoc(messagesRef, {
+            text: newMessage.trim(),
+            senderId: user.uid,
+            senderName: userProfile.displayName,
+            timestamp: serverTimestamp(),
+        });
+
+        // Vytvoření/aktualizace záznamu o konverzaci pro snadnější budoucí výpis
+        const conversationRef = doc(db, `artifacts/${appId}/public/data/conversations/${conversationId}`);
+        await setDoc(conversationRef, {
+            participants: [user.uid, selectedUser.uid],
+            lastMessage: newMessage.trim(),
+            updatedAt: serverTimestamp(),
+        }, { merge: true });
+
+        setNewMessage("");
+    };
+
     const otherUsers = allUsers.filter(u => u.uid !== user?.uid);
 
     return (
         <Card>
             <CardContent className="flex h-[75vh] p-0">
-                {/* Levý panel se seznamem uživatelů */}
                 <div className="w-1/3 border-r border-gray-700 flex flex-col">
                     <div className="p-4 border-b border-gray-700">
                         <h2 className="font-semibold text-lg">{t.startConversation}</h2>
@@ -30,23 +83,40 @@ export default function ChatTab() {
                     </div>
                 </div>
 
-                {/* Pravý panel s chatem */}
                 <div className="w-2/3 flex flex-col">
                     {selectedUser ? (
                          <div className="flex-grow flex flex-col">
-                             <div className="p-4 border-b border-gray-700">
+                             <div className="p-4 border-b border-gray-700 bg-gray-800/50">
                                  <h3 className="font-semibold">{selectedUser.displayName}</h3>
                              </div>
-                             <div className="flex-grow p-4 overflow-y-auto">
-                                 {/* Zde budou zprávy */}
-                                 <p className="text-center text-gray-500">Zatím žádné zprávy.</p>
+                             <div className="flex-grow p-4 overflow-y-auto bg-gray-900/50">
+                                {messages.map(msg => (
+                                    <div key={msg.id} className={`flex mb-3 ${msg.senderId === user.uid ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`max-w-[70%] p-3 rounded-lg ${msg.senderId === user.uid ? 'bg-blue-600' : 'bg-gray-600'}`}>
+                                            <p className="font-semibold text-sm mb-1">{msg.senderName}</p>
+                                            <p>{msg.text}</p>
+                                            <p className="text-xs text-gray-300 mt-1 text-right">
+                                                {msg.timestamp ? format(msg.timestamp.toDate(), 'HH:mm') : ''}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                                <div ref={messagesEndRef} />
                              </div>
-                             <div className="p-4 border-t border-gray-700">
+                             <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-700">
                                  <div className="flex gap-2">
-                                     <input type="text" placeholder="Napsat zprávu..." className="flex-grow p-2 rounded-lg bg-gray-700 border border-gray-600"/>
-                                     <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"><Send className="w-5 h-5"/></button>
+                                     <input 
+                                        type="text" 
+                                        placeholder="Napsat zprávu..." 
+                                        value={newMessage}
+                                        onChange={(e) => setNewMessage(e.target.value)}
+                                        className="flex-grow p-2 rounded-lg bg-gray-700 border border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                     <button type="submit" disabled={!newMessage.trim()} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed">
+                                        <Send className="w-5 h-5"/>
+                                     </button>
                                  </div>
-                             </div>
+                             </form>
                          </div>
                     ) : (
                         <div className="flex items-center justify-center h-full">
