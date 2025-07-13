@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUI } from '@/hooks/useUI';
 import { Card, CardContent } from '../ui/Card';
 import { Send, MessageSquare } from 'lucide-react';
-import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 
 export default function ChatTab() {
@@ -15,12 +15,10 @@ export default function ChatTab() {
     const [newMessage, setNewMessage] = useState("");
     const messagesEndRef = useRef(null);
 
-    // Vytvoření unikátního ID pro konverzaci mezi dvěma uživateli
     const getConversationId = (uid1, uid2) => {
         return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
     };
 
-    // Listener pro načítání zpráv v reálném čase
     useEffect(() => {
         if (!selectedUser || !user) return;
 
@@ -35,7 +33,6 @@ export default function ChatTab() {
         return () => unsubscribe();
     }, [selectedUser, user, db, appId]);
     
-    // Automatické scrollování dolů při nové zprávě
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
@@ -54,10 +51,13 @@ export default function ChatTab() {
             timestamp: serverTimestamp(),
         });
 
-        // Vytvoření/aktualizace záznamu o konverzaci pro snadnější budoucí výpis
         const conversationRef = doc(db, `artifacts/${appId}/public/data/conversations/${conversationId}`);
         await setDoc(conversationRef, {
             participants: [user.uid, selectedUser.uid],
+            participantNames: {
+                [user.uid]: userProfile.displayName,
+                [selectedUser.uid]: selectedUser.displayName,
+            },
             lastMessage: newMessage.trim(),
             updatedAt: serverTimestamp(),
         }, { merge: true });
@@ -94,9 +94,9 @@ export default function ChatTab() {
                                     <div key={msg.id} className={`flex mb-3 ${msg.senderId === user.uid ? 'justify-end' : 'justify-start'}`}>
                                         <div className={`max-w-[70%] p-3 rounded-lg ${msg.senderId === user.uid ? 'bg-blue-600' : 'bg-gray-600'}`}>
                                             <p className="font-semibold text-sm mb-1">{msg.senderName}</p>
-                                            <p>{msg.text}</p>
+                                            <p className="whitespace-pre-wrap break-words">{msg.text}</p>
                                             <p className="text-xs text-gray-300 mt-1 text-right">
-                                                {msg.timestamp ? format(msg.timestamp.toDate(), 'HH:mm') : ''}
+                                                {msg.timestamp?.toDate ? format(msg.timestamp.toDate(), 'HH:mm') : ''}
                                             </p>
                                         </div>
                                     </div>
@@ -112,7 +112,7 @@ export default function ChatTab() {
                                         onChange={(e) => setNewMessage(e.target.value)}
                                         className="flex-grow p-2 rounded-lg bg-gray-700 border border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none"
                                     />
-                                     <button type="submit" disabled={!newMessage.trim()} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed">
+                                     <button type="submit" disabled={!newMessage.trim()} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-not-allowed flex-shrink-0">
                                         <Send className="w-5 h-5"/>
                                      </button>
                                  </div>
