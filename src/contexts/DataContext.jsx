@@ -25,7 +25,6 @@ export const DataProvider = ({ children }) => {
 
     setIsLoadingData(true);
     try {
-      // DEFINITIVNÍ OPRAVA: Explicitně nastavujeme limit na 10000 záznamů.
       const { data, error } = await supabase.from("deliveries").select('*').limit(10000);
       if (error) throw error;
       setAllOrdersData(data || []);
@@ -59,6 +58,28 @@ export const DataProvider = ({ children }) => {
     }
   }, [supabase, fetchData]);
   
+  // NOVÁ FUNKCE PRO MANUÁLNÍ ZMĚNU STATUSU
+  const handleUpdateStatus = useCallback(async (deliveryNo, newStatus) => {
+    const { data, error } = await supabase
+        .from('deliveries')
+        .update({ Status: newStatus, updated_at: new Date().toISOString() })
+        .eq('"Delivery No"', deliveryNo.trim())
+        .select();
+
+    if (error) {
+        console.error("DataContext: Chyba při aktualizaci statusu:", error);
+        throw error;
+    }
+
+    if (data && data.length > 0) {
+        fetchData(); // Obnovení dat po úspěšné aktualizaci
+        return { success: true, message: 'Status byl úspěšně aktualizován!' };
+    } else {
+        return { success: false, message: 'Zakázka s tímto číslem nebyla nalezena.' };
+    }
+  }, [supabase, fetchData]);
+
+
   const handleFileUpload = useCallback(async (file) => {
     if (!file || typeof window.XLSX === 'undefined') return;
 
@@ -88,6 +109,8 @@ export const DataProvider = ({ children }) => {
                 "Name of ship-to party": row["Name of ship-to party"],
                 "Total Weight": row["Total Weight"],
                 "Bill of lading": row["Bill of lading"],
+                // Přidáno automatické nastavení času poslední změny
+                "updated_at": new Date().toISOString(),
             })).filter(row => row["Delivery No"]);
 
             if (transformedData.length > 0) {
@@ -113,10 +136,11 @@ export const DataProvider = ({ children }) => {
     refetchData: fetchData,
     handleSaveNote,
     handleFileUpload,
+    handleUpdateStatus, // <-- PŘIDÁNO
     selectedOrderDetails,
     setSelectedOrderDetails,
     supabase,
-  }), [allOrdersData, summary, isLoadingData, fetchData, handleSaveNote, handleFileUpload, selectedOrderDetails, supabase]);
+  }), [allOrdersData, summary, isLoadingData, fetchData, handleSaveNote, handleFileUpload, handleUpdateStatus, selectedOrderDetails, supabase]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };

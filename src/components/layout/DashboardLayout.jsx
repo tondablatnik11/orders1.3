@@ -7,35 +7,35 @@ import TabNavigation from './TabNavigation';
 import DashboardTab from '@/components/tabs/DashboardTab';
 import DelayedOrdersTab from '@/components/tabs/DelayedOrdersTab';
 import OrderSearchTab from '@/components/tabs/OrderSearchTab';
-import AnnouncedLoadingsTab from '@/components/tabs/AnnouncedLoadingsTab'; // NOVÝ IMPORT
-import TicketsTab from '@/components/tabs/TicketsTab'; // NOVÝ IMPORT
+import AnnouncedLoadingsTab from '@/components/tabs/AnnouncedLoadingsTab';
+import TicketsTab from '@/components/tabs/TicketsTab';
+import SettingsTab from '@/components/tabs/SettingsTab'; // <-- PŘIDÁNO
 
 export default function DashboardLayout() {
     const { t, darkMode } = useUI();
     const { summary, isLoadingData } = useData(); 
     const [activeTab, setActiveTab] = useState(0); 
 
-    // Načtení knihovny XLSX dynamicky při mountu komponenty
     useEffect(() => {
         const loadXLSXScript = () => {
             if (typeof window.XLSX === 'undefined') {
                 const script = document.createElement('script');
                 script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
                 script.async = true;
-                script.onload = () => {
-                    console.log('XLSX library loaded successfully.');
-                };
-                script.onerror = () => {
-                    console.error('Failed to load XLSX library.');
-                };
+                script.onload = () => console.log('XLSX library loaded successfully.');
+                script.onerror = () => console.error('Failed to load XLSX library.');
                 document.body.appendChild(script);
             }
         };
         loadXLSXScript();
-
     }, []);
 
     const renderActiveTab = () => {
+        // Pro Nastavení nepotřebujeme kontrolovat data, tak to dáme mimo podmínku
+        if (activeTab === 5) {
+            return <SettingsTab />;
+        }
+
         if (isLoadingData) {
             return <p className="text-center p-8">Načítám data...</p>;
         }
@@ -44,18 +44,12 @@ export default function DashboardLayout() {
         }
         
         switch (activeTab) {
-            case 0:
-                return <DashboardTab />;
-            case 1:
-                return <DelayedOrdersTab />;
-            case 2: 
-                return <OrderSearchTab />; 
-            case 3: // Nová záložka pro Avizované nakládky
-                return <AnnouncedLoadingsTab />; 
-            case 4: // Nová záložka pro Tickety
-                return <TicketsTab />;
-            default:
-                return <DashboardTab />;
+            case 0: return <DashboardTab />;
+            case 1: return <DelayedOrdersTab />;
+            case 2: return <OrderSearchTab />; 
+            case 3: return <AnnouncedLoadingsTab />; 
+            case 4: return <TicketsTab />;
+            default: return <DashboardTab />;
         }
     };
 

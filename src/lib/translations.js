@@ -180,8 +180,10 @@ export const translations = {
     ticketDescriptionPlaceholder: "Podrobný popis úkolu...",
     selectUserToAssign: "Vyberte uživatele k přiřazení",
     selectedAttachment: "Vybrána příloha:",
+    settingsTab: "Nastavení",
   },
   en: {
+    settingsTab: "Settings",
     title: "Order Overview",
     upload: "Upload file",
     export: "Export to PDF",
@@ -600,5 +602,6 @@ export const translations = {
     ticketDescriptionPlaceholder: "Detaillierte Ticket-Beschreibung...",
     selectUserToAssign: "Benutzer zur Zuweisung auswählen",
     selectedAttachment: "Ausgewählter Anhang:",
+    settingsTab: "Einstellungen",
   },
 };
