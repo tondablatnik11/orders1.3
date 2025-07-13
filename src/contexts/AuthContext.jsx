@@ -1,5 +1,5 @@
 'use client';
-import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
+import React, { createContext, useState, useEffect, useContext, useMemo, useCallback } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, onSnapshot, updateDoc } from 'firebase/firestore';
 import { auth, db, appId } from '../lib/firebase';
@@ -16,28 +16,22 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            console.log("Auth state changed. User:", user); // LOG 1: Zjistíme, zda se uživatel přihlásil
             if (user) {
                 setCurrentUser(user);
                 const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, user.uid);
-                console.log("Pokouším se načíst profil z cesty:", userProfileRef.path); // LOG 2: Zkontrolujeme cestu k dokumentu
-
+                
                 try {
                     const userProfileSnap = await getDoc(userProfileRef);
-                    console.log("Existuje profil v databázi?", userProfileSnap.exists()); // LOG 3: Zjistíme, zda dokument existuje
-
                     if (userProfileSnap.exists()) {
-                        const profileData = userProfileSnap.data();
-                        console.log("Načtená data profilu:", profileData); // LOG 4: Vypíšeme data profilu
-                        setCurrentUserProfile({ uid: user.uid, ...profileData });
+                        setCurrentUserProfile({ uid: user.uid, ...userProfileSnap.data() });
                     } else {
-                        console.log("Profil neexistuje, vytvářím nový."); // LOG 5: Pokud neexistuje, vytvoříme nový
                         const newProfile = { email: user.email, displayName: user.email.split('@')[0], function: '', isAdmin: false, createdAt: new Date().toISOString() };
                         await setDoc(userProfileRef, newProfile);
                         setCurrentUserProfile(newProfile);
                     }
                 } catch (error) {
-                    console.error("!!! Chyba při načítání nebo vytváření profilu:", error); // LOG 6: Zachytíme případnou chybu
+                    console.error("Chyba při načítání nebo vytváření profilu:", error);
+                    setCurrentUserProfile(null); // V případě chyby nastavíme profil na null
                 }
             } else {
                 setCurrentUser(null);
@@ -47,27 +41,35 @@ export const AuthProvider = ({ children }) => {
             setLoading(false);
         });
         return () => unsubscribe();
-    }, []);
+    }, []); // Závislost je prázdná, aby se listener spustil jen jednou
 
     useEffect(() => {
-        if (!db || !appId) return;
+        if (!currentUser || !currentUserProfile?.isAdmin) {
+             setAllUsers([]);
+             return;
+        };
+
         const usersColRef = collection(db, `artifacts/${appId}/public/data/user_profiles`);
         const unsubscribeUsers = onSnapshot(usersColRef, (snapshot) => {
             setAllUsers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
         }, (error) => {
-            console.error("!!! Chyba při načítání seznamu uživatelů:", error); // LOG 7: Zachytíme chybu i zde
+            console.error("Chyba při načítání seznamu uživatelů:", error);
         });
         return () => unsubscribeUsers();
-    }, [db, appId]);
+    }, [currentUser, currentUserProfile]); // Spustí se znovu, když se změní uživatel nebo jeho admin status
 
-    const updateUserProfile = async (uid, profileData) => {
+    const updateUserProfile = useCallback(async (uid, profileData) => {
         const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, uid);
-        await updateDoc(userProfileRef, profileData);
-        const userProfileSnap = await getDoc(userProfileRef);
-        if (userProfileSnap.exists()) {
-            setCurrentUserProfile({ uid, ...userProfileSnap.data() });
+        await updateDoc(userProfileRef, profileData, { merge: true });
+
+        // Pokud admin mění svůj vlastní profil, aktualizujeme stav
+        if (currentUser?.uid === uid) {
+             const userProfileSnap = await getDoc(userProfileRef);
+            if (userProfileSnap.exists()) {
+                setCurrentUserProfile({ uid, ...userProfileSnap.data() });
+            }
         }
-    };
+    }, [appId, currentUser?.uid]);
 
     const value = useMemo(() => ({
         currentUser,
@@ -87,7 +89,11 @@ export const AuthProvider = ({ children }) => {
         },
         logout: () => signOut(auth),
         updateUserProfile
-    }), [currentUser, currentUserProfile, loading, allUsers, db, appId, auth, supabase]);
+    }), [currentUser, currentUserProfile, loading, allUsers, appId, auth, supabase, updateUserProfile]);
 
-    return <AuthContext.Provider value={value}>{!loading ? children : null}</AuthContext.Provider>;
+    return (
+        <AuthContext.Provider value={value}>
+            {!loading ? children : <div className="flex items-center justify-center min-h-screen">Načítání...</div>}
+        </AuthContext.Provider>
+    );
 };
