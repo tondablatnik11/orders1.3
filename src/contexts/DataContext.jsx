@@ -1,7 +1,7 @@
 'use client';
 import React, { createContext, useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import { getSupabase } from '../lib/supabaseClient';
-import { useAuth } from './AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { processData } from '../lib/dataProcessor';
 
 export const DataContext = createContext(null);

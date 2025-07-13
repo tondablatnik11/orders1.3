@@ -6,7 +6,6 @@ import { auth, db, appId } from '../lib/firebase';
 import { getSupabase } from '../lib/supabaseClient';
 
 export const AuthContext = createContext(null);
-export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
     const [currentUser, setCurrentUser] = useState(null);
