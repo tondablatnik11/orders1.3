@@ -6,18 +6,17 @@ import { useUI } from '@/hooks/useUI';
 import { Card, CardContent } from '../ui/Card';
 import { User, Shield, Save, Users, Edit } from 'lucide-react';
 
-// Komponenta pro úpravu vlastního profilu
-const ProfileEditor = ({ user, userProfile, updateUserProfile, t }) => {
+const ProfileEditor = ({ user, initialProfile, updateUserProfile, t }) => {
     const [displayName, setDisplayName] = useState('');
     const [userFunction, setUserFunction] = useState('');
     const [message, setMessage] = useState({ text: '', type: '' });
 
     useEffect(() => {
-        if (userProfile) {
-            setDisplayName(userProfile.displayName || '');
-            setUserFunction(userProfile.function || '');
+        if (initialProfile) {
+            setDisplayName(initialProfile.displayName || '');
+            setUserFunction(initialProfile.function || '');
         }
-    }, [userProfile]);
+    }, [initialProfile]);
 
     const handleSave = async () => {
         if (!displayName.trim()) {
@@ -57,9 +56,7 @@ const ProfileEditor = ({ user, userProfile, updateUserProfile, t }) => {
     );
 };
 
-// Komponenta pro správu uživatelů (pouze pro adminy)
 const UserManagementPanel = ({ allUsers, currentUser, updateUserProfile, t }) => {
-    
     const handleAdminToggle = async (uid, currentIsAdmin) => {
         if (uid === currentUser.uid) {
             alert("Nemůžete odebrat administrátorská práva sami sobě.");
@@ -93,13 +90,7 @@ const UserManagementPanel = ({ allUsers, currentUser, updateUserProfile, t }) =>
                                 <td className="py-3 px-4">{user.function || '-'}</td>
                                 <td className="py-3 px-4">
                                     <label className="relative inline-flex items-center cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={user.isAdmin}
-                                            onChange={() => handleAdminToggle(user.uid, user.isAdmin)}
-                                            className="sr-only peer"
-                                            disabled={user.uid === currentUser.uid}
-                                        />
+                                        <input type="checkbox" checked={user.isAdmin} onChange={() => handleAdminToggle(user.uid, user.isAdmin)} className="sr-only peer" disabled={user.uid === currentUser.uid} />
                                         <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                                     </label>
                                 </td>
@@ -112,7 +103,6 @@ const UserManagementPanel = ({ allUsers, currentUser, updateUserProfile, t }) =>
     );
 };
 
-// Komponenta pro administrátorské nástroje
 const AdminToolsPanel = ({ t }) => {
     const { handleUpdateStatus } = useData();
     const [deliveryNo, setDeliveryNo] = useState('');
@@ -154,23 +144,11 @@ const AdminToolsPanel = ({ t }) => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-400 mb-1">{t.deliveryNo}:</label>
-                        <input
-                            type="text"
-                            value={deliveryNo}
-                            onChange={(e) => setDeliveryNo(e.target.value)}
-                            placeholder={t.enterDeliveryNoForUpdate}
-                            className="w-full p-2 rounded-md bg-gray-700 border border-gray-600"
-                        />
+                        <input type="text" value={deliveryNo} onChange={(e) => setDeliveryNo(e.target.value)} placeholder={t.enterDeliveryNoForUpdate} className="w-full p-2 rounded-md bg-gray-700 border border-gray-600" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-400 mb-1">{t.newStatus}:</label>
-                        <input
-                            type="number"
-                            value={newStatus}
-                            onChange={(e) => setNewStatus(e.target.value)}
-                            placeholder="např. 50"
-                            className="w-full p-2 rounded-md bg-gray-700 border border-gray-600"
-                        />
+                        <input type="number" value={newStatus} onChange={(e) => setNewStatus(e.target.value)} placeholder="např. 50" className="w-full p-2 rounded-md bg-gray-700 border border-gray-600" />
                     </div>
                     <div className="md:self-end">
                          <button type="submit" disabled={isLoading} className="w-full bg-red-600 text-white px-4 py-2 rounded-lg shadow hover:bg-red-700 flex items-center justify-center gap-2 disabled:bg-gray-500">
@@ -184,41 +162,24 @@ const AdminToolsPanel = ({ t }) => {
     );
 };
 
-
-export default function SettingsTab() {
-    // UPRAVENO: Přidán 'loading' stav z useAuth
-    const { user, userProfile, loading, allUsers, updateUserProfile } = useAuth();
+export default function SettingsTab({ initialProfile }) { // <-- Přijímá profil jako prop
+    const { user, loading, allUsers, updateUserProfile } = useAuth();
     const { t } = useUI();
 
-    // PŘIDÁNO: Zobrazení zprávy o načítání, dokud není profil k dispozici
     if (loading) {
-        return (
-            <Card>
-                <CardContent className="text-center p-8">
-                    <p>Načítání profilu...</p>
-                </CardContent>
-            </Card>
-        );
+        return <Card><CardContent className="text-center p-8"><p>Načítání...</p></CardContent></Card>;
     }
     
-    // PŘIDÁNO: Zobrazení zprávy, pokud se profil nepodařilo načíst
-    if (!user || !userProfile) {
-         return (
-            <Card>
-                <CardContent className="text-center p-8">
-                    <p className="text-red-400">Uživatelský profil se nepodařilo načíst. Zkuste prosím obnovit stránku.</p>
-                </CardContent>
-            </Card>
-        );
+    if (!user || !initialProfile) {
+         return <Card><CardContent className="text-center p-8"><p className="text-red-400">Uživatelský profil se nepodařilo načíst. Zkuste prosím obnovit stránku.</p></CardContent></Card>;
     }
 
     return (
         <Card>
             <CardContent>
                 <div className="max-w-4xl mx-auto">
-                    <ProfileEditor user={user} userProfile={userProfile} updateUserProfile={updateUserProfile} t={t} />
-
-                    {userProfile?.isAdmin && (
+                    <ProfileEditor user={user} initialProfile={initialProfile} updateUserProfile={updateUserProfile} t={t} />
+                    {initialProfile?.isAdmin && (
                         <>
                             <UserManagementPanel allUsers={allUsers} currentUser={user} updateUserProfile={updateUserProfile} t={t} />
                             <AdminToolsPanel t={t} />

@@ -3,10 +3,9 @@ import React from 'react';
 import { useUI } from '@/hooks/useUI';
 import { useAuth } from '@/hooks/useAuth';
 import { useData } from '@/hooks/useData';
-// PŘIDÁNO: Ikona pro nastavení
+import Notifications from './Notifications';
 import { Globe, Sun, Moon, Lock, UploadCloud, Settings } from 'lucide-react';
 
-// UPRAVENO: Komponenta nyní přijímá setActiveTab jako prop
 export default function AppHeader({ setActiveTab }) {
     const { t, darkMode, toggleTheme, toggleLang } = useUI();
     const { currentUserProfile, logout } = useAuth();
@@ -15,11 +14,12 @@ export default function AppHeader({ setActiveTab }) {
     return (
         <header className="flex justify-between items-center mb-8">
             <h1 className="text-4xl font-bold">{t.title}</h1>
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4">
+                <Notifications />
+                
                 {currentUserProfile && (
                     <div className="flex items-center gap-2 text-white">
                         <span className="font-semibold">{currentUserProfile.displayName}</span>
-                        {/* PŘIDÁNO: Tlačítko pro nastavení */}
                         <button 
                             onClick={() => setActiveTab(5)} 
                             className="p-2 rounded-full hover:bg-gray-700 transition-colors"

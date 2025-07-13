@@ -8,6 +8,7 @@ const TABS = [
     { id: 2, labelKey: 'orderSearchTab' },
     { id: 3, labelKey: 'announcedLoadingsTab' },
     { id: 4, labelKey: 'ticketsTab' },
+    { id: 6, labelKey: 'chatTab' },
 ];
 
 export default function TabNavigation({ activeTab, setActiveTab }) {

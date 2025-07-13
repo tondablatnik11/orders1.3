@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useUI } from '@/hooks/useUI';
 import { useData } from '@/hooks/useData';
+import { useAuth } from '@/hooks/useAuth';
 import AppHeader from './AppHeader';
 import TabNavigation from './TabNavigation'; 
 import DashboardTab from '@/components/tabs/DashboardTab';
@@ -10,10 +11,12 @@ import OrderSearchTab from '@/components/tabs/OrderSearchTab';
 import AnnouncedLoadingsTab from '@/components/tabs/AnnouncedLoadingsTab';
 import TicketsTab from '@/components/tabs/TicketsTab';
 import SettingsTab from '@/components/tabs/SettingsTab';
+import ChatTab from '@/components/tabs/ChatTab';
 
 export default function DashboardLayout() {
     const { t, darkMode } = useUI();
     const { summary, isLoadingData } = useData(); 
+    const { userProfile, loading: authLoading } = useAuth();
     const [activeTab, setActiveTab] = useState(0); 
 
     useEffect(() => {
@@ -22,8 +25,6 @@ export default function DashboardLayout() {
                 const script = document.createElement('script');
                 script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
                 script.async = true;
-                script.onload = () => console.log('XLSX library loaded successfully.');
-                script.onerror = () => console.error('Failed to load XLSX library.');
                 document.body.appendChild(script);
             }
         };
@@ -31,18 +32,34 @@ export default function DashboardLayout() {
     }, []);
 
     const renderActiveTab = () => {
-        // Logika pro zobrazení záložky Nastavení (id 5)
+        // Logika pro zobrazení speciálních záložek, které nepotřebují 'summary' data
         if (activeTab === 5) {
-            return <SettingsTab />;
+            return <SettingsTab initialProfile={userProfile} />;
+        }
+        if (activeTab === 6) {
+            return <ChatTab />;
         }
 
-        if (isLoadingData) {
+        // Zobrazení načítací obrazovky, pokud se načítají jakákoliv data
+        if (isLoadingData || authLoading) {
             return <p className="text-center p-8">Načítám data...</p>;
         }
+        
+        // Zobrazení výzvy k nahrání souboru, pokud chybí data pro hlavní záložky
         if (!summary) {
-            return <p className="text-center p-8">{t.uploadFilePrompt}</p>;
+            return (
+                 <div className="text-center mt-12">
+                     <p className="mb-6 text-xl text-gray-400">{t.uploadFilePrompt}</p>
+                     <label className="cursor-pointer inline-flex items-center gap-3 bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg shadow-lg text-lg">
+                        <UploadCloud className="w-6 h-6" />
+                        <span>{t.upload}</span>
+                        <input type="file" accept=".xlsx, .xls" className="hidden" onChange={(e) => handleFileUpload(e.target.files[0])} />
+                    </label>
+                </div>
+            );
         }
         
+        // Zobrazení standardních záložek
         switch (activeTab) {
             case 0: return <DashboardTab />;
             case 1: return <DelayedOrdersTab />;
@@ -55,7 +72,6 @@ export default function DashboardLayout() {
 
     return (
         <div className={`p-8 space-y-8 min-h-screen ${darkMode ? "bg-gray-950 text-gray-100" : "bg-white text-gray-900"}`}>
-            {/* UPRAVENO: Předáváme funkci setActiveTab do hlavičky */}
             <AppHeader setActiveTab={setActiveTab} />
             <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
             <main>

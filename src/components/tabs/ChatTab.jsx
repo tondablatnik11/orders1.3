@@ -1,76 +1,63 @@
 "use client";
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUI } from '@/hooks/useUI';
-import { CardContent } from '../ui/Card';
-import { MessageSquare, Send } from 'lucide-react';
-import { collection, addDoc, query, onSnapshot, orderBy } from 'firebase/firestore';
-import { format, parseISO } from 'date-fns';
+import { Card, CardContent } from '../ui/Card';
+import { Send, MessageSquare } from 'lucide-react';
 
 export default function ChatTab() {
+    const { user, allUsers } = useAuth();
     const { t } = useUI();
-    const { user, userProfile, db, appId } = useAuth();
-    const [messages, setMessages] = useState([]);
-    const [newMessage, setNewMessage] = useState('');
-    const messagesEndRef = useRef(null);
+    const [selectedUser, setSelectedUser] = useState(null);
 
-    useEffect(() => {
-        if (!db || !appId) return;
-        const chatColRef = collection(db, `artifacts/${appId}/public/data/chat_messages`);
-        const q = query(chatColRef, orderBy('timestamp', 'asc'));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        });
-        return () => unsubscribe();
-    }, [db, appId]);
-
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
-    
-    const handleSendMessage = async (e) => {
-        e.preventDefault();
-        if (!newMessage.trim() || !user) return;
-        
-        await addDoc(collection(db, `artifacts/${appId}/public/data/chat_messages`), {
-            senderId: user.uid,
-            senderName: userProfile?.displayName || user.email,
-            messageText: newMessage.trim(),
-            timestamp: new Date().toISOString(),
-        });
-        setNewMessage('');
-    };
+    // Odfiltrujeme aktuálně přihlášeného uživatele ze seznamu
+    const otherUsers = allUsers.filter(u => u.uid !== user?.uid);
 
     return (
-        <CardContent className="flex flex-col h-full p-0">
-             <div className="flex-grow overflow-y-auto p-4 bg-gray-700 rounded-lg mb-4 space-y-3">
-                {messages.length > 0 ? (
-                    messages.map((msg) => (
-                        <div key={msg.id} className={`flex ${msg.senderId === user?.uid ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[70%] p-3 rounded-lg ${msg.senderId === user?.uid ? 'bg-blue-600' : 'bg-gray-600'}`}>
-                                <p className="font-semibold text-sm mb-1">{msg.senderId === user?.uid ? 'Vy' : msg.senderName}</p>
-                                <p>{msg.messageText}</p>
-                                <p className="text-xs text-gray-300 mt-1">{msg.timestamp ? format(parseISO(msg.timestamp), 'dd/MM HH:mm') : ''}</p>
+        <Card>
+            <CardContent className="flex h-[75vh] p-0">
+                {/* Levý panel se seznamem uživatelů */}
+                <div className="w-1/3 border-r border-gray-700 flex flex-col">
+                    <div className="p-4 border-b border-gray-700">
+                        <h2 className="font-semibold text-lg">{t.startConversation}</h2>
+                    </div>
+                    <div className="flex-grow overflow-y-auto">
+                        {otherUsers.length > 0 ? otherUsers.map(u => (
+                            <div key={u.uid} onClick={() => setSelectedUser(u)} className={`p-4 cursor-pointer hover:bg-gray-700/50 ${selectedUser?.uid === u.uid ? 'bg-blue-600/30' : ''}`}>
+                                <p className="font-semibold">{u.displayName || u.email}</p>
+                            </div>
+                        )) : <p className="p-4 text-sm text-gray-400">{t.noUsersFound}</p>}
+                    </div>
+                </div>
+
+                {/* Pravý panel s chatem */}
+                <div className="w-2/3 flex flex-col">
+                    {selectedUser ? (
+                         <div className="flex-grow flex flex-col">
+                             <div className="p-4 border-b border-gray-700">
+                                 <h3 className="font-semibold">{selectedUser.displayName}</h3>
+                             </div>
+                             <div className="flex-grow p-4 overflow-y-auto">
+                                 {/* Zde budou zprávy */}
+                                 <p className="text-center text-gray-500">Zatím žádné zprávy.</p>
+                             </div>
+                             <div className="p-4 border-t border-gray-700">
+                                 <div className="flex gap-2">
+                                     <input type="text" placeholder="Napsat zprávu..." className="flex-grow p-2 rounded-lg bg-gray-700 border border-gray-600"/>
+                                     <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"><Send className="w-5 h-5"/></button>
+                                 </div>
+                             </div>
+                         </div>
+                    ) : (
+                        <div className="flex items-center justify-center h-full">
+                            <div className="text-center text-gray-500">
+                                <MessageSquare className="w-12 h-12 mx-auto mb-2" />
+                                <p>Vyberte uživatele pro zahájení konverzace.</p>
                             </div>
                         </div>
-                    ))
-                ) : <p className="text-center text-gray-400">{t.noMessages}</p>}
-                <div ref={messagesEndRef} />
-            </div>
-
-            <form onSubmit={handleSendMessage} className="flex gap-2 p-2">
-                <input
-                    type="text"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    className="flex-grow p-3 rounded-lg bg-gray-700 border border-gray-600"
-                    placeholder={t.typeMessage}
-                    disabled={!user}
-                />
-                <button type="submit" className="bg-blue-600 text-white px-5 py-3 rounded-lg shadow hover:bg-blue-700" disabled={!user || !newMessage.trim()}>
-                    <Send className="w-5 h-5" />
-                </button>
-            </form>
-        </CardContent>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
     );
 }
