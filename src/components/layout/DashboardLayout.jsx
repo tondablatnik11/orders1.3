@@ -15,8 +15,9 @@ import ChatTab from '@/components/tabs/ChatTab';
 
 export default function DashboardLayout() {
     const { t, darkMode } = useUI();
-    const { summary, isLoadingData, handleFileUpload } = useData(); // handleFileUpload zde může zůstat, pokud ho chcete používat jinde
-    const { userProfile, loading: authLoading } = useAuth();
+    const { summary, isLoadingData } = useData();
+    // Načítáme zde všechny potřebné informace o uživateli
+    const { currentUser, userProfile, loading: authLoading } = useAuth();
     const [activeTab, setActiveTab] = useState(0); 
 
     useEffect(() => {
@@ -31,24 +32,28 @@ export default function DashboardLayout() {
         loadXLSXScript();
     }, []);
 
+    // KLÍČOVÁ ZMĚNA: Pokud se stále načítá profil, zobrazíme načítací obrazovku
+    if (authLoading || !currentUser || !userProfile) {
+        return <div className="flex items-center justify-center min-h-screen">Načítání profilu a dat...</div>;
+    }
+
     const renderActiveTab = () => {
         if (activeTab === 5) {
+            // Předáváme profil přímo jako prop, je zaručeno, že není null
             return <SettingsTab initialProfile={userProfile} />;
         }
         if (activeTab === 6) {
             return <ChatTab />;
         }
 
-        if (isLoadingData || authLoading) {
-            return <p className="text-center p-8">Načítám data...</p>;
+        if (isLoadingData) {
+            return <p className="text-center p-8">Načítám data objednávek...</p>;
         }
         
-        // UPRAVENO: Odstraněna duplicitní logika nahrávacího tlačítka
         if (!summary) {
             return (
                  <div className="text-center mt-12">
                      <p className="mb-6 text-xl text-gray-400">{t.uploadFilePrompt}</p>
-                     {/* Tlačítko pro nahrávání je nyní spravováno pouze v AppHeader */}
                 </div>
             );
         }
