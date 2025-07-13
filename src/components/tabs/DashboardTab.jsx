@@ -9,7 +9,8 @@ import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
 import OrderListTable from '@/components/shared/OrderListTable';
 import { format, startOfDay, addDays, subDays, parseISO } from 'date-fns';
 import { cs } from 'date-fns/locale';
-import { UploadCloud, CheckCircle, Clock, Hourglass, PlusCircle, Pallet, Box, Info, FileDown } from 'lucide-react';
+// OPRAVA: Přidány všechny potřebné ikony do importu
+import { UploadCloud, CheckCircle, Clock, Hourglass, PlusCircle, Pallet, Box, Info, FileDown, ClipboardList } from 'lucide-react';
 import { exportCustomOrdersToXLSX } from '@/lib/exportUtils';
 
 // --- Komponenta pro modální okno ---
@@ -146,7 +147,7 @@ export default function DashboardTab() {
     
     return (
         <div className="space-y-10">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-6">
+             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-6">
                 {summaryCardsData.map(card => (
                     <SummaryCard key={card.labelKey} title={t[card.labelKey]} value={card.value} icon={card.icon} colorClass={card.color} />
                 ))}
