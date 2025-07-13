@@ -1,11 +1,23 @@
 import { getHours, parseISO } from 'date-fns';
 
-export const CHART_COLORS = [
-  '#FFFFFF', '#EF4444', '#3B82F6', '#F59E0B', '#10B981',
-  '#3498DB', '#9B59B6', '#28A745', '#218838', '#FFC107',
-  '#FF9800', '#FF5722',
-];
+// --- NOVÁ BAREVNÁ PALETA ---
+// Barvy jsou nyní seřazeny tak, aby dávaly smysl v kontextu statusů
+export const CHART_COLORS = {
+  '10': '#3B82F6', // Status 10 (Nové) - Modrá
+  '31': '#F59E0B', // Status 31 (V procesu) - Oranžová
+  '35': '#D97706', // Status 35 (V procesu - pickování) - Tmavší oranžová
+  '40': '#FBBF24', // Status 40 (V procesu - dopickováno) - Žlutá
+  '50': '#10B981', // Status 50 (Hotovo) - Zelená
+  '60': '#059669', // Status 60 (Připraveno pro dopravce) - Tmavší zelená
+  '70': '#047857', // Status 70 (Na cestě) - Nejtmavší zelená
+  'default': '#6B7280', // Výchozí barva pro neznámé statusy
+};
 
+export const getStatusColor = (status) => {
+    return CHART_COLORS[status] || CHART_COLORS['default'];
+};
+
+// Zbytek souboru zůstává stejný...
 export const DATE_CATEGORY_COLORS = {
   'Today': '#3498DB',
   'Yesterday': '#9B59B6',

@@ -9,9 +9,10 @@ import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
 import OrderListTable from '@/components/shared/OrderListTable';
 import { format, startOfDay, addDays, subDays, parseISO } from 'date-fns';
 import { cs } from 'date-fns/locale';
-import { ClipboardList, UploadCloud, FileDown } from 'lucide-react';
+import { UploadCloud, CheckCircle, Clock, Hourglass, PlusCircle, Pallet, Box, Info, FileDown } from 'lucide-react';
 import { exportCustomOrdersToXLSX } from '@/lib/exportUtils';
 
+// --- Komponenta pro modální okno ---
 const OrderListModal = ({ isOpen, onClose, title, orders, onSelectOrder, t }) => {
     if (!isOpen) return null;
     return (
@@ -31,6 +32,7 @@ const OrderListModal = ({ isOpen, onClose, title, orders, onSelectOrder, t }) =>
     );
 };
 
+// --- Komponenta pro karty denního přehledu ---
 const DailyOverviewCard = React.forwardRef(({ title, stats, t, onStatClick, date }, ref) => (
     <div ref={ref} className="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700 min-w-48 flex-shrink-0">
         <p className="text-gray-400 text-center font-semibold mb-3">{title}</p>
@@ -47,12 +49,23 @@ const DailyOverviewCard = React.forwardRef(({ title, stats, t, onStatClick, date
 ));
 DailyOverviewCard.displayName = 'DailyOverviewCard';
 
+// --- Komponenta pro souhrnné karty ---
+const SummaryCard = ({ title, value, icon: Icon, colorClass }) => (
+    <div className="bg-gray-800/50 backdrop-blur-sm p-5 rounded-xl shadow-lg border border-white/10 flex items-center gap-4 h-full">
+        <div className={`p-3 rounded-lg ${colorClass}`}>
+            <Icon className="w-7 h-7 text-white" />
+        </div>
+        <div>
+            <p className="text-base text-gray-400">{title}</p>
+            <p className="text-3xl font-bold text-white">{value || 0}</p>
+        </div>
+    </div>
+);
 
 export default function DashboardTab() {
     const { summary, isLoadingData, handleFileUpload, allOrdersData, setSelectedOrderDetails } = useData();
     const { t } = useUI();
     const [modalState, setModalState] = useState({ isOpen: false, title: '', orders: [] });
-
     const scrollContainerRef = useRef(null);
     const todayCardRef = useRef(null);
     
@@ -63,11 +76,11 @@ export default function DashboardTab() {
             const scrollAmount = todayCard.offsetLeft - (container.offsetWidth / 2) + (todayCard.offsetWidth / 2);
             container.scrollTo({ left: scrollAmount, behavior: 'smooth' });
         }
-    }, [isLoadingData, summary]); // Spustí se po načtení dat
+    }, [isLoadingData, summary]);
 
     const today = startOfDay(new Date());
-    const datesForOverview = Array.from({ length: 20 }).map((_, i) => { // Zobrazení 20 dnů
-        const date = addDays(subDays(today, 10), i); // 10 dní zpět, dnes a 9 dní dopředu
+    const datesForOverview = Array.from({ length: 20 }).map((_, i) => {
+        const date = addDays(subDays(today, 10), i);
         let label;
         if (format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')) label = t.today;
         else if (format(date, 'yyyy-MM-dd') === format(subDays(today, 1), 'yyyy-MM-dd')) label = t.yesterday;
@@ -120,9 +133,25 @@ export default function DashboardTab() {
             </div>
         );
     }
+
+    const summaryCardsData = [
+        { labelKey: 'total', value: summary.total, icon: Info, color: 'bg-blue-500' },
+        { labelKey: 'done', value: summary.doneTotal, icon: CheckCircle, color: 'bg-green-500' },
+        { labelKey: 'remaining', value: summary.remainingTotal, icon: Clock, color: 'bg-yellow-500' },
+        { labelKey: 'inProgress', value: summary.inProgressTotal, icon: Hourglass, color: 'bg-orange-500' },
+        { labelKey: 'newOrders', value: summary.newOrdersTotal, icon: PlusCircle, color: 'bg-purple-500' },
+        { labelKey: 'pallets', value: summary.palletsTotal, icon: Pallet, color: 'bg-pink-500' },
+        { labelKey: 'carton', value: summary.cartonsTotal, icon: Box, color: 'bg-cyan-500' },
+    ];
     
     return (
-        <div className="space-y-8">
+        <div className="space-y-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-6">
+                {summaryCardsData.map(card => (
+                    <SummaryCard key={card.labelKey} title={t[card.labelKey]} value={card.value} icon={card.icon} colorClass={card.color} />
+                ))}
+            </div>
+
             <div className="mt-8">
                 <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
                     <ClipboardList className="w-6 h-6 text-green-400" /> Denní přehled stavu

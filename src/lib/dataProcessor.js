@@ -35,7 +35,7 @@ export const processData = (rawData) => {
     };
 
     const doneStatuses = [50, 60, 70];
-    const inProgressStatuses = [31, 35, 40];
+    const inProgressStatuses = [31, 35, 40]; // OPRAVA: Status 35 je již zahrnut
     const newStatus = [10];
     const remainingStatuses = [10, 31, 35, 40];
     const today = startOfDay(new Date());
@@ -48,7 +48,7 @@ export const processData = (rawData) => {
 
         if (doneStatuses.includes(status)) summary.doneTotal++;
         if (newStatus.includes(status)) summary.newOrdersTotal++;
-        if (inProgressStatuses.includes(status)) summary.inProgressTotal++;
+        if (inProgressStatuses.includes(status)) summary.inProgressTotal++; // Status 35 se zde správně započítá
         if (row["del.type"] === 'P') summary.palletsTotal++;
         if (row["del.type"] === 'K') summary.cartonsTotal++;
 
@@ -69,14 +69,12 @@ export const processData = (rawData) => {
             if (newStatus.includes(status)) day.new++;
             if (inProgressStatuses.includes(status)) day.inProgress++;
 
-            // OPRAVA: Používáme jednotný klíč 'yyyy-MM-dd' pro seskupování, aby se zamezilo duplicitám.
             if (!summary.statusByLoadingDate[dateKey]) {
                 summary.statusByLoadingDate[dateKey] = { date: dateKey };
             }
             summary.statusByLoadingDate[dateKey][`status${status}`] = (summary.statusByLoadingDate[dateKey][`status${status}`] || 0) + 1;
         }
         
-        // OPRAVA KONTROLY ZPOŽDĚNÝCH ZAKÁZEK
         if (loadingDate && isBefore(loadingDate, today) && remainingStatuses.includes(status)) {
             summary.delayed++;
             summary.delayedOrdersList.push({

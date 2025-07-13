@@ -1,9 +1,9 @@
 "use client";
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
-import { CHART_COLORS } from '@/lib/utils';
+import { getStatusColor } from '@/lib/utils';
 import { Card, CardContent } from '../ui/Card';
 import { BarChart3, PieChart as PieChartIcon } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
@@ -15,12 +15,11 @@ export default function StatusDistributionChart() {
 
     const pieData = Object.entries(summary?.statusCounts || {}).map(([status, count]) => ({ name: `Status ${status}`, value: count })).filter(item => item.value > 0);
     
-    // OPRAVA: Zajištění správného řazení a formátování dat pro graf
     const stackedData = Object.values(summary?.statusByLoadingDate || {})
-        .sort((a, b) => new Date(a.date) - new Date(b.date)) // Řazení podle plného data
+        .sort((a, b) => new Date(a.date) - new Date(b.date))
         .map(d => ({ 
             ...d, 
-            date: format(parseISO(d.date), 'dd/MM') // Formátování až pro zobrazení
+            date: format(parseISO(d.date), 'dd/MM')
         }));
 
     const uniqueStatuses = Array.from(new Set(summary?.allOrdersData?.map(row => Number(row.Status)).filter(s => !isNaN(s)))).sort((a, b) => a - b);
@@ -43,7 +42,10 @@ export default function StatusDistributionChart() {
                     {chartType === 'pie' ? (
                         <PieChart>
                             <Pie data={pieData} cx="50%" cy="50%" innerRadius={70} outerRadius={100} fill="#8884d8" dataKey="value" label>
-                                {pieData.map((entry, index) => (<Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />))}
+                                {pieData.map((entry, index) => {
+                                    const status = entry.name.split(' ')[1];
+                                    return <Cell key={`cell-${index}`} fill={getStatusColor(status)} />
+                                })}
                             </Pie>
                             <Tooltip contentStyle={{ backgroundColor: '#1F2937' }} />
                             <Legend />
@@ -54,8 +56,8 @@ export default function StatusDistributionChart() {
                             <YAxis stroke="#9CA3AF" tick={{ fill: "#D1D5DB" }} allowDecimals={false} />
                             <Tooltip contentStyle={{ backgroundColor: '#1F2937' }} itemStyle={{ color: '#E5E7EB' }} cursor={{ fill: 'rgba(107, 114, 128, 0.2)' }}/>
                             <Legend wrapperStyle={{ color: '#D1D5DB', paddingTop: '10px' }} />
-                            {uniqueStatuses.map((status, index) => (
-                                <Bar key={`status-bar-${status}`} dataKey={`status${status}`} name={`Status ${status}`} fill={CHART_COLORS[index % CHART_COLORS.length]} stackId="statusStack" radius={[4, 4, 0, 0]} />
+                            {uniqueStatuses.map((status) => (
+                                <Bar key={`status-bar-${status}`} dataKey={`status${status}`} name={`Status ${status}`} fill={getStatusColor(status)} stackId="statusStack" radius={[4, 4, 0, 0]} />
                             ))}
                         </BarChart>
                     )}
