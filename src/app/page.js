@@ -1,5 +1,4 @@
 'use client';
-
 import { useAuth } from '@/hooks/useAuth';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import LoginPage from '@/components/auth/Login';

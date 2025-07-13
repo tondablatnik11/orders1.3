@@ -16,13 +16,16 @@ export default function ChatTab() {
     const messagesEndRef = useRef(null);
 
     const getConversationId = (uid1, uid2) => {
+        if (!uid1 || !uid2) return null;
         return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
     };
 
     useEffect(() => {
-        if (!selectedUser || !user) return;
+        if (!selectedUser || !user || !db || !appId) return;
 
         const conversationId = getConversationId(user.uid, selectedUser.uid);
+        if (!conversationId) return;
+
         const messagesRef = collection(db, `artifacts/${appId}/public/data/conversations/${conversationId}/messages`);
         const q = query(messagesRef, orderBy("timestamp", "asc"));
 
@@ -39,9 +42,11 @@ export default function ChatTab() {
 
     const handleSendMessage = async (e) => {
         e.preventDefault();
-        if (!newMessage.trim() || !user || !selectedUser) return;
+        if (!newMessage.trim() || !user || !userProfile || !selectedUser) return;
 
         const conversationId = getConversationId(user.uid, selectedUser.uid);
+        if (!conversationId) return;
+        
         const messagesRef = collection(db, `artifacts/${appId}/public/data/conversations/${conversationId}/messages`);
 
         await addDoc(messagesRef, {

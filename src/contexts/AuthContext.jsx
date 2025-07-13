@@ -8,7 +8,7 @@ import { getSupabase } from '../lib/supabaseClient';
 export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-    const [status, setStatus] = useState('loading'); // 'loading', 'authenticated', 'unauthenticated'
+    const [status, setStatus] = useState('loading');
     const [currentUser, setCurrentUser] = useState(null);
     const [currentUserProfile, setCurrentUserProfile] = useState(null);
     const [allUsers, setAllUsers] = useState([]);
@@ -44,14 +44,18 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         if (currentUserProfile?.isAdmin) {
             const usersColRef = collection(db, `artifacts/${appId}/public/data/user_profiles`);
-            const unsubscribe = onSnapshot(usersColRef, (snapshot) => {
+            const unsubscribeUsers = onSnapshot(usersColRef, (snapshot) => {
                 setAllUsers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
             });
-            return () => unsubscribe();
-        } else {
-            setAllUsers([]);
+            return () => unsubscribeUsers();
+        } else if (currentUser) {
+            const usersColRef = collection(db, `artifacts/${appId}/public/data/user_profiles`);
+             const unsubscribeUsers = onSnapshot(usersColRef, (snapshot) => {
+                setAllUsers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
+            });
+            return () => unsubscribeUsers();
         }
-    }, [currentUserProfile, appId]);
+    }, [currentUser, currentUserProfile, appId]);
 
     const updateUserProfile = async (uid, profileData) => {
         const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, uid);
@@ -71,10 +75,10 @@ export const AuthProvider = ({ children }) => {
         currentUserProfile,
         allUsers,
         updateUserProfile,
-        db, // OPRAVA: Vráceno zpět
-        auth, // OPRAVA: Vráceno zpět
-        appId, // OPRAVA: Vráceno zpět
-        supabase, // OPRAVA: Vráceno zpět
+        db,
+        auth,
+        appId,
+        supabase,
         login: (email, password) => signInWithEmailAndPassword(auth, email, password),
         register: (email, password) => createUserWithEmailAndPassword(auth, email, password),
         googleSignIn: () => {
