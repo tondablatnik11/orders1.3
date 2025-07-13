@@ -46,9 +46,8 @@ export const AuthProvider = ({ children }) => {
             });
             return () => unsubscribeUsers();
         } else if (currentUser) {
-            // Načteme uživatele i pro běžné uživatele, aby fungoval chat
             const usersColRef = collection(db, `artifacts/${appId}/public/data/user_profiles`);
-            const unsubscribeUsers = onSnapshot(usersColRef, (snapshot) => {
+             const unsubscribeUsers = onSnapshot(usersColRef, (snapshot) => {
                 setAllUsers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
             });
             return () => unsubscribeUsers();

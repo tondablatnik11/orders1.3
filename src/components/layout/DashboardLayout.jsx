@@ -16,7 +16,6 @@ import ChatTab from '@/components/tabs/ChatTab';
 export default function DashboardLayout() {
     const { t, darkMode } = useUI();
     const { summary, isLoadingData } = useData();
-    // Načítáme zde všechny potřebné informace o uživateli
     const { currentUser, userProfile, loading: authLoading } = useAuth();
     const [activeTab, setActiveTab] = useState(0); 
 
@@ -32,14 +31,12 @@ export default function DashboardLayout() {
         loadXLSXScript();
     }, []);
 
-    // KLÍČOVÁ ZMĚNA: Pokud se stále načítá profil, zobrazíme načítací obrazovku
     if (authLoading || !currentUser || !userProfile) {
         return <div className="flex items-center justify-center min-h-screen">Načítání profilu a dat...</div>;
     }
 
     const renderActiveTab = () => {
         if (activeTab === 5) {
-            // Předáváme profil přímo jako prop, je zaručeno, že není null
             return <SettingsTab initialProfile={userProfile} />;
         }
         if (activeTab === 6) {
