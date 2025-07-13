@@ -21,11 +21,12 @@ export default function ChatTab() {
     };
 
     useEffect(() => {
-        if (!selectedUser || !user || !db || !appId) return;
+        if (!selectedUser || !user || !db || !appId) {
+            setMessages([]);
+            return;
+        };
 
         const conversationId = getConversationId(user.uid, selectedUser.uid);
-        if (!conversationId) return;
-
         const messagesRef = collection(db, `artifacts/${appId}/public/data/conversations/${conversationId}/messages`);
         const q = query(messagesRef, orderBy("timestamp", "asc"));
 
@@ -45,10 +46,8 @@ export default function ChatTab() {
         if (!newMessage.trim() || !user || !userProfile || !selectedUser) return;
 
         const conversationId = getConversationId(user.uid, selectedUser.uid);
-        if (!conversationId) return;
         
         const messagesRef = collection(db, `artifacts/${appId}/public/data/conversations/${conversationId}/messages`);
-
         await addDoc(messagesRef, {
             text: newMessage.trim(),
             senderId: user.uid,

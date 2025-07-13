@@ -4,7 +4,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import LoginPage from '@/components/auth/Login';
 
 export default function Home() {
-  const { status, currentUser } = useAuth();
+  const { status } = useAuth();
 
   if (status === 'loading') {
     return (
@@ -14,5 +14,7 @@ export default function Home() {
     );
   }
 
-  return status === 'authenticated' && currentUser ? <DashboardLayout /> : <LoginPage />;
+  // Zobrazí Dashboard pouze pokud je stav 'authenticated'
+  // Jinak zobrazí přihlašovací stránku
+  return status === 'authenticated' ? <DashboardLayout /> : <LoginPage />;
 }

@@ -8,9 +8,13 @@ import { getSupabase } from '../lib/supabaseClient';
 export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-    const [status, setStatus] = useState('loading');
-    const [currentUser, setCurrentUser] = useState(null);
-    const [currentUserProfile, setCurrentUserProfile] = useState(null);
+    // Nový, robustnější systém stavů
+    const [authState, setAuthState] = useState({
+        status: 'loading', // 'loading', 'authenticated', 'unauthenticated'
+        currentUser: null,
+        currentUserProfile: null,
+    });
+
     const [allUsers, setAllUsers] = useState([]);
     const supabase = getSupabase();
     
@@ -18,23 +22,25 @@ export const AuthProvider = ({ children }) => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, user.uid);
-                const userProfileSnap = await getDoc(userProfileRef);
-                
-                let profileData = null;
-                if (userProfileSnap.exists()) {
-                    profileData = { uid: user.uid, ...userProfileSnap.data() };
-                } else {
-                    const newProfile = { email: user.email, displayName: user.email.split('@')[0], function: '', isAdmin: false, createdAt: new Date().toISOString() };
-                    await setDoc(userProfileRef, newProfile);
-                    profileData = { uid: user.uid, ...newProfile };
+                try {
+                    const userProfileSnap = await getDoc(userProfileRef);
+                    
+                    let profileData = null;
+                    if (userProfileSnap.exists()) {
+                        profileData = { uid: user.uid, ...userProfileSnap.data() };
+                    } else {
+                        const newProfile = { email: user.email, displayName: user.email.split('@')[0] || 'Nový uživatel', function: '', isAdmin: false, createdAt: new Date().toISOString() };
+                        await setDoc(userProfileRef, newProfile);
+                        profileData = { uid: user.uid, ...newProfile };
+                    }
+                    setAuthState({ status: 'authenticated', currentUser: user, currentUserProfile: profileData });
+
+                } catch (error) {
+                    console.error("Kritická chyba při načítání profilu:", error);
+                    setAuthState({ status: 'unauthenticated', currentUser: null, currentUserProfile: null });
                 }
-                setCurrentUser(user);
-                setCurrentUserProfile(profileData);
-                setStatus('authenticated');
             } else {
-                setCurrentUser(null);
-                setCurrentUserProfile(null);
-                setStatus('unauthenticated');
+                setAuthState({ status: 'unauthenticated', currentUser: null, currentUserProfile: null });
             }
         });
 
@@ -42,37 +48,31 @@ export const AuthProvider = ({ children }) => {
     }, [appId]);
 
     useEffect(() => {
-        if (currentUserProfile?.isAdmin) {
+        // Načítáme všechny uživatele, pokud je někdo přihlášen
+        if (authState.status === 'authenticated') {
             const usersColRef = collection(db, `artifacts/${appId}/public/data/user_profiles`);
             const unsubscribeUsers = onSnapshot(usersColRef, (snapshot) => {
-                setAllUsers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
-            });
-            return () => unsubscribeUsers();
-        } else if (currentUser) {
-            const usersColRef = collection(db, `artifacts/${appId}/public/data/user_profiles`);
-             const unsubscribeUsers = onSnapshot(usersColRef, (snapshot) => {
-                setAllUsers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
+                setAllUsers(snapshot.docs.map(d => ({ uid: d.id, ...d.data() })));
             });
             return () => unsubscribeUsers();
         }
-    }, [currentUser, currentUserProfile, appId]);
+    }, [authState.status, appId]);
+
 
     const updateUserProfile = async (uid, profileData) => {
         const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, uid);
         await updateDoc(userProfileRef, profileData, { merge: true });
-        if (currentUser?.uid === uid) {
+        if (authState.currentUser?.uid === uid) {
             const userProfileSnap = await getDoc(userProfileRef);
             if (userProfileSnap.exists()) {
-                setCurrentUserProfile({ uid, ...userProfileSnap.data() });
+                setAuthState(prev => ({ ...prev, currentUserProfile: { uid, ...userProfileSnap.data() } }));
             }
         }
     };
     
     const value = {
-        status,
-        currentUser,
-        user: currentUser,
-        currentUserProfile,
+        ...authState,
+        user: authState.currentUser, // pro zpětnou kompatibilitu
         allUsers,
         updateUserProfile,
         db,
