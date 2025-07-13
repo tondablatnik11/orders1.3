@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
-import StatusPieChart from '@/components/charts/StatusPieChart'; // <-- NOVÝ IMPORT
+import StatusDistributionChart from '@/components/charts/StatusDistributionChart'; // Přejmenováno zpět
 import { format, startOfDay, addDays, subDays, parseISO } from 'date-fns';
 import { cs } from 'date-fns/locale';
 import { UploadCloud, CheckCircle, Clock, Hourglass, PlusCircle, Truck, Box, Info, FileDown, ClipboardList } from 'lucide-react';
@@ -41,7 +41,7 @@ export default function DashboardTab() {
         const doneStatuses = [50, 60, 70];
         const inProgressStatuses = [31, 35, 40];
         const newStatus = [10];
-        const remainingStatuses = [10, 31, 35, 40];
+        const remainingStatuses = [10, 30, 31, 35, 40];
         
         const filteredOrders = allOrdersData.filter(order => {
             if (!order["Loading Date"]) return false;
@@ -118,9 +118,8 @@ export default function DashboardTab() {
                 </div>
             </div>
             
-            {/* ZMĚNA ZDE: Přidáváme grid pro dva grafy vedle sebe */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-                <StatusPieChart summary={summary} />
+            <div className="space-y-8 mt-8">
+                <StatusDistributionChart />
                 <OrdersOverTimeChart summary={summary} />
             </div>
             

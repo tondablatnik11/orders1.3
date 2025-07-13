@@ -35,9 +35,10 @@ export const processData = (rawData) => {
     };
 
     const doneStatuses = [50, 60, 70];
-    const inProgressStatuses = [31, 35, 40]; // OPRAVA: Status 35 je již zahrnut
+    const inProgressStatuses = [31, 35, 40];
     const newStatus = [10];
-    const remainingStatuses = [10, 31, 35, 40];
+    // UPRAVENO: Přidán status 30 pro výpočet "Zbývá"
+    const remainingStatuses = [10, 30, 31, 35, 40]; 
     const today = startOfDay(new Date());
 
     rawData.forEach(row => {
@@ -48,7 +49,7 @@ export const processData = (rawData) => {
 
         if (doneStatuses.includes(status)) summary.doneTotal++;
         if (newStatus.includes(status)) summary.newOrdersTotal++;
-        if (inProgressStatuses.includes(status)) summary.inProgressTotal++; // Status 35 se zde správně započítá
+        if (inProgressStatuses.includes(status)) summary.inProgressTotal++;
         if (row["del.type"] === 'P') summary.palletsTotal++;
         if (row["del.type"] === 'K') summary.cartonsTotal++;
 
@@ -65,7 +66,7 @@ export const processData = (rawData) => {
             const day = summary.dailySummaries.get(dateKey);
             day.total++;
             if (doneStatuses.includes(status)) day.done++;
-            if (remainingStatuses.includes(status)) day.remaining++;
+            if (remainingStatuses.includes(status)) day.remaining++; // Nově počítáno podle definice
             if (newStatus.includes(status)) day.new++;
             if (inProgressStatuses.includes(status)) day.inProgress++;
 
