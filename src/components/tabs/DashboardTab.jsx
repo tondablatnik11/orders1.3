@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
-import { Card, CardContent } from '@/components/ui/Card';
 import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
+import StatusPieChart from '@/components/charts/StatusPieChart'; // <-- NOVÝ IMPORT
 import { format, startOfDay, addDays, subDays, parseISO } from 'date-fns';
 import { cs } from 'date-fns/locale';
 import { UploadCloud, CheckCircle, Clock, Hourglass, PlusCircle, Truck, Box, Info, FileDown, ClipboardList } from 'lucide-react';
@@ -118,7 +118,9 @@ export default function DashboardTab() {
                 </div>
             </div>
             
-            <div className="space-y-8 mt-8">
+            {/* ZMĚNA ZDE: Přidáváme grid pro dva grafy vedle sebe */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+                <StatusPieChart summary={summary} />
                 <OrdersOverTimeChart summary={summary} />
             </div>
             
