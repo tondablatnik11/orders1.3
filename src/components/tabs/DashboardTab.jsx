@@ -6,10 +6,22 @@ import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
 import StatusDistributionChart from '@/components/charts/StatusDistributionChart';
 import { format, startOfDay, addDays, subDays, parseISO } from 'date-fns';
 import { cs } from 'date-fns/locale';
-import { UploadCloud, CheckCircle, Clock, Hourglass, PlusCircle, Truck, Box, Info, FileDown, ClipboardList } from 'lucide-react';
+import { UploadCloud, CheckCircle, Clock, Hourglass, PlusCircle, Truck, Box, Info, FileDown, ClipboardList, AlertTriangle } from 'lucide-react';
 import { OrderListModal } from '@/components/modals/OrderListModal';
 import { DailyOverviewCard } from '@/components/shared/DailyOverviewCard';
 import { SummaryCard } from '@/components/shared/SummaryCard';
+
+// Nová komponenta pro hlavní KPI kartu
+const FeaturedKPICard = ({ title, value, icon: Icon }) => (
+    <div className="bg-red-900/50 backdrop-blur-sm p-8 rounded-xl shadow-2xl border border-red-500/50 flex flex-col items-center justify-center text-center h-full transition-all duration-300 hover:bg-red-800/80 hover:shadow-red-400/20 hover:-translate-y-1">
+        <div className="p-4 bg-red-500/80 rounded-full mb-4">
+            <Icon className="w-10 h-10 text-white" />
+        </div>
+        <p className="text-xl text-red-200 font-semibold">{title}</p>
+        <p className="text-6xl font-bold text-white mt-2">{value || 0}</p>
+    </div>
+);
+
 
 export default function DashboardTab() {
     const { summary, isLoadingData, handleFileUpload, allOrdersData, setSelectedOrderDetails } = useData();
@@ -88,17 +100,19 @@ export default function DashboardTab() {
         { labelKey: 'done', value: summary.doneTotal, icon: CheckCircle, color: 'bg-green-500' },
         { labelKey: 'remaining', value: summary.remainingTotal, icon: Clock, color: 'bg-yellow-500' },
         { labelKey: 'inProgress', value: summary.inProgressTotal, icon: Hourglass, color: 'bg-orange-500' },
-        { labelKey: 'newOrders', value: summary.newOrdersTotal, icon: PlusCircle, color: 'bg-purple-500' },
-        { labelKey: 'pallets', value: summary.palletsTotal, icon: Truck, color: 'bg-pink-500' },
-        { labelKey: 'carton', value: summary.cartonsTotal, icon: Box, color: 'bg-cyan-500' },
     ];
     
     return (
         <div className="space-y-10">
-             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-6">
-                {summaryCardsData.map(card => (
-                    <SummaryCard key={card.labelKey} title={t[card.labelKey]} value={card.value} icon={card.icon} colorClass={card.color} />
-                ))}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {summaryCardsData.map(card => (
+                        <SummaryCard key={card.labelKey} title={t[card.labelKey]} value={card.value} icon={card.icon} colorClass={card.color} />
+                    ))}
+                </div>
+                <div className="lg:col-span-1">
+                     <FeaturedKPICard title={t.delayed} value={summary.delayed} icon={AlertTriangle} />
+                </div>
             </div>
 
             <div className="mt-8">
@@ -119,7 +133,6 @@ export default function DashboardTab() {
             </div>
             
             <div className="space-y-8 mt-8">
-                {/* ODSTRANĚNO: <div className="grid grid-cols-1 md:grid-cols-2 gap-8">...</div> */}
                 <StatusDistributionChart />
                 <OrdersOverTimeChart summary={summary} />
             </div>

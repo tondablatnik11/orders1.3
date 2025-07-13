@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { format, parseISO } from 'date-fns';
-import { getDelayColorClass } from '@/lib/utils';
+import { getDelayColorClass, getStatusColor } from '@/lib/utils'; // <-- PŘIDÁN IMPORT
 import { Card, CardContent } from '@/components/ui/Card';
 import { FileDown, ClipboardList } from 'lucide-react';
 import { exportDelayedOrdersXLSX } from '@/lib/exportUtils';
@@ -141,7 +141,12 @@ export default function DelayedOrdersTab() {
                                         onClick={() => handleSelectOrder(order)}
                                     >
                                         <td className="py-3 px-4">{order.delivery}</td>
-                                        <td className="py-3 px-4">{order.status}</td>
+                                        <td className="py-3 px-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getStatusColor(order.status) }}></span>
+                                                {order.status}
+                                            </div>
+                                        </td>
                                         <td className="py-3 px-4">{order.delType}</td>
                                         <td className="py-3 px-4">{order.loadingDate ? format(parseISO(order.loadingDate), 'dd.MM.yyyy') : 'N/A'}</td>
                                         <td className={`py-3 px-4 font-semibold ${getDelayColorClass(order.delayDays)}`}>{order.delayDays}</td>
