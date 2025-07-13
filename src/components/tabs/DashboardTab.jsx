@@ -9,7 +9,7 @@ import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
 import OrderListTable from '@/components/shared/OrderListTable';
 import { format, startOfDay, addDays, subDays, parseISO } from 'date-fns';
 import { cs } from 'date-fns/locale';
-// OPRAVA: Přidány všechny potřebné ikony do importu
+// OPRAVA: Zajištění, že všechny ikony jsou správně naimportovány
 import { UploadCloud, CheckCircle, Clock, Hourglass, PlusCircle, Pallet, Box, Info, FileDown, ClipboardList } from 'lucide-react';
 import { exportCustomOrdersToXLSX } from '@/lib/exportUtils';
 
