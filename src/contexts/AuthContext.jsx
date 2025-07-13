@@ -16,23 +16,32 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, user.uid);
-                const userProfileSnap = await getDoc(userProfileRef);
-                
-                if (userProfileSnap.exists()) {
-                    setCurrentUserProfile({ uid: user.uid, ...userProfileSnap.data() });
+            try {
+                if (user) {
+                    const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, user.uid);
+                    const userProfileSnap = await getDoc(userProfileRef);
+                    
+                    if (userProfileSnap.exists()) {
+                        setCurrentUserProfile({ uid: user.uid, ...userProfileSnap.data() });
+                    } else {
+                        const newProfile = { email: user.email, displayName: user.email.split('@')[0], function: '', isAdmin: false, createdAt: new Date().toISOString() };
+                        await setDoc(userProfileRef, newProfile);
+                        setCurrentUserProfile({ uid: user.uid, ...newProfile });
+                    }
+                    setCurrentUser(user);
                 } else {
-                    const newProfile = { email: user.email, displayName: user.email.split('@')[0], function: '', isAdmin: false, createdAt: new Date().toISOString() };
-                    await setDoc(userProfileRef, newProfile);
-                    setCurrentUserProfile({ uid: user.uid, ...newProfile });
+                    setCurrentUser(null);
+                    setCurrentUserProfile(null);
                 }
-                setCurrentUser(user);
-            } else {
+            } catch (error) {
+                console.error("Chyba při načítání profilu uživatele:", error);
+                // I v případě chyby je potřeba ukončit načítání, aby se aplikace nezasekla
                 setCurrentUser(null);
                 setCurrentUserProfile(null);
+            } finally {
+                // TOTO JE KLÍČOVÁ ZMĚNA: setLoading(false) se volá vždy až po dokončení asynchronní práce s profilem.
+                setLoading(false);
             }
-            setLoading(false);
         });
 
         return () => unsubscribe();
@@ -69,6 +78,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         currentUser,
         user: currentUser,
+        userProfile: currentUserProfile, // Přejmenováno pro konzistenci, ale ponechávám i staré jméno pro zpětnou kompatibilitu
         currentUserProfile,
         allUsers,
         updateUserProfile,
@@ -83,7 +93,7 @@ export const AuthProvider = ({ children }) => {
             return signInWithPopup(auth, provider);
         },
         logout: () => signOut(auth),
-    }), [currentUser, currentUserProfile, loading, allUsers, appId, auth, supabase, updateUserProfile]);
+    }), [currentUser, currentUserProfile, loading, allUsers, appId, auth, supabase]); // Zde jsem odebral updateUserProfile ze závislostí, protože je definován vně a nemění se
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
