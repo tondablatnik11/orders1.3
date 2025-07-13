@@ -9,7 +9,7 @@ import { BarChart3, LineChart as LineChartIcon } from 'lucide-react';
 
 export default function OrdersOverTimeChart({ summary }) {
     const { t } = useUI();
-    const [chartType, setChartType] = useState('line');
+    const [chartType, setChartType] = useState('bar');
 
     if (!summary || !summary.dailySummaries || summary.dailySummaries.length === 0) {
        return (
@@ -24,7 +24,7 @@ export default function OrdersOverTimeChart({ summary }) {
        );
     }
     
-    // OPRAVA: Data jsou nyní explicitně řazena podle data, což zajišťuje správné vykreslení čárového grafu.
+    // Data jsou seřazena pro správné zobrazení v grafu
     const chartData = summary.dailySummaries
         .map(day => ({
             ...day,
@@ -54,9 +54,9 @@ export default function OrdersOverTimeChart({ summary }) {
                             <YAxis stroke="#9CA3AF" allowDecimals={false} tick={{ fill: "#D1D5DB" }}/>
                             <Tooltip contentStyle={{ backgroundColor: '#1F2937' }} itemStyle={{ color: '#E5E7EB' }} cursor={{ fill: 'rgba(107, 114, 128, 0.2)' }}/>
                             <Legend wrapperStyle={{ color: '#D1D5DB', paddingTop: '10px' }}/>
-                            <Bar dataKey="completed" name={t.done} stackId="a" fill={CHART_COLORS[4]} />
-                            <Bar dataKey="inProgress" name={t.inProgress} stackId="a" fill={CHART_COLORS[3]} />
-                            <Bar dataKey="new" name={t.newOrders} stackId="a" fill={CHART_COLORS[2]} radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="completed" name={t.done} stackId="a" fill={CHART_COLORS['50']} />
+                            <Bar dataKey="inProgress" name={t.inProgress} stackId="a" fill={CHART_COLORS['31']} />
+                            <Bar dataKey="new" name={t.newOrders} stackId="a" fill={CHART_COLORS['10']} radius={[4, 4, 0, 0]} />
                         </BarChart>
                     ) : (
                         <LineChart data={chartData}>
@@ -64,9 +64,9 @@ export default function OrdersOverTimeChart({ summary }) {
                             <YAxis stroke="#9CA3AF" allowDecimals={false} tick={{ fill: "#D1D5DB" }}/>
                             <Tooltip contentStyle={{ backgroundColor: '#1F2937' }} itemStyle={{ color: '#E5E7EB' }} cursor={{ stroke: '#4A5568' }}/>
                             <Legend wrapperStyle={{ color: '#D1D5DB', paddingTop: '10px' }}/>
-                            <Line type="monotone" dataKey="total" name={t.total} stroke={CHART_COLORS[0]} strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 6 }}/>
-                            <Line type="monotone" dataKey="completed" name={t.done} stroke={CHART_COLORS[4]} strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 6 }}/>
-                            <Line type="monotone" dataKey="inProgress" name={t.inProgress} stroke={CHART_COLORS[3]} strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 6 }}/>
+                            <Line type="monotone" dataKey="total" name={t.total} stroke="#8884d8" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 6 }}/>
+                            <Line type="monotone" dataKey="completed" name={t.done} stroke={CHART_COLORS['50']} strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 6 }}/>
+                            <Line type="monotone" dataKey="inProgress" name={t.inProgress} stroke={CHART_COLORS['31']} strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 6 }}/>
                         </LineChart>
                     )}
                 </ResponsiveContainer>

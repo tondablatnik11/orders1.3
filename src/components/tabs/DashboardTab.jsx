@@ -3,65 +3,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Modal } from '@/components/ui/Modal';
-import StatusDistributionChart from '@/components/charts/StatusDistributionChart';
 import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
-import OrderListTable from '@/components/shared/OrderListTable';
 import { format, startOfDay, addDays, subDays, parseISO } from 'date-fns';
 import { cs } from 'date-fns/locale';
-// OPRAVA: Ikona 'Pallet' byla přejmenována na 'Truck', aby odpovídala lucide-react knihovně.
 import { UploadCloud, CheckCircle, Clock, Hourglass, PlusCircle, Truck, Box, Info, FileDown, ClipboardList } from 'lucide-react';
-import { exportCustomOrdersToXLSX } from '@/lib/exportUtils';
-
-// --- Komponenta pro modální okno ---
-const OrderListModal = ({ isOpen, onClose, title, orders, onSelectOrder, t }) => {
-    if (!isOpen) return null;
-    return (
-        <Modal title={title} onClose={onClose}>
-            <div className="flex justify-end mb-4">
-                <button
-                    onClick={() => exportCustomOrdersToXLSX(orders, title, t)}
-                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700"
-                >
-                    <FileDown className="w-5 h-5" /> {t.exportToXLSX}
-                </button>
-            </div>
-            <div className="max-h-[65vh] overflow-y-auto">
-                <OrderListTable orders={orders} onSelectOrder={onSelectOrder} />
-            </div>
-        </Modal>
-    );
-};
-
-// --- Komponenta pro karty denního přehledu ---
-const DailyOverviewCard = React.forwardRef(({ title, stats, t, onStatClick, date }, ref) => (
-    <div ref={ref} className="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700 min-w-48 flex-shrink-0">
-        <p className="text-gray-400 text-center font-semibold mb-3">{title}</p>
-        {stats ? (
-            <div className="text-sm space-y-2">
-                <p className="cursor-pointer hover:text-blue-400 transition-colors" onClick={() => onStatClick(date, 'total', t.total)}>{t.total}: <strong className="float-right">{stats.total}</strong></p>
-                <p className="cursor-pointer hover:text-green-400 transition-colors" onClick={() => onStatClick(date, 'done', t.done)}>{t.done}: <strong className="text-green-300 float-right">{stats.done}</strong></p>
-                <p className="cursor-pointer hover:text-yellow-400 transition-colors" onClick={() => onStatClick(date, 'remaining', t.remaining)}>{t.remaining}: <strong className="text-yellow-300 float-right">{stats.remaining}</strong></p>
-                <p className="cursor-pointer hover:text-orange-400 transition-colors" onClick={() => onStatClick(date, 'inProgress', t.inProgress)}>{t.inProgress}: <strong className="text-orange-300 float-right">{stats.inProgress}</strong></p>
-                <p className="cursor-pointer hover:text-purple-400 transition-colors" onClick={() => onStatClick(date, 'new', t.newOrders)}>{t.newOrders}: <strong className="text-purple-300 float-right">{stats.new}</strong></p>
-            </div>
-        ) : <div className="text-center text-gray-500 text-sm flex items-center justify-center h-24">{t.noDataAvailable}</div>}
-    </div>
-));
-DailyOverviewCard.displayName = 'DailyOverviewCard';
-
-// --- Komponenta pro souhrnné karty ---
-const SummaryCard = ({ title, value, icon: Icon, colorClass }) => (
-    <div className="bg-gray-800/50 backdrop-blur-sm p-5 rounded-xl shadow-lg border border-white/10 flex items-center gap-4 h-full">
-        <div className={`p-3 rounded-lg ${colorClass}`}>
-            <Icon className="w-7 h-7 text-white" />
-        </div>
-        <div>
-            <p className="text-base text-gray-400">{title}</p>
-            <p className="text-3xl font-bold text-white">{value || 0}</p>
-        </div>
-    </div>
-);
+import { OrderListModal } from '@/components/modals/OrderListModal';
+import { DailyOverviewCard } from '@/components/shared/DailyOverviewCard';
+import { SummaryCard } from '@/components/shared/SummaryCard';
 
 export default function DashboardTab() {
     const { summary, isLoadingData, handleFileUpload, allOrdersData, setSelectedOrderDetails } = useData();
@@ -171,7 +119,6 @@ export default function DashboardTab() {
             </div>
             
             <div className="space-y-8 mt-8">
-                <StatusDistributionChart />
                 <OrdersOverTimeChart summary={summary} />
             </div>
             

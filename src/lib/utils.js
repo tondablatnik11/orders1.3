@@ -1,17 +1,22 @@
 import { getHours, parseISO } from 'date-fns';
 
-// --- NOVÁ BAREVNÁ PALETA ---
-// Barvy jsou nyní seřazeny tak, aby dávaly smysl v kontextu statusů
+// --- Vylepšená barevná paleta pro profesionální vzhled ---
 export const CHART_COLORS = {
-  '10': '#3B82F6', // Status 10 (Nové) - Modrá
-  '31': '#F59E0B', // Status 31 (V procesu) - Oranžová
-  '35': '#D97706', // Status 35 (V procesu - pickování) - Tmavší oranžová
-  '40': '#FBBF24', // Status 40 (V procesu - dopickováno) - Žlutá
-  '50': '#10B981', // Status 50 (Hotovo) - Zelená
-  '60': '#059669', // Status 60 (Připraveno pro dopravce) - Tmavší zelená
-  '70': '#047857', // Status 70 (Na cestě) - Nejtmavší zelená
-  'default': '#6B7280', // Výchozí barva pro neznámé statusy
+  // Statusy podle procesu
+  '10': '#5B9BD5',   // Nové - Profesionální modrá
+  '31': '#F97316',   // V procesu - Zářivá oranžová
+  '35': '#F59E0B',   // Pickování - Teplá oranžová
+  '40': '#FBBF24',   // Dopickováno - Jantarová
+  '50': '#10B981',   // Hotovo - Smaragdová zelená
+  '60': '#059669',   // Připraveno - Tmavší zelená
+  '70': '#047857',   // Na cestě - Hluboká lesní zelená
+
+  // Doplňkové barvy pro UI
+  'pallets': '#EC4899', // Palety - Růžová
+  'cartons': '#38BDF8', // Kartony - Nebeská modrá
+  'default': '#64748B', // Výchozí - Břidlicově šedá
 };
+
 
 export const getStatusColor = (status) => {
     return CHART_COLORS[status] || CHART_COLORS['default'];
