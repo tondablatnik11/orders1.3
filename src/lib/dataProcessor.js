@@ -1,5 +1,4 @@
-import { startOfDay, format, isBefore, parseISO, differenceInDays, getHours } from 'date-fns';
-import { getCurrentShift } from './utils';
+import { startOfDay, format, isBefore, parseISO, differenceInDays } from 'date-fns';
 
 const parseDataDate = (dateInput) => {
     if (!dateInput) return null;
@@ -18,8 +17,24 @@ export const processData = (rawData) => {
         return null;
     }
 
+    const latestOrdersMap = new Map();
+    for (const order of rawData) {
+        const deliveryNo = String(order["Delivery No"] || order["Delivery"] || '').trim();
+        if (!deliveryNo) continue;
+
+        const existingOrder = latestOrdersMap.get(deliveryNo);
+        const currentOrderTimestamp = order.updated_at ? parseISO(order.updated_at).getTime() : (order.created_at ? parseISO(order.created_at).getTime() : 0);
+
+        if (!existingOrder || (existingOrder.updated_at && currentOrderTimestamp > parseISO(existingOrder.updated_at).getTime())) {
+            latestOrdersMap.set(deliveryNo, order);
+        } else if (!existingOrder) {
+             latestOrdersMap.set(deliveryNo, order);
+        }
+    }
+    const uniqueData = Array.from(latestOrdersMap.values());
+
     const summary = {
-        total: rawData.length,
+        total: uniqueData.length,
         doneTotal: 0,
         remainingTotal: 0,
         inProgressTotal: 0,
@@ -32,33 +47,22 @@ export const processData = (rawData) => {
         delayedOrdersList: [],
         dailySummaries: new Map(),
         statusByLoadingDate: {},
-        shiftDoneCounts: { '1': 0, '2': 0 },
-        allOrdersData: rawData,
+        allOrdersData: uniqueData,
     };
 
-    // UPRAVENO: Přidány statusy 80 a 90 do hotových zakázek
     const doneStatuses = [50, 60, 70, 80, 90];
     const inProgressStatuses = [31, 35, 40];
     const newStatus = [10];
     const remainingStatuses = [10, 30, 31, 35, 40];
     const today = startOfDay(new Date());
 
-    rawData.forEach(row => {
+    uniqueData.forEach(row => {
         const status = Number(row.Status);
         const deliveryIdentifier = String(row["Delivery No"] || row["Delivery"] || '').trim();
 
         if (isNaN(status) || !deliveryIdentifier) return;
 
-        if (doneStatuses.includes(status)) {
-            summary.doneTotal++;
-            const completionDate = parseDataDate(row["Loading Date"]);
-            if (completionDate) {
-                const shift = getCurrentShift(completionDate);
-                if (shift) {
-                    summary.shiftDoneCounts[shift]++;
-                }
-            }
-        }
+        if (doneStatuses.includes(status)) summary.doneTotal++;
         if (newStatus.includes(status)) summary.newOrdersTotal++;
         if (inProgressStatuses.includes(status)) summary.inProgressTotal++;
         if (row["del.type"] === 'P') summary.palletsTotal++;
@@ -75,6 +79,7 @@ export const processData = (rawData) => {
                 summary.dailySummaries.set(dateKey, { date: dateKey, total: 0, done: 0, remaining: 0, new: 0, inProgress: 0 });
             }
             const day = summary.dailySummaries.get(dateKey);
+            
             day.total++;
             if (doneStatuses.includes(status)) day.done++;
             if (remainingStatuses.includes(status)) day.remaining++;
