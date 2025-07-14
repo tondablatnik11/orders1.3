@@ -1,6 +1,5 @@
 import { startOfDay, format, isBefore, parseISO, differenceInDays } from 'date-fns';
 
-// Pomocná funkce pro parsování data, zůstává stejná
 const parseDataDate = (dateInput) => {
     if (!dateInput) return null;
     let date = parseISO(dateInput);
@@ -18,17 +17,35 @@ export const processData = (rawData) => {
         return null;
     }
 
-<<<<<<< HEAD
-    const dataToProcess = rawData;
+    // --- KROK 1: ODSTRANĚNÍ DUPLIKÁTŮ (Spolehlivá a opravená verze) ---
+    const latestOrdersMap = new Map();
+    for (const order of rawData) {
+        const deliveryNo = String(order["Delivery No"] || order["Delivery"] || '').trim();
+        if (!deliveryNo) continue;
 
-=======
-    // Vracíme se k jednoduchému modelu, pracujeme přímo s daty, jak přišla.
-    const dataToProcess = rawData;
+        const existingOrder = latestOrdersMap.get(deliveryNo);
 
-    // Inicializace souhrnného objektu
->>>>>>> 4a8aea9476da6ffe6f2ee10f4d73418f2e3a7ef0
+        if (!existingOrder) {
+            latestOrdersMap.set(deliveryNo, order);
+            continue;
+        }
+
+        const newTimestamp = order.updated_at || order.created_at;
+        const existingTimestamp = existingOrder.updated_at || existingOrder.created_at;
+
+        if (newTimestamp && !existingTimestamp) {
+            latestOrdersMap.set(deliveryNo, order);
+        } else if (newTimestamp && existingTimestamp) {
+            if (new Date(newTimestamp) > new Date(existingTimestamp)) {
+                latestOrdersMap.set(deliveryNo, order);
+            }
+        }
+    }
+    const uniqueData = Array.from(latestOrdersMap.values());
+    // --- KONEC KROKU 1 ---
+
     const summary = {
-        total: dataToProcess.length,
+        total: uniqueData.length,
         doneTotal: 0,
         remainingTotal: 0,
         inProgressTotal: 0,
@@ -38,69 +55,46 @@ export const processData = (rawData) => {
         delayed: 0,
         statusCounts: {},
         deliveryTypes: {},
-        ordersByCountry: {}, // <-- NOVÁ POLOŽKA PRO GRAF
+        ordersByCountry: {},
         delayedOrdersList: [],
         dailySummaries: new Map(),
-<<<<<<< HEAD
         statusByLoadingDate: {},
-        allOrdersData: dataToProcess,
+        allOrdersData: uniqueData,
     };
 
-=======
-        statusByLoadingDate: {}, // Znovu správně inicializujeme
-        allOrdersData: dataToProcess,
-    };
-
-    // Definice kategorií statusů
->>>>>>> 4a8aea9476da6ffe6f2ee10f4d73418f2e3a7ef0
     const doneStatuses = [50, 60, 70, 80, 90];
     const inProgressStatuses = [31, 35, 40];
     const newStatus = [10];
     const remainingStatuses = [10, 30, 31, 35, 40];
     const today = startOfDay(new Date());
 
-    dataToProcess.forEach(row => {
+    uniqueData.forEach(row => {
         const status = Number(row.Status);
         if (isNaN(status)) return;
-<<<<<<< HEAD
-        
-        // --- NOVÁ LOGIKA PRO ZEMĚ ---
+
         const country = row["Ctry sold-to party"];
         if (country) {
             summary.ordersByCountry[country] = (summary.ordersByCountry[country] || 0) + 1;
         }
-        // --- KONEC NOVÉ LOGIKY ---
-=======
->>>>>>> 4a8aea9476da6ffe6f2ee10f4d73418f2e3a7ef0
 
-        // Celkové statistiky
         summary.statusCounts[status] = (summary.statusCounts[status] || 0) + 1;
         if (doneStatuses.includes(status)) summary.doneTotal++;
         if (inProgressStatuses.includes(status)) summary.inProgressTotal++;
         if (newStatus.includes(status)) summary.newOrdersTotal++;
         if (row["del.type"] === 'P') summary.palletsTotal = (summary.palletsTotal || 0) + 1;
         if (row["del.type"] === 'K') summary.cartonsTotal = (summary.cartonsTotal || 0) + 1;
-        
+
         const loadingDate = parseDataDate(row["Loading Date"]);
 
         if (loadingDate) {
             const dateKey = format(startOfDay(loadingDate), 'yyyy-MM-dd');
 
-<<<<<<< HEAD
-=======
-            // Logika pro Denní přehled
->>>>>>> 4a8aea9476da6ffe6f2ee10f4d73418f2e3a7ef0
             if (!summary.dailySummaries.has(dateKey)) {
                 summary.dailySummaries.set(dateKey, { date: dateKey, total: 0, done: 0, inProgress: 0, new: 0, remaining: 0 });
             }
             const day = summary.dailySummaries.get(dateKey);
-            
+
             day.total++;
-<<<<<<< HEAD
-            if (doneStatuses.includes(status)) day.done++;
-            else if (inProgressStatuses.includes(status)) day.inProgress++;
-            else if (newStatus.includes(status)) day.new++;
-=======
             if (doneStatuses.includes(status)) {
                 day.done++;
             } else if (inProgressStatuses.includes(status)) {
@@ -108,16 +102,13 @@ export const processData = (rawData) => {
             } else if (newStatus.includes(status)) {
                 day.new++;
             }
->>>>>>> 4a8aea9476da6ffe6f2ee10f4d73418f2e3a7ef0
 
-            // Logika pro graf Rozložení statusů
             if (!summary.statusByLoadingDate[dateKey]) {
                 summary.statusByLoadingDate[dateKey] = { date: dateKey };
             }
             summary.statusByLoadingDate[dateKey][`status${status}`] = (summary.statusByLoadingDate[dateKey][`status${status}`] || 0) + 1;
         }
-        
-        // Zpožděné objednávky
+
         if (loadingDate && isBefore(loadingDate, today) && remainingStatuses.includes(status)) {
             summary.delayed++;
             summary.delayedOrdersList.push({
@@ -134,8 +125,7 @@ export const processData = (rawData) => {
             });
         }
     });
-    
-    // Finální výpočty
+
     summary.remainingTotal = summary.total - summary.doneTotal;
     summary.dailySummaries.forEach(day => {
         day.remaining = day.total - day.done;
