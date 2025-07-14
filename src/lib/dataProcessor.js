@@ -1,6 +1,5 @@
 import { startOfDay, format, isBefore, parseISO, differenceInDays } from 'date-fns';
 
-// Pomocná funkce pro parsování data, zůstává stejná
 const parseDataDate = (dateInput) => {
     if (!dateInput) return null;
     let date = parseISO(dateInput);
@@ -14,29 +13,31 @@ const parseDataDate = (dateInput) => {
 };
 
 export const processData = (rawData) => {
+    // Ověřovací log pro diagnostiku
+    console.log('SPUŠTĚN NOVÝ DATA PROCESSOR. Počet záznamů:', rawData.length);
+
     if (!rawData || rawData.length === 0) {
         return null;
     }
 
-    // --- KROK 1: ODSTRANĚNÍ DUPLIKÁTŮ (Nová, spolehlivější metoda) ---
     const latestOrdersMap = new Map();
     for (const order of rawData) {
         const deliveryNo = String(order["Delivery No"] || order["Delivery"] || '').trim();
         if (!deliveryNo) continue;
 
         const existingOrder = latestOrdersMap.get(deliveryNo);
-        const newOrderTimestamp = order.updated_at ? new Date(order.updated_at).getTime() : 0;
-        const existingOrderTimestamp = existingOrder?.updated_at ? new Date(existingOrder.updated_at).getTime() : 0;
+        // Používáme updated_at, pokud neexistuje, tak created_at, jako zálohu
+        const newOrderTimestamp = order.updated_at ? new Date(order.updated_at).getTime() : (order.created_at ? new Date(order.created_at).getTime() : 0);
+        const existingOrderTimestamp = existingOrder?.updated_at ? new Date(existingOrder.updated_at).getTime() : (existingOrder?.created_at ? new Date(existingOrder.created_at).getTime() : 0);
 
-        // Pokud záznam ještě nemáme, nebo pokud je tento nový záznam novější, uložíme/přepíšeme ho.
         if (!existingOrder || newOrderTimestamp > existingOrderTimestamp) {
             latestOrdersMap.set(deliveryNo, order);
         }
     }
     const uniqueData = Array.from(latestOrdersMap.values());
-    // --- KONEC KROKU 1 ---
+    console.log('Počet unikátních záznamů po zpracování:', uniqueData.length);
 
-    // Inicializace souhrnného objektu
+
     const summary = {
         total: uniqueData.length,
         doneTotal: 0,
@@ -54,11 +55,10 @@ export const processData = (rawData) => {
         allOrdersData: uniqueData,
     };
 
-    // Definice kategorií statusů
     const doneStatuses = [50, 60, 70, 80, 90];
     const inProgressStatuses = [31, 35, 40];
     const newStatus = [10];
-    const remainingStatuses = [10, 30, 31, 35, 40]; // Aktivní zakázky, které ještě nejsou hotové
+    const remainingStatuses = [10, 30, 31, 35, 40];
     const today = startOfDay(new Date());
 
     uniqueData.forEach(row => {
@@ -67,7 +67,6 @@ export const processData = (rawData) => {
 
         if (isNaN(status) || !deliveryIdentifier) return;
 
-        // Celkové statistiky
         if (doneStatuses.includes(status)) summary.doneTotal++;
         if (newStatus.includes(status)) summary.newOrdersTotal++;
         if (inProgressStatuses.includes(status)) summary.inProgressTotal++;
@@ -79,7 +78,6 @@ export const processData = (rawData) => {
 
         const loadingDate = parseDataDate(row["Loading Date"]);
 
-        // --- KLÍČOVÁ LOGIKA PRO DENNÍ PŘEHLED ---
         if (loadingDate) {
             const dateKey = format(startOfDay(loadingDate), 'yyyy-MM-dd');
             if (!summary.dailySummaries.has(dateKey)) {
@@ -87,21 +85,18 @@ export const processData = (rawData) => {
             }
             const day = summary.dailySummaries.get(dateKey);
             
-            // Započítáme zakázku do správných kategorií na základě jejího AKTUÁLNÍHO statusu.
             day.total++;
             if (doneStatuses.includes(status)) day.done++;
             if (remainingStatuses.includes(status)) day.remaining++;
             if (newStatus.includes(status)) day.new++;
             if (inProgressStatuses.includes(status)) day.inProgress++;
 
-            // Pro detailní grafy
             if (!summary.statusByLoadingDate[dateKey]) {
                 summary.statusByLoadingDate[dateKey] = { date: dateKey };
             }
             summary.statusByLoadingDate[dateKey][`status${status}`] = (summary.statusByLoadingDate[dateKey][`status${status}`] || 0) + 1;
         }
         
-        // Zpožděné objednávky
         if (loadingDate && isBefore(loadingDate, today) && remainingStatuses.includes(status)) {
             summary.delayed++;
             summary.delayedOrdersList.push({
