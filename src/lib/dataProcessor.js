@@ -33,23 +33,22 @@ export const processData = (rawData) => {
         
         const loadingDate = parseDataDate(row["Loading Date"]);
         
-        // Zpožděné zakázky
         if (loadingDate && isBefore(loadingDate, today) && remainingStatuses.includes(status)) {
             summary.delayed++;
             const carrier = row["Forwarding agent name"] || "Neznámý";
             summary.delayedByCarrier[carrier] = (summary.delayedByCarrier[carrier] || 0) + 1;
             summary.delayedOrdersList.push({
-                ...row, // <-- KLÍČOVÁ ZMĚNA: Předáme celý objekt zakázky
-                delivery: String(row["Delivery No"] || '').trim(),
-                status: status,
-                delType: row["del.type"],
-                loadingDate: loadingDate.toISOString(),
+                ...row,
+                delivery: String(row["Delivery No"] || '').trim(), status,
+                delType: row["del.type"], loadingDate: loadingDate.toISOString(),
                 delayDays: differenceInDays(today, loadingDate),
             });
         }
         
-        const country = row["Ctry sold-to party"];
+        // --- TOTO JE OPRAVENÝ ŘÁDEK ---
+        const country = row["Country ship-to prty"];
         if (country) summary.ordersByCountry[country] = (summary.ordersByCountry[country] || 0) + 1;
+        // --------------------------------
 
         summary.statusCounts[status] = (summary.statusCounts[status] || 0) + 1;
         if (doneStatuses.includes(status)) summary.doneTotal++;

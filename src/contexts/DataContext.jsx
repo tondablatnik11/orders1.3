@@ -16,11 +16,10 @@ export const DataProvider = ({ children }) => {
   const { currentUser, loading: authLoading } = useAuth();
   const supabase = getSupabase();
 
-  // Tato funkce se nyní postará o veškeré načítání dat
   const fetchData = useCallback(async () => {
     setIsLoadingData(true);
     try {
-      const { data, error } = await supabase.from("deliveries").select('*').order('created_at', { ascending: false }).limit(10000);
+      const { data, error } = await supabase.from("deliveries").select('*').limit(10000);
       if (error) throw error;
       setAllOrdersData(data || []);
     } catch (error) {
@@ -32,7 +31,6 @@ export const DataProvider = ({ children }) => {
     }
   }, [supabase]);
 
-  // Načteme data pouze jednou při přihlášení uživatele
   useEffect(() => {
     if (currentUser && !authLoading) {
       fetchData();
@@ -42,23 +40,20 @@ export const DataProvider = ({ children }) => {
     }
   }, [currentUser, authLoading, fetchData]);
 
-  // Zpracujeme data vždy, když se změní
   useEffect(() => {
-    if (!isLoadingData && allOrdersData && allOrdersData.length > 0) {
+    if (!isLoadingData && allOrdersData) {
       const processed = processData(allOrdersData);
       setSummary(processed);
-    } else if (!isLoadingData) {
-      setSummary(null);
     }
   }, [allOrdersData, isLoadingData]);
 
   const handleSaveNote = useCallback(async (deliveryNo, newNote) => {
-    const { error } = await supabase.from('deliveries').update({ Note: newNote }).eq('"Delivery No"', deliveryNo.trim());
+    const { error } = await supabase.from('deliveries').update({ Note: newNote, updated_at: new Date().toISOString() }).eq('"Delivery No"', deliveryNo.trim());
     if (error) {
         toast.error("Chyba při ukládání poznámky.");
     } else {
         toast.success("Poznámka uložena.");
-        fetchData(); // Znovu načteme data pro zajištění konzistence
+        fetchData();
     }
   }, [supabase, fetchData]);
   
@@ -76,25 +71,24 @@ export const DataProvider = ({ children }) => {
     
     if (data && data.length > 0) {
         toast.success('Status byl úspěšně aktualizován!');
-        fetchData(); // Znovu načteme data pro zajištění konzistence
+        fetchData();
         return { success: true, message: 'Status byl úspěšně aktualizován!' };
     } else {
         return { success: false, message: 'Zakázka s tímto číslem nebyla nalezena.' };
     }
   }, [supabase, fetchData]);
 
-
   const handleFileUpload = useCallback(async (file) => {
     if (!file || typeof window.XLSX === 'undefined') return;
     toast.loading('Zpracovávám soubor...');
     
-    // ... (zbytek funkce pro nahrávání souboru zůstává stejný)
     const parseExcelDate = (excelDate) => {
         if (typeof excelDate === 'number') {
             return new Date((excelDate - 25569) * 86400 * 1000).toISOString();
         }
         return null;
     };
+
     const reader = new FileReader();
     reader.onload = async (evt) => {
         try {
@@ -103,6 +97,7 @@ export const DataProvider = ({ children }) => {
             const wsname = wb.SheetNames[0];
             const ws = wb.Sheets[wsname];
             const jsonData = XLSX.utils.sheet_to_json(ws);
+
             const transformedData = jsonData.map(row => ({
                 "Delivery No": String(row["Delivery No"] || row["Delivery"] || '').trim(),
                 "Status": Number(row["Status"]),
@@ -113,6 +108,10 @@ export const DataProvider = ({ children }) => {
                 "Name of ship-to party": row["Name of ship-to party"],
                 "Total Weight": row["Total Weight"],
                 "Bill of lading": row["Bill of lading"],
+                // --- TOTO JE OPRAVENÝ ŘÁDEK ---
+                "Country ship-to prty": row["Country ship-to prty"],
+                // --------------------------------
+                "created_at": new Date().toISOString(),
                 "updated_at": new Date().toISOString(),
             })).filter(row => row["Delivery No"]);
 
@@ -121,7 +120,7 @@ export const DataProvider = ({ children }) => {
               if (error) throw error;
               toast.dismiss();
               toast.success(`Data byla úspěšně nahrána! (${transformedData.length} záznamů)`);
-              fetchData(); // Znovu načteme data pro zajištění konzistence
+              fetchData();
             } else {
               toast.dismiss();
               toast.error('Nenalezena žádná platná data k nahrání.');
