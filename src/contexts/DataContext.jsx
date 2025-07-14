@@ -3,9 +3,10 @@ import React, { createContext, useState, useEffect, useCallback, useMemo } from 
 import { getSupabase } from '../lib/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
 import { processData } from '../lib/dataProcessor';
-import toast from 'react-hot-toast'; // <-- PŘIDÁN IMPORT pro notifikace
+import toast from 'react-hot-toast';
 
 export const DataContext = createContext(null);
+export const useData = () => useContext(DataContext);
 
 export const DataProvider = ({ children }) => {
   const [allOrdersData, setAllOrdersData] = useState([]);
@@ -15,63 +16,33 @@ export const DataProvider = ({ children }) => {
   const { currentUser, loading: authLoading } = useAuth();
   const supabase = getSupabase();
 
-  // --- NOVÝ EFEKT PRO REAL-TIME DATA ---
-  useEffect(() => {
-    if (authLoading || !currentUser) {
-        // Pokud se načítá autentizace nebo není uživatel, vyčistíme data a ukončíme.
-        if (!authLoading) setIsLoadingData(false);
-        setAllOrdersData([]);
-        return;
-    }
-
+  // Tato funkce se nyní postará o veškeré načítání dat
+  const fetchData = useCallback(async () => {
     setIsLoadingData(true);
-    // Počáteční načtení dat
-    supabase.from("deliveries").select('*').limit(10000)
-        .then(({ data, error }) => {
-            if (error) {
-                toast.error("Chyba při načítání dat zakázek.");
-                console.error("DataContext initial fetch error:", error);
-                setAllOrdersData([]);
-            } else {
-                setAllOrdersData(data || []);
-            }
-            setIsLoadingData(false);
-        });
+    try {
+      const { data, error } = await supabase.from("deliveries").select('*').order('created_at', { ascending: false }).limit(10000);
+      if (error) throw error;
+      setAllOrdersData(data || []);
+    } catch (error) {
+      toast.error("Chyba při načítání dat zakázek.");
+      console.error("DataContext: Chyba při načítání dat:", error);
+      setAllOrdersData([]);
+    } finally {
+      setIsLoadingData(false);
+    }
+  }, [supabase]);
 
-    // Vytvoření real-time kanálu
-    const channel = supabase.channel('public:deliveries')
-        .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'deliveries' },
-            (payload) => {
-                console.log('Realtime změna:', payload);
-                if (payload.eventType === 'INSERT') {
-                    setAllOrdersData(prevData => [...prevData, payload.new]);
-                    toast.success('Nová zakázka přidána!');
-                }
-                if (payload.eventType === 'UPDATE') {
-                    setAllOrdersData(prevData =>
-                        prevData.map(row =>
-                            row['Delivery No'] === payload.new['Delivery No'] ? payload.new : row
-                        )
-                    );
-                }
-                if (payload.eventType === 'DELETE') {
-                    setAllOrdersData(prevData =>
-                        prevData.filter(row => row['Delivery No'] !== payload.old['Delivery No'])
-                    );
-                    toast.error('Zakázka byla smazána.');
-                }
-            }
-        )
-        .subscribe();
+  // Načteme data pouze jednou při přihlášení uživatele
+  useEffect(() => {
+    if (currentUser && !authLoading) {
+      fetchData();
+    } else if (!currentUser && !authLoading) {
+      setAllOrdersData([]);
+      setIsLoadingData(false);
+    }
+  }, [currentUser, authLoading, fetchData]);
 
-    // Funkce pro odhlášení z kanálu při odmontování komponenty
-    return () => {
-        supabase.removeChannel(channel);
-    };
-  }, [currentUser, authLoading, supabase]);
-
+  // Zpracujeme data vždy, když se změní
   useEffect(() => {
     if (!isLoadingData && allOrdersData && allOrdersData.length > 0) {
       const processed = processData(allOrdersData);
@@ -81,49 +52,17 @@ export const DataProvider = ({ children }) => {
     }
   }, [allOrdersData, isLoadingData]);
 
-  // --- UPRAVENO: handleSaveNote s OPTIMISTIC UI ---
   const handleSaveNote = useCallback(async (deliveryNo, newNote) => {
-    const originalData = [...allOrdersData];
-
-    // Optimistická aktualizace
-    const updatedData = allOrdersData.map(order => 
-        order['Delivery No'] === deliveryNo ? { ...order, Note: newNote } : order
-    );
-    setAllOrdersData(updatedData);
-
     const { error } = await supabase.from('deliveries').update({ Note: newNote }).eq('"Delivery No"', deliveryNo.trim());
-
     if (error) {
         toast.error("Chyba při ukládání poznámky.");
-        console.error("DataContext: Chyba při ukládání poznámky:", error);
-        // V případě chyby vrátíme původní data
-        setAllOrdersData(originalData);
     } else {
         toast.success("Poznámka uložena.");
+        fetchData(); // Znovu načteme data pro zajištění konzistence
     }
-  }, [supabase, allOrdersData]);
-
-  // --- UPRAVENO: handleUpdateStatus s OPTIMISTIC UI ---
+  }, [supabase, fetchData]);
+  
   const handleUpdateStatus = useCallback(async (deliveryNo, newStatus) => {
-    const originalData = [...allOrdersData];
-    let orderFound = false;
-
-    // Optimistická aktualizace
-    const updatedData = allOrdersData.map(order => {
-        if (order['Delivery No'] === deliveryNo.trim()) {
-            orderFound = true;
-            return { ...order, Status: newStatus, updated_at: new Date().toISOString() };
-        }
-        return order;
-    });
-
-    if (!orderFound) {
-        toast.error('Zakázka s tímto číslem nebyla nalezena.');
-        return { success: false, message: 'Zakázka s tímto číslem nebyla nalezena.' };
-    }
-
-    setAllOrdersData(updatedData);
-
     const { data, error } = await supabase
         .from('deliveries')
         .update({ Status: newStatus, updated_at: new Date().toISOString() })
@@ -131,30 +70,31 @@ export const DataProvider = ({ children }) => {
         .select();
 
     if (error) {
-        toast.error('Chyba při aktualizaci statusu.');
-        console.error("DataContext: Chyba při aktualizaci statusu:", error);
-        setAllOrdersData(originalData); // Vrácení změn
-        return { success: false, message: error.message };
+        toast.error("Chyba při aktualizaci statusu.");
+        throw error;
     }
+    
+    if (data && data.length > 0) {
+        toast.success('Status byl úspěšně aktualizován!');
+        fetchData(); // Znovu načteme data pro zajištění konzistence
+        return { success: true, message: 'Status byl úspěšně aktualizován!' };
+    } else {
+        return { success: false, message: 'Zakázka s tímto číslem nebyla nalezena.' };
+    }
+  }, [supabase, fetchData]);
 
-    toast.success('Status byl úspěšně aktualizován!');
-    return { success: true, message: 'Status byl úspěšně aktualizován!' };
 
-  }, [supabase, allOrdersData]);
-
-  // --- UPRAVENO: handleFileUpload ---
   const handleFileUpload = useCallback(async (file) => {
     if (!file || typeof window.XLSX === 'undefined') return;
-
     toast.loading('Zpracovávám soubor...');
-
+    
+    // ... (zbytek funkce pro nahrávání souboru zůstává stejný)
     const parseExcelDate = (excelDate) => {
         if (typeof excelDate === 'number') {
             return new Date((excelDate - 25569) * 86400 * 1000).toISOString();
         }
         return null;
     };
-
     const reader = new FileReader();
     reader.onload = async (evt) => {
         try {
@@ -163,7 +103,6 @@ export const DataProvider = ({ children }) => {
             const wsname = wb.SheetNames[0];
             const ws = wb.Sheets[wsname];
             const jsonData = XLSX.utils.sheet_to_json(ws);
-
             const transformedData = jsonData.map(row => ({
                 "Delivery No": String(row["Delivery No"] || row["Delivery"] || '').trim(),
                 "Status": Number(row["Status"]),
@@ -180,9 +119,9 @@ export const DataProvider = ({ children }) => {
             if (transformedData.length > 0) {
               const { error } = await supabase.from('deliveries').upsert(transformedData, { onConflict: 'Delivery No' });
               if (error) throw error;
-              // Nyní se již nemusí volat fetchData(), protože real-time kanál se postará o aktualizaci
               toast.dismiss();
               toast.success(`Data byla úspěšně nahrána! (${transformedData.length} záznamů)`);
+              fetchData(); // Znovu načteme data pro zajištění konzistence
             } else {
               toast.dismiss();
               toast.error('Nenalezena žádná platná data k nahrání.');
@@ -194,19 +133,20 @@ export const DataProvider = ({ children }) => {
         }
     };
     reader.readAsBinaryString(file);
-  }, [supabase]);
+  }, [supabase, fetchData]);
 
   const value = useMemo(() => ({
     allOrdersData,
     summary,
     isLoadingData,
+    refetchData: fetchData,
     handleSaveNote,
     handleFileUpload,
     handleUpdateStatus,
     selectedOrderDetails,
     setSelectedOrderDetails,
     supabase,
-  }), [allOrdersData, summary, isLoadingData, handleSaveNote, handleFileUpload, handleUpdateStatus, selectedOrderDetails, supabase]);
+  }), [allOrdersData, summary, isLoadingData, fetchData, handleSaveNote, handleFileUpload, handleUpdateStatus, selectedOrderDetails, supabase]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };

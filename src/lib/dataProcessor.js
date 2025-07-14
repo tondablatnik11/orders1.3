@@ -1,5 +1,4 @@
-import { startOfDay, format, isBefore, parseISO, differenceInDays, getHours } from 'date-fns';
-import { getCurrentShift } from './utils';
+import { startOfDay, format, isBefore, parseISO, differenceInDays } from 'date-fns';
 
 const parseDataDate = (dateInput) => {
     if (!dateInput) return null;
@@ -18,8 +17,10 @@ export const processData = (rawData) => {
         return null;
     }
 
+    const dataToProcess = rawData;
+
     const summary = {
-        total: rawData.length,
+        total: dataToProcess.length,
         doneTotal: 0,
         remainingTotal: 0,
         inProgressTotal: 0,
@@ -29,57 +30,51 @@ export const processData = (rawData) => {
         delayed: 0,
         statusCounts: {},
         deliveryTypes: {},
+        ordersByCountry: {}, // <-- NOVÁ POLOŽKA PRO GRAF
         delayedOrdersList: [],
         dailySummaries: new Map(),
         statusByLoadingDate: {},
-        shiftDoneCounts: { '1': 0, '2': 0 },
-        allOrdersData: rawData,
+        allOrdersData: dataToProcess,
     };
 
-    // UPRAVENO: Přidány statusy 80 a 90 do hotových zakázek
     const doneStatuses = [50, 60, 70, 80, 90];
     const inProgressStatuses = [31, 35, 40];
     const newStatus = [10];
     const remainingStatuses = [10, 30, 31, 35, 40];
     const today = startOfDay(new Date());
 
-    rawData.forEach(row => {
+    dataToProcess.forEach(row => {
         const status = Number(row.Status);
-        const deliveryIdentifier = String(row["Delivery No"] || row["Delivery"] || '').trim();
-
-        if (isNaN(status) || !deliveryIdentifier) return;
-
-        if (doneStatuses.includes(status)) {
-            summary.doneTotal++;
-            const completionDate = parseDataDate(row["Loading Date"]);
-            if (completionDate) {
-                const shift = getCurrentShift(completionDate);
-                if (shift) {
-                    summary.shiftDoneCounts[shift]++;
-                }
-            }
+        if (isNaN(status)) return;
+        
+        // --- NOVÁ LOGIKA PRO ZEMĚ ---
+        const country = row["Ctry sold-to party"];
+        if (country) {
+            summary.ordersByCountry[country] = (summary.ordersByCountry[country] || 0) + 1;
         }
-        if (newStatus.includes(status)) summary.newOrdersTotal++;
-        if (inProgressStatuses.includes(status)) summary.inProgressTotal++;
-        if (row["del.type"] === 'P') summary.palletsTotal++;
-        if (row["del.type"] === 'K') summary.cartonsTotal++;
+        // --- KONEC NOVÉ LOGIKY ---
 
         summary.statusCounts[status] = (summary.statusCounts[status] || 0) + 1;
-        if(row["del.type"]) summary.deliveryTypes[row["del.type"]] = (summary.deliveryTypes[row["del.type"]] || 0) + 1;
-
+        if (doneStatuses.includes(status)) summary.doneTotal++;
+        if (inProgressStatuses.includes(status)) summary.inProgressTotal++;
+        if (newStatus.includes(status)) summary.newOrdersTotal++;
+        if (row["del.type"] === 'P') summary.palletsTotal = (summary.palletsTotal || 0) + 1;
+        if (row["del.type"] === 'K') summary.cartonsTotal = (summary.cartonsTotal || 0) + 1;
+        
         const loadingDate = parseDataDate(row["Loading Date"]);
 
         if (loadingDate) {
             const dateKey = format(startOfDay(loadingDate), 'yyyy-MM-dd');
+
             if (!summary.dailySummaries.has(dateKey)) {
-                summary.dailySummaries.set(dateKey, { date: dateKey, total: 0, done: 0, remaining: 0, new: 0, inProgress: 0 });
+                summary.dailySummaries.set(dateKey, { date: dateKey, total: 0, done: 0, inProgress: 0, new: 0, remaining: 0 });
             }
             const day = summary.dailySummaries.get(dateKey);
+            
             day.total++;
             if (doneStatuses.includes(status)) day.done++;
-            if (remainingStatuses.includes(status)) day.remaining++;
-            if (newStatus.includes(status)) day.new++;
-            if (inProgressStatuses.includes(status)) day.inProgress++;
+            else if (inProgressStatuses.includes(status)) day.inProgress++;
+            else if (newStatus.includes(status)) day.new++;
 
             if (!summary.statusByLoadingDate[dateKey]) {
                 summary.statusByLoadingDate[dateKey] = { date: dateKey };
@@ -90,7 +85,7 @@ export const processData = (rawData) => {
         if (loadingDate && isBefore(loadingDate, today) && remainingStatuses.includes(status)) {
             summary.delayed++;
             summary.delayedOrdersList.push({
-                delivery: deliveryIdentifier,
+                delivery: String(row["Delivery No"] || row["Delivery"] || '').trim(),
                 status: status,
                 delType: row["del.type"],
                 loadingDate: loadingDate.toISOString(),
@@ -105,7 +100,9 @@ export const processData = (rawData) => {
     });
     
     summary.remainingTotal = summary.total - summary.doneTotal;
-    summary.delayedOrdersList.sort((a, b) => b.delayDays - a.delayDays);
+    summary.dailySummaries.forEach(day => {
+        day.remaining = day.total - day.done;
+    });
     summary.dailySummaries = Array.from(summary.dailySummaries.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
 
     return summary;

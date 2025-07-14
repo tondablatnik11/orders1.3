@@ -2,14 +2,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
-import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
-import StatusDistributionChart from '@/components/charts/StatusDistributionChart';
 import { format, startOfDay, addDays, subDays, parseISO } from 'date-fns';
 import { cs } from 'date-fns/locale';
-import { UploadCloud, CheckCircle, Clock, Hourglass, PlusCircle, Truck, Box, Info, FileDown, ClipboardList, AlertTriangle } from 'lucide-react';
+import { CheckCircle, Clock, Hourglass, Info, AlertTriangle, ClipboardList } from 'lucide-react';
 import { OrderListModal } from '@/components/modals/OrderListModal';
 import { DailyOverviewCard } from '@/components/shared/DailyOverviewCard';
 import { SummaryCard } from '@/components/shared/SummaryCard';
+import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
+import StatusDistributionChart from '@/components/charts/StatusDistributionChart';
+import GeoChart from '@/components/charts/GeoChart'; // <-- NOVÝ IMPORT
 
 // Nová komponenta pro hlavní KPI kartu
 const FeaturedKPICard = ({ title, value, icon: Icon }) => (
@@ -24,7 +25,7 @@ const FeaturedKPICard = ({ title, value, icon: Icon }) => (
 
 
 export default function DashboardTab() {
-    const { summary, isLoadingData, handleFileUpload, allOrdersData, setSelectedOrderDetails } = useData();
+    const { summary, allOrdersData, setSelectedOrderDetails } = useData();
     const { t } = useUI();
     const [modalState, setModalState] = useState({ isOpen: false, title: '', orders: [] });
     const scrollContainerRef = useRef(null);
@@ -37,7 +38,7 @@ export default function DashboardTab() {
             const scrollAmount = todayCard.offsetLeft - (container.offsetWidth / 2) + (todayCard.offsetWidth / 2);
             container.scrollTo({ left: scrollAmount, behavior: 'smooth' });
         }
-    }, [isLoadingData, summary]);
+    }, [summary]);
 
     const today = startOfDay(new Date());
     const datesForOverview = Array.from({ length: 20 }).map((_, i) => {
@@ -53,7 +54,6 @@ export default function DashboardTab() {
         const doneStatuses = [50, 60, 70, 80, 90];
         const inProgressStatuses = [31, 35, 40];
         const newStatus = [10];
-        const remainingStatuses = [10, 30, 31, 35, 40];
         
         const filteredOrders = allOrdersData.filter(order => {
             if (!order["Loading Date"]) return false;
@@ -64,9 +64,9 @@ export default function DashboardTab() {
             switch (type) {
                 case 'total': return true;
                 case 'done': return doneStatuses.includes(status);
-                case 'remaining': return remainingStatuses.includes(status);
                 case 'inProgress': return inProgressStatuses.includes(status);
                 case 'new': return newStatus.includes(status);
+                case 'remaining': return !doneStatuses.includes(status);
                 default: return false;
             }
         });
@@ -77,22 +77,10 @@ export default function DashboardTab() {
             orders: filteredOrders
         });
     };
-
-    if (isLoadingData) {
-        return <p className="text-center p-8 text-lg">Načítám data...</p>;
-    }
-
+    
+    // Zjednodušená kontrola, aby se zabránilo chybám při renderování
     if (!summary) {
-        return (
-            <div className="text-center mt-12">
-                 <p className="mb-6 text-xl text-gray-400">{t.uploadFilePrompt}</p>
-                 <label className="cursor-pointer inline-flex items-center gap-3 bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg shadow-lg text-lg">
-                    <UploadCloud className="w-6 h-6" />
-                    <span>{t.upload}</span>
-                    <input type="file" accept=".xlsx, .xls" className="hidden" onChange={(e) => handleFileUpload(e.target.files[0])} />
-                </label>
-            </div>
-        );
+        return <div className="text-center p-8 text-lg">Zpracovávám data...</div>;
     }
 
     const summaryCardsData = [
@@ -132,7 +120,10 @@ export default function DashboardTab() {
                 </div>
             </div>
             
-            <div className="space-y-8 mt-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+                <div className="lg:col-span-2">
+                    <GeoChart data={summary.ordersByCountry} />
+                </div>
                 <StatusDistributionChart />
                 <OrdersOverTimeChart summary={summary} />
             </div>
