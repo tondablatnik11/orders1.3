@@ -10,9 +10,11 @@ import { DailyOverviewCard } from '@/components/shared/DailyOverviewCard';
 import { SummaryCard } from '@/components/shared/SummaryCard';
 import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
 import StatusDistributionChart from '@/components/charts/StatusDistributionChart';
-import GeoChart from '@/components/charts/GeoChart'; // <-- NOVÝ IMPORT
+// Importy nových komponent, které vytvoříme v dalším kroku
+// import GeoChart from '@/components/charts/GeoChart';
+// import RecentUpdates from '@/components/shared/RecentUpdates'; 
+// import DonutChartCard from '@/components/charts/DonutChartCard';
 
-// Nová komponenta pro hlavní KPI kartu
 const FeaturedKPICard = ({ title, value, icon: Icon }) => (
     <div className="bg-red-900/50 backdrop-blur-sm p-8 rounded-xl shadow-2xl border border-red-500/50 flex flex-col items-center justify-center text-center h-full transition-all duration-300 hover:bg-red-800/80 hover:shadow-red-400/20 hover:-translate-y-1">
         <div className="p-4 bg-red-500/80 rounded-full mb-4">
@@ -22,7 +24,6 @@ const FeaturedKPICard = ({ title, value, icon: Icon }) => (
         <p className="text-6xl font-bold text-white mt-2">{value || 0}</p>
     </div>
 );
-
 
 export default function DashboardTab() {
     const { summary, allOrdersData, setSelectedOrderDetails } = useData();
@@ -40,48 +41,33 @@ export default function DashboardTab() {
         }
     }, [summary]);
 
+    if (!summary) return <div className="text-center p-8 text-lg">Zpracovávám data...</div>;
+
     const today = startOfDay(new Date());
     const datesForOverview = Array.from({ length: 20 }).map((_, i) => {
         const date = addDays(subDays(today, 10), i);
-        let label;
+        let label = format(date, 'EEEE', { locale: cs });
         if (format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')) label = t.today;
-        else if (format(date, 'yyyy-MM-dd') === format(subDays(today, 1), 'yyyy-MM-dd')) label = t.yesterday;
-        else label = format(date, 'EEEE', { locale: cs });
+        if (format(date, 'yyyy-MM-dd') === format(subDays(today, 1), 'yyyy-MM-dd')) label = t.yesterday;
         return { date, label };
     });
 
     const handleStatClick = (date, type, title) => {
         const doneStatuses = [50, 60, 70, 80, 90];
-        const inProgressStatuses = [31, 35, 40];
-        const newStatus = [10];
-        
         const filteredOrders = allOrdersData.filter(order => {
             if (!order["Loading Date"]) return false;
             const orderDate = startOfDay(parseISO(order["Loading Date"]));
             if (orderDate.getTime() !== date.getTime()) return false;
-
             const status = Number(order.Status);
             switch (type) {
                 case 'total': return true;
                 case 'done': return doneStatuses.includes(status);
-                case 'inProgress': return inProgressStatuses.includes(status);
-                case 'new': return newStatus.includes(status);
                 case 'remaining': return !doneStatuses.includes(status);
                 default: return false;
             }
         });
-
-        setModalState({
-            isOpen: true,
-            title: `${title} - ${format(date, 'dd.MM.yyyy')}`,
-            orders: filteredOrders
-        });
+        setModalState({ isOpen: true, title: `${title} - ${format(date, 'dd.MM.yyyy')}`, orders: filteredOrders });
     };
-    
-    // Zjednodušená kontrola, aby se zabránilo chybám při renderování
-    if (!summary) {
-        return <div className="text-center p-8 text-lg">Zpracovávám data...</div>;
-    }
 
     const summaryCardsData = [
         { labelKey: 'total', value: summary.total, icon: Info, color: 'bg-blue-500' },
@@ -103,7 +89,7 @@ export default function DashboardTab() {
                 </div>
             </div>
 
-            <div className="mt-8">
+            <div>
                 <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
                     <ClipboardList className="w-6 h-6 text-green-400" /> Denní přehled stavu
                 </h2>
@@ -121,11 +107,17 @@ export default function DashboardTab() {
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-                <div className="lg:col-span-2">
-                    <GeoChart data={summary.ordersByCountry} />
-                </div>
+                {/* ZMĚNA POŘADÍ A PŘIDÁNÍ NOVÝCH GRAFŮ (zatím zakomentováno) */}
                 <StatusDistributionChart />
                 <OrdersOverTimeChart summary={summary} />
+                {/* <div className="lg:col-span-2">
+                    <GeoChart data={summary.ordersByCountry} />
+                </div> */}
+                {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <DonutChartCard title="Podíl typů dodávek" data={summary.deliveryTypes} />
+                    <DonutChartCard title="Zpožděné dle dopravce" data={summary.delayedByCarrier} />
+                    <RecentUpdates updates={summary.recentUpdates} />
+                </div> */}
             </div>
             
             <OrderListModal 

@@ -1,50 +1,36 @@
 "use client";
 import React from 'react';
-import { useUI } from '@/hooks/useUI';
-import { useAuth } from '@/hooks/useAuth';
 import { useData } from '@/hooks/useData';
-import Notifications from './Notifications';
-import { Globe, Sun, Moon, Lock, UploadCloud, Settings } from 'lucide-react';
+import { useUI } from '@/hooks/useUI';
+import { FiSearch, FiUploadCloud, FiMenu } from 'react-icons/fi';
 
-export default function AppHeader({ setActiveTab }) {
-    const { t, darkMode, toggleTheme, toggleLang } = useUI();
-    const { currentUserProfile, logout } = useAuth();
-    const { handleFileUpload } = useData(); 
+export default function AppHeader({ onToggleSidebar }) {
+    const { handleFileUpload } = useData();
+    const { t } = useUI();
 
     return (
-        <header className="flex justify-between items-center mb-8">
-            <h1 className="text-4xl font-bold">{t.title}</h1>
+        <header className="flex justify-between items-center h-20 px-6 lg:px-10 bg-gray-900 border-b border-gray-800 flex-shrink-0">
+            {/* Tlačítko pro menu na mobilu - zatím jen vizuální */}
+            <button onClick={onToggleSidebar} className="text-gray-400 hover:text-white lg:hidden">
+                <FiMenu className="w-6 h-6" />
+            </button>
+
+            {/* Globální vyhledávací pole */}
+            <div className="relative hidden md:block">
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input
+                    type="text"
+                    placeholder="Hledat zakázku..."
+                    className="bg-gray-800 border border-gray-700 rounded-lg py-2 pl-10 pr-4 w-80 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+            </div>
+            
             <div className="flex items-center gap-4">
-                <Notifications />
-                
-                {currentUserProfile && (
-                    <div className="flex items-center gap-2 text-white">
-                        <span className="font-semibold">{currentUserProfile.displayName}</span>
-                        <button 
-                            onClick={() => setActiveTab(5)} 
-                            className="p-2 rounded-full hover:bg-gray-700 transition-colors"
-                            title="Nastavení"
-                        >
-                            <Settings className="w-5 h-5 text-gray-400" />
-                        </button>
-                    </div>
-                )}
-                
-                <label className="cursor-pointer inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg shadow text-sm">
-                    <UploadCloud className="w-4 h-4 text-white" />
+                <label className="cursor-pointer flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-lg transition-colors">
+                    <FiUploadCloud className="w-5 h-5" />
                     <span>{t.upload}</span>
                     <input type="file" accept=".xlsx, .xls" onChange={(e) => handleFileUpload(e.target.files[0])} className="hidden" />
                 </label>
-
-                <button onClick={toggleLang} className="flex items-center gap-1 bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded-lg shadow text-sm">
-                    <Globe className="w-4 h-4" /> {t.langCode}
-                </button>
-                <button onClick={toggleTheme} className="flex items-center gap-1 bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded-lg shadow text-sm">
-                    {darkMode ? <Sun className="w-4 h-4 text-yellow-400" /> : <Moon className="w-4 h-4 text-blue-400" />}
-                </button>
-                <button onClick={logout} className="flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg shadow text-sm">
-                    <Lock className="w-5 h-5" /> {t.logout}
-                </button>
             </div>
         </header>
     );

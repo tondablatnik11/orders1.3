@@ -1,10 +1,11 @@
-"use client";
+'use client';
 import React, { useState, useEffect } from 'react';
 import { useUI } from '@/hooks/useUI';
 import { useData } from '@/hooks/useData';
 import { useAuth } from '@/hooks/useAuth';
+import Sidebar from './Sidebar';
 import AppHeader from './AppHeader';
-import TabNavigation from './TabNavigation'; 
+
 import DashboardTab from '@/components/tabs/DashboardTab';
 import DelayedOrdersTab from '@/components/tabs/DelayedOrdersTab';
 import OrderSearchTab from '@/components/tabs/OrderSearchTab';
@@ -14,10 +15,11 @@ import SettingsTab from '@/components/tabs/SettingsTab';
 import ChatTab from '@/components/tabs/ChatTab';
 
 export default function DashboardLayout() {
-    const { t, darkMode } = useUI();
+    const { t } = useUI();
     const { summary, isLoadingData } = useData();
-    const { currentUser, userProfile, loading: authLoading } = useAuth();
-    const [activeTab, setActiveTab] = useState(0); 
+    const { userProfile, loading: authLoading } = useAuth();
+    const [activeTab, setActiveTab] = useState(0);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
     useEffect(() => {
         const loadXLSXScript = () => {
@@ -31,47 +33,46 @@ export default function DashboardLayout() {
         loadXLSXScript();
     }, []);
 
-    if (authLoading || !currentUser || !userProfile) {
-        return <div className="flex items-center justify-center min-h-screen">Načítání profilu a dat...</div>;
+    if (authLoading || !userProfile) {
+        return <div className="flex items-center justify-center min-h-screen bg-gray-950 text-white">Načítání profilu...</div>;
     }
 
     const renderActiveTab = () => {
-        if (activeTab === 5) {
-            return <SettingsTab initialProfile={userProfile} />;
-        }
-        if (activeTab === 6) {
-            return <ChatTab />;
-        }
+        if (activeTab === 5) return <SettingsTab initialProfile={userProfile} />;
+        if (activeTab === 6) return <ChatTab />;
 
         if (isLoadingData) {
-            return <p className="text-center p-8">Načítám data objednávek...</p>;
+            return <div className="text-center p-8 text-lg">Načítám data objednávek...</div>;
         }
-        
+
         if (!summary) {
             return (
-                 <div className="text-center mt-12">
-                     <p className="mb-6 text-xl text-gray-400">{t.uploadFilePrompt}</p>
+                <div className="text-center mt-12">
+                    <h2 className="text-2xl font-semibold mb-4">Vítejte v Hellmann-Connect!</h2>
+                    <p className="mb-6 text-xl text-gray-400">{t.uploadFilePrompt}</p>
                 </div>
             );
         }
-        
+
         switch (activeTab) {
             case 0: return <DashboardTab />;
             case 1: return <DelayedOrdersTab />;
-            case 2: return <OrderSearchTab />; 
-            case 3: return <AnnouncedLoadingsTab />; 
+            case 2: return <OrderSearchTab />;
+            case 3: return <AnnouncedLoadingsTab />;
             case 4: return <TicketsTab />;
             default: return <DashboardTab />;
         }
     };
 
     return (
-        <div className={`p-8 space-y-8 min-h-screen ${darkMode ? "bg-gray-950 text-gray-100" : "bg-white text-gray-900"}`}>
-            <AppHeader setActiveTab={setActiveTab} />
-            <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
-            <main>
-                {renderActiveTab()}
-            </main>
+        <div className="flex h-screen bg-gray-800">
+            <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+            <div className="flex flex-col flex-1 overflow-hidden">
+                <AppHeader onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+                <main className="flex-1 p-6 lg:p-10 overflow-y-auto bg-gray-800">
+                    {renderActiveTab()}
+                </main>
+            </div>
         </div>
     );
 }
