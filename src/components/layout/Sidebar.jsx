@@ -19,10 +19,12 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
 
     return (
         <div className="flex flex-col h-full w-64 bg-gray-900 text-gray-300 border-r border-gray-700">
-            <div className="flex items-center justify-center h-20 border-b border-gray-800">
-                <h1 className="text-2xl font-bold text-white">Hellmann-Connect</h1>
+            {/* Logo a název */}
+            <div className="flex items-center justify-center h-20 px-6 border-b border-gray-800">
+                <img src="/logo.jpg" alt="Hellmann Logo" className="h-10" />
             </div>
 
+            {/* Profil uživatele */}
             <div className="flex flex-col items-center p-6 border-b border-gray-800">
                 <img
                     className="w-20 h-20 rounded-full object-cover mb-3"
@@ -33,6 +35,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
                 <p className="text-sm text-gray-500">{userProfile?.function || (userProfile?.isAdmin ? 'Administrator' : 'Uživatel')}</p>
             </div>
 
+            {/* Navigační položky */}
             <nav className="flex-grow px-4 py-6">
                 {menuItems.map(item => (
                     <button
@@ -50,9 +53,10 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
                 ))}
             </nav>
 
+            {/* Nastavení a odhlášení */}
             <div className="px-4 py-4 border-t border-gray-800">
                  <button
-                    onClick={() => setActiveTab(5)}
+                    onClick={() => setActiveTab(5)} // ID pro SettingsTab
                     className={`flex items-center w-full px-4 py-3 text-left rounded-lg transition-colors duration-200 ${
                         activeTab === 5 ? 'bg-blue-600 text-white' : 'hover:bg-gray-800 hover:text-white'
                     }`}

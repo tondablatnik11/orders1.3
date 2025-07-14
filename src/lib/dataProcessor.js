@@ -14,31 +14,11 @@ const parseDataDate = (dateInput) => {
 export const processData = (rawData) => {
     if (!rawData || rawData.length === 0) return null;
 
-    const latestOrdersMap = new Map();
-    for (const order of rawData) {
-        const deliveryNo = String(order["Delivery No"] || '').trim();
-        if (!deliveryNo) continue;
-        const existingOrder = latestOrdersMap.get(deliveryNo);
-        if (!existingOrder || (order.updated_at && new Date(order.updated_at) > new Date(existingOrder.updated_at))) {
-            latestOrdersMap.set(deliveryNo, order);
-        }
-    }
-    const uniqueData = Array.from(latestOrdersMap.values());
-
     const summary = {
-        total: uniqueData.length,
-        doneTotal: 0,
-        inProgressTotal: 0,
-        newOrdersTotal: 0,
-        delayed: 0,
-        statusCounts: {},
-        deliveryTypes: {},
-        ordersByCountry: {},
-        delayedByCarrier: {},
-        recentUpdates: [],
-        allOrdersData: uniqueData,
-        dailySummaries: new Map(),
-        statusByLoadingDate: {},
+        total: rawData.length, doneTotal: 0, inProgressTotal: 0, newOrdersTotal: 0, delayed: 0,
+        palletsTotal: 0, cartonsTotal: 0, statusCounts: {}, deliveryTypes: {}, ordersByCountry: {},
+        delayedByCarrier: {}, recentUpdates: [], allOrdersData: rawData, dailySummaries: new Map(),
+        statusByLoadingDate: {}, delayedOrdersList: [],
     };
 
     const doneStatuses = [50, 60, 70, 80, 90];
@@ -47,30 +27,37 @@ export const processData = (rawData) => {
     const remainingStatuses = [10, 30, 31, 35, 40];
     const today = startOfDay(new Date());
 
-    uniqueData.forEach(row => {
+    rawData.forEach(row => {
         const status = Number(row.Status);
         if (isNaN(status)) return;
-
+        
         const loadingDate = parseDataDate(row["Loading Date"]);
         
-        // Celkové součty
+        // Zpožděné zakázky
+        if (loadingDate && isBefore(loadingDate, today) && remainingStatuses.includes(status)) {
+            summary.delayed++;
+            const carrier = row["Forwarding agent name"] || "Neznámý";
+            summary.delayedByCarrier[carrier] = (summary.delayedByCarrier[carrier] || 0) + 1;
+            summary.delayedOrdersList.push({
+                delivery: String(row["Delivery No"] || '').trim(), status,
+                delType: row["del.type"], loadingDate: loadingDate.toISOString(),
+                delayDays: differenceInDays(today, loadingDate), note: row["Note"] || "",
+            });
+        }
+        
+        const country = row["Ctry sold-to party"];
+        if (country) summary.ordersByCountry[country] = (summary.ordersByCountry[country] || 0) + 1;
+
         summary.statusCounts[status] = (summary.statusCounts[status] || 0) + 1;
         if (doneStatuses.includes(status)) summary.doneTotal++;
         if (inProgressStatuses.includes(status)) summary.inProgressTotal++;
         if (newStatus.includes(status)) summary.newOrdersTotal++;
         
-        // Data pro Donut grafy
         const delType = row["del.type"] === 'P' ? 'Palety' : 'Kartony';
         summary.deliveryTypes[delType] = (summary.deliveryTypes[delType] || 0) + 1;
-        
-        // Data pro Geo graf
-        const country = row["Ctry sold-to party"];
-        if (country) summary.ordersByCountry[country] = (summary.ordersByCountry[country] || 0) + 1;
 
         if (loadingDate) {
             const dateKey = format(startOfDay(loadingDate), 'yyyy-MM-dd');
-
-            // Denní přehled
             if (!summary.dailySummaries.has(dateKey)) {
                 summary.dailySummaries.set(dateKey, { date: dateKey, total: 0, done: 0, inProgress: 0, new: 0, remaining: 0 });
             }
@@ -79,24 +66,13 @@ export const processData = (rawData) => {
             if (doneStatuses.includes(status)) day.done++;
             else if (inProgressStatuses.includes(status)) day.inProgress++;
             else if (newStatus.includes(status)) day.new++;
-
-            // Rozložení statusů
-            if (!summary.statusByLoadingDate[dateKey]) summary.statusByLoadingDate[dateKey] = { date: dateKey };
-            summary.statusByLoadingDate[dateKey][`status${status}`] = (summary.statusByLoadingDate[dateKey][`status${status}`] || 0) + 1;
-        }
-
-        // Zpožděné zakázky
-        if (loadingDate && isBefore(loadingDate, today) && remainingStatuses.includes(status)) {
-            summary.delayed++;
-            const carrier = row["Forwarding agent name"] || "Neznámý";
-            summary.delayedByCarrier[carrier] = (summary.delayedByCarrier[carrier] || 0) + 1;
         }
     });
 
     summary.remainingTotal = summary.total - summary.doneTotal;
     summary.dailySummaries.forEach(day => day.remaining = day.total - day.done);
     summary.dailySummaries = Array.from(summary.dailySummaries.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
-    summary.recentUpdates = uniqueData.filter(o => o.updated_at).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).slice(0, 5);
-    
+    summary.recentUpdates = rawData.filter(o => o.updated_at).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).slice(0, 5);
+
     return summary;
 };

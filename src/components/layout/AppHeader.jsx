@@ -2,20 +2,15 @@
 import React from 'react';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
-import { FiSearch, FiUploadCloud, FiMenu } from 'react-icons/fi';
+import Notifications from './Notifications';
+import { FiSearch, FiUploadCloud, FiGlobe } from 'react-icons/fi';
 
-export default function AppHeader({ onToggleSidebar }) {
+export default function AppHeader() {
     const { handleFileUpload } = useData();
-    const { t } = useUI();
+    const { t, toggleLang } = useUI();
 
     return (
-        <header className="flex justify-between items-center h-20 px-6 lg:px-10 bg-gray-900 border-b border-gray-800 flex-shrink-0">
-            {/* Tlačítko pro menu na mobilu - zatím jen vizuální */}
-            <button onClick={onToggleSidebar} className="text-gray-400 hover:text-white lg:hidden">
-                <FiMenu className="w-6 h-6" />
-            </button>
-
-            {/* Globální vyhledávací pole */}
+        <header className="flex justify-between items-center h-20 px-6 lg:px-10 bg-gray-900 border-b border-gray-700 flex-shrink-0">
             <div className="relative hidden md:block">
                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                 <input
@@ -31,6 +26,10 @@ export default function AppHeader({ onToggleSidebar }) {
                     <span>{t.upload}</span>
                     <input type="file" accept=".xlsx, .xls" onChange={(e) => handleFileUpload(e.target.files[0])} className="hidden" />
                 </label>
+                <button onClick={toggleLang} className="p-2 rounded-full hover:bg-gray-700">
+                    <FiGlobe className="w-5 h-5 text-gray-300" />
+                </button>
+                <Notifications />
             </div>
         </header>
     );
