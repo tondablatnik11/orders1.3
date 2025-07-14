@@ -10,10 +10,9 @@ import { DailyOverviewCard } from '@/components/shared/DailyOverviewCard';
 import { SummaryCard } from '@/components/shared/SummaryCard';
 import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
 import StatusDistributionChart from '@/components/charts/StatusDistributionChart';
-// Importy nových komponent, které vytvoříme v dalším kroku
-// import GeoChart from '@/components/charts/GeoChart';
-// import RecentUpdates from '@/components/shared/RecentUpdates'; 
-// import DonutChartCard from '@/components/charts/DonutChartCard';
+import GeoChart from '@/components/charts/GeoChart';
+import RecentUpdates from '@/components/shared/RecentUpdates';
+import DonutChartCard from '@/components/charts/DonutChartCard';
 
 const FeaturedKPICard = ({ title, value, icon: Icon }) => (
     <div className="bg-red-900/50 backdrop-blur-sm p-8 rounded-xl shadow-2xl border border-red-500/50 flex flex-col items-center justify-center text-center h-full transition-all duration-300 hover:bg-red-800/80 hover:shadow-red-400/20 hover:-translate-y-1">
@@ -106,18 +105,25 @@ export default function DashboardTab() {
                 </div>
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-                {/* ZMĚNA POŘADÍ A PŘIDÁNÍ NOVÝCH GRAFŮ (zatím zakomentováno) */}
-                <StatusDistributionChart />
-                <OrdersOverTimeChart summary={summary} />
-                {/* <div className="lg:col-span-2">
-                    <GeoChart data={summary.ordersByCountry} />
-                </div> */}
-                {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 mt-8">
+                <div className="lg:col-span-3">
+                    <StatusDistributionChart />
+                </div>
+                <div className="lg:col-span-2">
+                     <RecentUpdates updates={summary.recentUpdates} />
+                </div>
+
+                <div className="lg:col-span-3">
+                    <OrdersOverTimeChart summary={summary} />
+                </div>
+                <div className="lg:col-span-2 grid grid-cols-1 gap-8">
                     <DonutChartCard title="Podíl typů dodávek" data={summary.deliveryTypes} />
                     <DonutChartCard title="Zpožděné dle dopravce" data={summary.delayedByCarrier} />
-                    <RecentUpdates updates={summary.recentUpdates} />
-                </div> */}
+                </div>
+
+                <div className="lg:col-span-5">
+                    <GeoChart data={summary.ordersByCountry} />
+                </div>
             </div>
             
             <OrderListModal 
