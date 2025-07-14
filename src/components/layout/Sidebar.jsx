@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import Image from 'next/image'; // <-- NOVÝ IMPORT
 import { useAuth } from '@/hooks/useAuth';
 import { useUI } from '@/hooks/useUI';
 import { FiGrid, FiBarChart2, FiSearch, FiTruck, FiMessageSquare, FiLifeBuoy, FiSettings, FiLogOut } from 'react-icons/fi';
@@ -20,10 +21,11 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
     return (
         <div className="flex flex-col h-full w-64 bg-gray-900 text-gray-300 border-r border-gray-700">
             <div className="flex items-center justify-center h-20 px-6 border-b border-gray-800">
-                <img src="/logo.jpg" alt="Hellmann Logo" className="h-auto w-full max-w-[150px]" />
+                {/* --- OPRAVENÉ LOGO --- */}
+                <Image src="/logo.jpg" alt="Hellmann Logo" width={150} height={40} priority />
             </div>
-            
-            {/* Zbytek kódu zůstává stejný... */}
+
+            {/* Zbytek kódu je v pořádku a zůstává stejný */}
             <div className="flex flex-col items-center p-6 border-b border-gray-800">
                 <img
                     className="w-20 h-20 rounded-full object-cover mb-3"

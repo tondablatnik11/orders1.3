@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { format, parseISO } from 'date-fns';
@@ -13,6 +13,7 @@ export default function DelayedOrdersTab() {
     const { summary, handleSaveNote, setSelectedOrderDetails: setGlobalSelectedOrderDetails, selectedOrderDetails: globalSelectedOrderDetails } = useData();
     const { t } = useUI();
     const [showAll, setShowAll] = useState(false);
+    const [localNotes, setLocalNotes] = useState({});
     const [sortConfig, setSortConfig] = useState({ key: 'delayDays', direction: 'descending' });
 
     const sortedOrders = useMemo(() => {
@@ -65,6 +66,16 @@ export default function DelayedOrdersTab() {
         return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
     };
     
+    const handleNoteChange = (deliveryNo, text) => {
+        setLocalNotes(prev => ({ ...prev, [deliveryNo]: text }));
+    };
+
+    const handleNoteBlur = (deliveryNo, originalNote) => {
+        if (localNotes[deliveryNo] !== undefined && localNotes[deliveryNo] !== originalNote) {
+            handleSaveNote(deliveryNo, localNotes[deliveryNo]);
+        }
+    };
+
     return (
         <Card>
             <CardContent>
@@ -112,9 +123,10 @@ export default function DelayedOrdersTab() {
                                         <td className="py-3 px-4">
                                             <input
                                                 type="text"
-                                                defaultValue={order.Note || ''}
+                                                value={localNotes[order.delivery] ?? (order.Note || '')}
+                                                onChange={(e) => handleNoteChange(order.delivery, e.target.value)}
+                                                onBlur={() => handleNoteBlur(order.delivery, order.Note)}
                                                 onClick={(e) => e.stopPropagation()}
-                                                onBlur={(e) => handleSaveNote(order.delivery, e.target.value)}
                                                 className="w-full p-1 rounded-md bg-gray-600 border border-gray-500 text-sm"
                                             />
                                         </td>

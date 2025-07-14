@@ -14,13 +14,14 @@ import GeoChart from '@/components/charts/GeoChart';
 import RecentUpdates from '@/components/shared/RecentUpdates';
 import DonutChartCard from '@/components/charts/DonutChartCard';
 
+// Komponenta pro zmenšenou kartu "Zpožděné zakázky"
 const FeaturedKPICard = ({ title, value, icon: Icon }) => (
-    <div className="bg-red-800/80 p-6 rounded-xl shadow-lg border border-red-600/50 flex flex-col items-center justify-center text-center h-full transition-all duration-300 hover:bg-red-700/80 hover:-translate-y-1">
-        <div className="p-3 bg-red-500/80 rounded-full mb-3">
-            <Icon className="w-7 h-7 text-white" />
+    <div className="bg-red-800/80 p-4 rounded-xl shadow-lg border border-red-600/50 flex flex-col items-center justify-center text-center h-full">
+        <div className="p-2 bg-red-500/80 rounded-full mb-2">
+            <Icon className="w-6 h-6 text-white" />
         </div>
-        <p className="text-lg text-red-200 font-semibold">{title}</p>
-        <p className="text-5xl font-bold text-white mt-1">{value || 0}</p>
+        <p className="text-md text-red-200 font-semibold">{title}</p>
+        <p className="text-4xl font-bold text-white mt-1">{value || 0}</p>
     </div>
 );
 
@@ -31,6 +32,7 @@ export default function DashboardTab() {
     const scrollContainerRef = useRef(null);
     const todayCardRef = useRef(null);
 
+    // Efekt pro scrollování k dnešnímu dni v denním přehledu
     useEffect(() => {
         if (scrollContainerRef.current && todayCardRef.current) {
             const container = scrollContainerRef.current;
@@ -40,11 +42,13 @@ export default function DashboardTab() {
         }
     }, [summary]);
 
+    // Zobrazení načítacího stavu
     if (!summary) {
         return <div className="text-center p-8 text-lg">Zpracovávám data...</div>;
     }
 
     const today = startOfDay(new Date());
+    // Generování dat pro karty denního přehledu
     const datesForOverview = Array.from({ length: 20 }).map((_, i) => {
         const date = addDays(subDays(today, 10), i);
         let label = format(date, 'EEEE', { locale: cs });
@@ -53,6 +57,7 @@ export default function DashboardTab() {
         return { date, label };
     });
 
+    // Logika pro kliknutí na statistiku v denní kartě a otevření modálního okna
     const handleStatClick = (date, type, title) => {
         const doneStatuses = [50, 60, 70, 80, 90];
         const inProgressStatuses = [31, 35, 40];
@@ -60,8 +65,9 @@ export default function DashboardTab() {
         
         const filteredOrders = allOrdersData.filter(order => {
             if (!order["Loading Date"]) return false;
-            const orderDate = startOfDay(parseISO(order["Loading Date"]));
-            if (orderDate.getTime() !== date.getTime()) return false;
+            // Porovnáváme jen datum, bez času
+            if (format(parseISO(order["Loading Date"]), 'yyyy-MM-dd') !== format(date, 'yyyy-MM-dd')) return false;
+
             const status = Number(order.Status);
             switch (type) {
                 case 'total': return true;
@@ -75,43 +81,43 @@ export default function DashboardTab() {
         setModalState({ isOpen: true, title: `${title} - ${format(date, 'dd.MM.yyyy')}`, orders: filteredOrders });
     };
 
+    // Data pro horní KPI karty
     const summaryCardsData = [
         { labelKey: 'total', value: summary.total, icon: Info, color: 'bg-blue-500' },
         { labelKey: 'done', value: summary.doneTotal, icon: CheckCircle, color: 'bg-green-500' },
         { labelKey: 'remaining', value: summary.remainingTotal, icon: Clock, color: 'bg-yellow-500' },
         { labelKey: 'inProgress', value: summary.inProgressTotal, icon: Hourglass, color: 'bg-orange-500' },
     ];
-
+    
     return (
         <div className="space-y-8">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {/* Horní řádek KPI karet */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 {summaryCardsData.map(card => (
                     <SummaryCard key={card.labelKey} title={t[card.labelKey]} value={card.value} icon={card.icon} colorClass={card.color} />
                 ))}
+                <FeaturedKPICard title={t.delayed} value={summary.delayed} icon={AlertTriangle} />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2">
-                    <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-                        <ClipboardList className="w-6 h-6 text-green-400" /> Denní přehled stavu
-                    </h2>
-                    <div ref={scrollContainerRef} className="flex space-x-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-                        {datesForOverview.map((d) => {
-                            const dateStr = format(d.date, 'yyyy-MM-dd');
-                            const isToday = format(d.date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
-                            const dailyStats = summary.dailySummaries.find(s => s.date === dateStr);
-                            const displayLabel = `${d.label} (${format(d.date, 'dd.MM.')})`;
-                            return (
-                                <DailyOverviewCard ref={isToday ? todayCardRef : null} key={dateStr} title={displayLabel} stats={dailyStats} t={t} onStatClick={handleStatClick} date={d.date} />
-                            );
-                        })}
-                    </div>
-                </div>
-                <div className="lg:col-span-1">
-                     <FeaturedKPICard title={t.delayed} value={summary.delayed} icon={AlertTriangle} />
+            {/* Sekce Denní přehled stavu */}
+            <div>
+                <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+                    <ClipboardList className="w-6 h-6 text-green-400" /> Denní přehled stavu
+                </h2>
+                <div ref={scrollContainerRef} className="flex space-x-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+                    {datesForOverview.map((d) => {
+                        const dateStr = format(d.date, 'yyyy-MM-dd');
+                        const isToday = format(d.date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
+                        const dailyStats = summary.dailySummaries.find(s => s.date === dateStr);
+                        const displayLabel = `${d.label} (${format(d.date, 'dd.MM.')})`;
+                        return (
+                            <DailyOverviewCard ref={isToday ? todayCardRef : null} key={dateStr} title={displayLabel} stats={dailyStats} t={t} onStatClick={handleStatClick} date={d.date} />
+                        );
+                    })}
                 </div>
             </div>
 
+            {/* Sekce hlavních grafů a přehledů */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2">
                     <StatusDistributionChart />
@@ -121,9 +127,10 @@ export default function DashboardTab() {
                 </div>
             </div>
 
+            {/* Sekce geografické mapy a dalších grafů */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                 <div className="lg:col-span-2">
-                    <GeoChart data={summary.ordersByCountry} />
+                <div className="lg:col-span-2">
+                   <GeoChart data={summary.ordersByCountry} />
                 </div>
                 <div className="lg:col-span-1 space-y-8">
                     <DonutChartCard title="Podíl typů dodávek" data={summary.deliveryTypes} />
@@ -131,6 +138,7 @@ export default function DashboardTab() {
                 </div>
             </div>
             
+            {/* Modální okno pro zobrazení seznamu zakázek */}
             <OrderListModal 
                 isOpen={modalState.isOpen}
                 onClose={() => setModalState({ ...modalState, isOpen: false })}
