@@ -1,5 +1,6 @@
 import { startOfDay, format, isBefore, parseISO, differenceInDays } from 'date-fns';
 
+// Pomocná funkce pro parsování data, zůstává stejná
 const parseDataDate = (dateInput) => {
     if (!dateInput) return null;
     let date = parseISO(dateInput);
@@ -17,8 +18,15 @@ export const processData = (rawData) => {
         return null;
     }
 
+<<<<<<< HEAD
     const dataToProcess = rawData;
 
+=======
+    // Vracíme se k jednoduchému modelu, pracujeme přímo s daty, jak přišla.
+    const dataToProcess = rawData;
+
+    // Inicializace souhrnného objektu
+>>>>>>> 4a8aea9476da6ffe6f2ee10f4d73418f2e3a7ef0
     const summary = {
         total: dataToProcess.length,
         doneTotal: 0,
@@ -33,10 +41,18 @@ export const processData = (rawData) => {
         ordersByCountry: {}, // <-- NOVÁ POLOŽKA PRO GRAF
         delayedOrdersList: [],
         dailySummaries: new Map(),
+<<<<<<< HEAD
         statusByLoadingDate: {},
         allOrdersData: dataToProcess,
     };
 
+=======
+        statusByLoadingDate: {}, // Znovu správně inicializujeme
+        allOrdersData: dataToProcess,
+    };
+
+    // Definice kategorií statusů
+>>>>>>> 4a8aea9476da6ffe6f2ee10f4d73418f2e3a7ef0
     const doneStatuses = [50, 60, 70, 80, 90];
     const inProgressStatuses = [31, 35, 40];
     const newStatus = [10];
@@ -46,6 +62,7 @@ export const processData = (rawData) => {
     dataToProcess.forEach(row => {
         const status = Number(row.Status);
         if (isNaN(status)) return;
+<<<<<<< HEAD
         
         // --- NOVÁ LOGIKA PRO ZEMĚ ---
         const country = row["Ctry sold-to party"];
@@ -53,7 +70,10 @@ export const processData = (rawData) => {
             summary.ordersByCountry[country] = (summary.ordersByCountry[country] || 0) + 1;
         }
         // --- KONEC NOVÉ LOGIKY ---
+=======
+>>>>>>> 4a8aea9476da6ffe6f2ee10f4d73418f2e3a7ef0
 
+        // Celkové statistiky
         summary.statusCounts[status] = (summary.statusCounts[status] || 0) + 1;
         if (doneStatuses.includes(status)) summary.doneTotal++;
         if (inProgressStatuses.includes(status)) summary.inProgressTotal++;
@@ -66,22 +86,38 @@ export const processData = (rawData) => {
         if (loadingDate) {
             const dateKey = format(startOfDay(loadingDate), 'yyyy-MM-dd');
 
+<<<<<<< HEAD
+=======
+            // Logika pro Denní přehled
+>>>>>>> 4a8aea9476da6ffe6f2ee10f4d73418f2e3a7ef0
             if (!summary.dailySummaries.has(dateKey)) {
                 summary.dailySummaries.set(dateKey, { date: dateKey, total: 0, done: 0, inProgress: 0, new: 0, remaining: 0 });
             }
             const day = summary.dailySummaries.get(dateKey);
             
             day.total++;
+<<<<<<< HEAD
             if (doneStatuses.includes(status)) day.done++;
             else if (inProgressStatuses.includes(status)) day.inProgress++;
             else if (newStatus.includes(status)) day.new++;
+=======
+            if (doneStatuses.includes(status)) {
+                day.done++;
+            } else if (inProgressStatuses.includes(status)) {
+                day.inProgress++;
+            } else if (newStatus.includes(status)) {
+                day.new++;
+            }
+>>>>>>> 4a8aea9476da6ffe6f2ee10f4d73418f2e3a7ef0
 
+            // Logika pro graf Rozložení statusů
             if (!summary.statusByLoadingDate[dateKey]) {
                 summary.statusByLoadingDate[dateKey] = { date: dateKey };
             }
             summary.statusByLoadingDate[dateKey][`status${status}`] = (summary.statusByLoadingDate[dateKey][`status${status}`] || 0) + 1;
         }
         
+        // Zpožděné objednávky
         if (loadingDate && isBefore(loadingDate, today) && remainingStatuses.includes(status)) {
             summary.delayed++;
             summary.delayedOrdersList.push({
@@ -99,6 +135,7 @@ export const processData = (rawData) => {
         }
     });
     
+    // Finální výpočty
     summary.remainingTotal = summary.total - summary.doneTotal;
     summary.dailySummaries.forEach(day => {
         day.remaining = day.total - day.done;
