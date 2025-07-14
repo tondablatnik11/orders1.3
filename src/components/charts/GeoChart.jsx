@@ -3,7 +3,7 @@ import React from 'react';
 import { ResponsiveChoropleth } from '@nivo/geo';
 import { useUI } from '@/hooks/useUI';
 import { Card, CardContent } from '../ui/Card';
-import worldCountries from './world_countries.json'; // Tento soubor si stáhneme
+import worldCountries from './world_countries.json';
 
 const GeoChart = ({ data = [] }) => {
     const { t } = useUI();
@@ -31,12 +31,13 @@ const GeoChart = ({ data = [] }) => {
                         features={worldCountries.features}
                         margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
                         colors="blues"
-                        domain={[0, Math.max(...data.map(d => d.value))]}
+                        domain={[0, Math.max(...data.map(d => d.value), 1)]}
                         unknownColor="#4B5563"
                         label="properties.name"
                         valueFormat=".2s"
-                        projectionTranslation={[0.5, 0.5]}
-                        projectionRotation={[0, 0, 0]}
+                        projectionType="mercator"
+                        projectionScale={450}
+                        projectionTranslation={[ 0.4, 1.4 ]}
                         enableGraticule={true}
                         graticuleLineColor="#666666"
                         borderWidth={0.5}

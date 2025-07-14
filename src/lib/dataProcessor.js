@@ -37,6 +37,7 @@ export const processData = (rawData) => {
         dailySummaries: new Map(),
         statusByLoadingDate: {},
         delayedOrdersList: [],
+        orderTypesOEM: {},
     };
 
     const doneStatuses = [50, 60, 70, 80, 90];
@@ -48,9 +49,9 @@ export const processData = (rawData) => {
     rawData.forEach(row => {
         const status = Number(row.Status);
         if (isNaN(status)) return;
-
+        
         const loadingDate = parseDataDate(row["Loading Date"]);
-
+        
         if (loadingDate && isBefore(loadingDate, today) && remainingStatuses.includes(status)) {
             summary.delayed++;
             const carrier = row["Forwarding agent name"] || "Neznámý";
@@ -64,7 +65,7 @@ export const processData = (rawData) => {
                 delayDays: differenceInDays(today, loadingDate),
             });
         }
-
+        
         const countryCode2 = row["Country ship-to prty"];
         const countryCode3 = countryCodeMap[countryCode2];
         if (countryCode3) {
@@ -75,9 +76,18 @@ export const processData = (rawData) => {
         if (doneStatuses.includes(status)) summary.doneTotal++;
         if (inProgressStatuses.includes(status)) summary.inProgressTotal++;
         if (newStatus.includes(status)) summary.newOrdersTotal++;
-
-        const delType = row["del.type"] === 'P' ? 'Palety' : (row["del.type"] === 'K' ? 'Kartony' : 'Jiné');
+        
+        const delType = row["del.type"] === 'P' ? 'Palety' : 'Kartony';
         summary.deliveryTypes[delType] = (summary.deliveryTypes[delType] || 0) + 1;
+
+        const orderType = row["order type"];
+        if (orderType) {
+            let typeName = 'Jiné';
+            if (orderType === 'O') typeName = 'OEM';
+            if (orderType === 'N') typeName = 'Normal';
+            if (orderType === 'E') typeName = 'Expres';
+            summary.orderTypesOEM[typeName] = (summary.orderTypesOEM[typeName] || 0) + 1;
+        }
 
         if (loadingDate) {
             const dateKey = format(startOfDay(loadingDate), 'yyyy-MM-dd');
@@ -101,16 +111,14 @@ export const processData = (rawData) => {
             summary.statusByLoadingDate[dateKey][`status${status}`] = (summary.statusByLoadingDate[dateKey][`status${status}`] || 0) + 1;
         }
     });
-
+    
     summary.remainingTotal = summary.total - summary.doneTotal;
     summary.dailySummaries.forEach(day => {
         day.remaining = day.total - day.done;
     });
-
     summary.dailySummaries = Array.from(summary.dailySummaries.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
     summary.recentUpdates = rawData.filter(o => o.updated_at).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).slice(0, 5);
     
-    // Transformace dat pro Nivo GeoChart
     summary.ordersByCountry = Object.entries(summary.ordersByCountry).map(([country, count]) => ({
         id: country,
         value: count,
