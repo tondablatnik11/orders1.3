@@ -5,8 +5,6 @@ import { useUI } from '@/hooks/useUI';
 import { format, startOfDay, addDays, subDays, parseISO } from 'date-fns';
 import { cs } from 'date-fns/locale';
 import { CheckCircle, Clock, Hourglass, Info, AlertTriangle, ClipboardList } from 'lucide-react';
-
-// Import všech potřebných komponent
 import { OrderListModal } from '@/components/modals/OrderListModal';
 import { DailyOverviewCard } from '@/components/shared/DailyOverviewCard';
 import { SummaryCard } from '@/components/shared/SummaryCard';
@@ -16,11 +14,10 @@ import GeoChart from '@/components/charts/GeoChart';
 import RecentUpdates from '@/components/shared/RecentUpdates';
 import DonutChartCard from '@/components/charts/DonutChartCard';
 
-// Tato komponenta byla dříve v kódu, ale pro přehlednost ji necháme zde.
 const FeaturedKPICard = ({ title, value, icon: Icon }) => (
-    <div className="bg-red-900/50 backdrop-blur-sm p-6 rounded-xl shadow-2xl border border-red-500/50 flex flex-col items-center justify-center text-center h-full transition-all duration-300 hover:bg-red-800/80 hover:shadow-red-400/20 hover:-translate-y-1">
+    <div className="bg-red-800/80 p-6 rounded-xl shadow-lg border border-red-600/50 flex flex-col items-center justify-center text-center h-full transition-all duration-300 hover:bg-red-700/80 hover:-translate-y-1">
         <div className="p-3 bg-red-500/80 rounded-full mb-3">
-            <Icon className="w-8 h-8 text-white" />
+            <Icon className="w-7 h-7 text-white" />
         </div>
         <p className="text-lg text-red-200 font-semibold">{title}</p>
         <p className="text-5xl font-bold text-white mt-1">{value || 0}</p>
@@ -58,15 +55,19 @@ export default function DashboardTab() {
 
     const handleStatClick = (date, type, title) => {
         const doneStatuses = [50, 60, 70, 80, 90];
+        const inProgressStatuses = [31, 35, 40];
+        const newStatus = [10];
+        
         const filteredOrders = allOrdersData.filter(order => {
             if (!order["Loading Date"]) return false;
             const orderDate = startOfDay(parseISO(order["Loading Date"]));
             if (orderDate.getTime() !== date.getTime()) return false;
-
             const status = Number(order.Status);
             switch (type) {
                 case 'total': return true;
                 case 'done': return doneStatuses.includes(status);
+                case 'inProgress': return inProgressStatuses.includes(status);
+                case 'new': return newStatus.includes(status);
                 case 'remaining': return !doneStatuses.includes(status);
                 default: return false;
             }
@@ -83,14 +84,12 @@ export default function DashboardTab() {
 
     return (
         <div className="space-y-8">
-            {/* Horní řádek KPI karet */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 {summaryCardsData.map(card => (
                     <SummaryCard key={card.labelKey} title={t[card.labelKey]} value={card.value} icon={card.icon} colorClass={card.color} />
                 ))}
             </div>
 
-            {/* Druhý řádek: Přehledy a zpožděné zakázky */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2">
                     <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
@@ -109,37 +108,35 @@ export default function DashboardTab() {
                     </div>
                 </div>
                 <div className="lg:col-span-1">
-                    <FeaturedKPICard title={t.delayed} value={summary.delayed} icon={AlertTriangle} />
+                     <FeaturedKPICard title={t.delayed} value={summary.delayed} icon={AlertTriangle} />
                 </div>
             </div>
 
-            {/* Třetí řádek: Hlavní grafy */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2">
                     <StatusDistributionChart />
                 </div>
                 <div className="lg:col-span-1">
-                    <OrdersOverTimeChart summary={summary} />
+                    <RecentUpdates updates={summary.recentUpdates} />
                 </div>
             </div>
 
-            {/* Čtvrtý řádek: Geografie a doplňkové grafy */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                  <div className="lg:col-span-2">
                     <GeoChart data={summary.ordersByCountry} />
                 </div>
-                <div className="lg:col-span-1 grid grid-cols-1 gap-8">
+                <div className="lg:col-span-1 space-y-8">
                     <DonutChartCard title="Podíl typů dodávek" data={summary.deliveryTypes} />
-                    <RecentUpdates updates={summary.recentUpdates} />
+                    <OrdersOverTimeChart summary={summary} />
                 </div>
             </div>
             
             <OrderListModal 
                 isOpen={modalState.isOpen}
-                onClose={() => setModalState({ isOpen: false, title: '', orders: [] })}
+                onClose={() => setModalState({ ...modalState, isOpen: false })}
                 title={modalState.title}
                 orders={modalState.orders}
-                onSelectOrder={(order) => setSelectedOrderDetails(order)}
+                onSelectOrder={setSelectedOrderDetails}
                 t={t}
             />
         </div>

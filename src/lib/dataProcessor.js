@@ -39,9 +39,12 @@ export const processData = (rawData) => {
             const carrier = row["Forwarding agent name"] || "Neznámý";
             summary.delayedByCarrier[carrier] = (summary.delayedByCarrier[carrier] || 0) + 1;
             summary.delayedOrdersList.push({
-                delivery: String(row["Delivery No"] || '').trim(), status,
-                delType: row["del.type"], loadingDate: loadingDate.toISOString(),
-                delayDays: differenceInDays(today, loadingDate), note: row["Note"] || "",
+                ...row, // <-- KLÍČOVÁ ZMĚNA: Předáme celý objekt zakázky
+                delivery: String(row["Delivery No"] || '').trim(),
+                status: status,
+                delType: row["del.type"],
+                loadingDate: loadingDate.toISOString(),
+                delayDays: differenceInDays(today, loadingDate),
             });
         }
         
@@ -53,11 +56,12 @@ export const processData = (rawData) => {
         if (inProgressStatuses.includes(status)) summary.inProgressTotal++;
         if (newStatus.includes(status)) summary.newOrdersTotal++;
         
-        const delType = row["del.type"] === 'P' ? 'Palety' : 'Kartony';
+        const delType = row["del.type"] === 'P' ? 'Palety' : (row["del.type"] === 'K' ? 'Kartony' : 'Jiné');
         summary.deliveryTypes[delType] = (summary.deliveryTypes[delType] || 0) + 1;
 
         if (loadingDate) {
             const dateKey = format(startOfDay(loadingDate), 'yyyy-MM-dd');
+
             if (!summary.dailySummaries.has(dateKey)) {
                 summary.dailySummaries.set(dateKey, { date: dateKey, total: 0, done: 0, inProgress: 0, new: 0, remaining: 0 });
             }
@@ -66,9 +70,12 @@ export const processData = (rawData) => {
             if (doneStatuses.includes(status)) day.done++;
             else if (inProgressStatuses.includes(status)) day.inProgress++;
             else if (newStatus.includes(status)) day.new++;
+
+            if (!summary.statusByLoadingDate[dateKey]) summary.statusByLoadingDate[dateKey] = { date: dateKey };
+            summary.statusByLoadingDate[dateKey][`status${status}`] = (summary.statusByLoadingDate[dateKey][`status${status}`] || 0) + 1;
         }
     });
-
+    
     summary.remainingTotal = summary.total - summary.doneTotal;
     summary.dailySummaries.forEach(day => day.remaining = day.total - day.done);
     summary.dailySummaries = Array.from(summary.dailySummaries.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
