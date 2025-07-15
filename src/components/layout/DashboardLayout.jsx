@@ -18,10 +18,10 @@ import ErrorMonitorTab from '@/components/tabs/ErrorMonitorTab';
 
 
 export default function DashboardLayout() {
-    const { t } = useUI();
+    const { t, activeTab } = useUI(); // <-- PŘIDÁN activeTab z kontextu
     const { summary, isLoadingData } = useData();
     const { userProfile, loading: authLoading } = useAuth();
-    const [activeTab, setActiveTab] = useState(0);
+    // const [activeTab, setActiveTab] = useState(0); // <-- ODSTRANĚNO
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
     useEffect(() => {
@@ -72,9 +72,9 @@ export default function DashboardLayout() {
 
     return (
         <div className="flex h-screen bg-gray-800">
-            <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+            <Sidebar /> 
             <div className="flex flex-col flex-1 overflow-hidden">
-                <AppHeader activeTab={activeTab} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+                <AppHeader onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
                 <main className="flex-1 p-6 lg:p-10 overflow-y-auto bg-gray-800">
                     {renderActiveTab()}
                 </main>
@@ -82,5 +82,3 @@ export default function DashboardLayout() {
         </div>
     );
 }
-
-// Cache-busting comment

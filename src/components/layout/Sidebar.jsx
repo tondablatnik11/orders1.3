@@ -5,8 +5,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUI } from '@/hooks/useUI';
 import { FiGrid, FiBarChart2, FiSearch, FiTruck, FiMessageSquare, FiLifeBuoy, FiSettings, FiLogOut, FiArchive, FiAlertCircle } from 'react-icons/fi';
 
-const Sidebar = ({ activeTab, setActiveTab }) => {
-    const { t } = useUI();
+const Sidebar = () => { // <-- ODSTRANĚNY PROPS
+    const { t, activeTab, setActiveTab } = useUI(); // <-- POUŽITÍ KONTEXTU
     const { userProfile, logout } = useAuth();
 
     const menuItems = [
@@ -15,7 +15,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
         { id: 2, labelKey: 'orderSearchTab', icon: FiSearch },
         { id: 3, labelKey: 'announcedLoadingsTab', icon: FiTruck },
         { id: 4, labelKey: 'ticketsTab', icon: FiLifeBuoy },
-        { id: 7, labelKey: 'warehouseActivitiesTab', icon: FiArchive }, // ZMĚNA Z FiWarehouse na FiArchive
+        { id: 7, labelKey: 'warehouseActivitiesTab', icon: FiArchive },
         { id: 8, labelKey: 'errorMonitorTab', icon: FiAlertCircle },
         { id: 6, labelKey: 'chatTab', icon: FiMessageSquare },
     ];
