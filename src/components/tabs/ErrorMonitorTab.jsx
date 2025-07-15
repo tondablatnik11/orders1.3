@@ -32,22 +32,18 @@ const ErrorMonitorTab = () => {
     }
   }, []);
 
-  const GlassCard = ({ children, className = '' }) => (
-    <div className={`bg-slate-900/40 backdrop-blur-lg border border-cyan-400/10 rounded-xl p-4 sm:p-6 shadow-2xl shadow-black/20 ${className}`}>
-        {children}
-    </div>
-  );
-  
   const KpiCard = ({ title, value, icon }) => (
-    <GlassCard>
+    <Card className="shadow-lg">
       <div className="flex items-center gap-4">
-        <div className="p-3 bg-slate-900/50 rounded-lg border border-slate-700">{icon}</div>
+        <div className={`p-3 bg-slate-100 rounded-lg`}>
+          {icon}
+        </div>
         <div>
-          <Text className="text-slate-400">{title}</Text>
-          <p className="text-2xl font-bold text-white truncate" title={value}>{value}</p>
+          <Text className="text-slate-500">{title}</Text>
+          <p className={`text-2xl font-bold text-slate-800 truncate`} title={value}>{value}</p>
         </div>
       </div>
-    </GlassCard>
+    </Card>
   );
 
   const filteredErrors = errorData?.detailedErrors.filter(error =>
@@ -57,15 +53,15 @@ const ErrorMonitorTab = () => {
   ) || [];
 
   return (
-    <div className="p-4 sm:p-6 bg-gradient-to-br from-slate-950 to-slate-900 min-h-full text-slate-300">
+    <div className="p-4 sm:p-6 bg-slate-900 min-h-full">
       <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
         <h1 className="text-3xl font-bold text-white tracking-tight">Analýza Chyb Skenování</h1>
         <Button
           onClick={() => fileInputRef.current?.click()}
           loading={isLoading}
           icon={UploadCloud}
-          color="cyan"
           size="lg"
+          color="blue"
         >
           Nahrát Report (.xlsx)
         </Button>
@@ -81,68 +77,68 @@ const ErrorMonitorTab = () => {
       {errorData ? (
         <div className="space-y-6">
           <Grid numItemsLg={3} className="gap-6">
-            <KpiCard title="Celkem chyb" value={errorData.summaryMetrics.totalErrors} icon={<BarChart3 className="w-6 h-6 text-cyan-400"/>} />
-            <KpiCard title="Nejčastější chyba" value={errorData.summaryMetrics.mostCommonError} icon={<AlertTriangle className="w-6 h-6 text-amber-400"/>} />
-            <KpiCard title="Uživatel s nejvíce chybami" value={errorData.summaryMetrics.userWithMostErrors} icon={<Users className="w-6 h-6 text-fuchsia-400"/>} />
+            <KpiCard title="Celkem chyb" value={errorData.summaryMetrics.totalErrors} icon={<BarChart3 className="w-6 h-6 text-blue-500"/>} />
+            <KpiCard title="Nejčastější chyba" value={errorData.summaryMetrics.mostCommonError} icon={<AlertTriangle className="w-6 h-6 text-amber-500"/>} />
+            <KpiCard title="Nejaktivnější uživatel" value={errorData.summaryMetrics.userWithMostErrors} icon={<Users className="w-6 h-6 text-fuchsia-500"/>} />
           </Grid>
           
           <Grid numItemsLg={5} className="gap-6">
-            <GlassCard className="lg:col-span-3">
-                <Title className="text-white">TOP 10 Typů Chyb</Title>
-                <BarChart className="mt-6 h-80" data={errorData.chartsData.errorsByType.slice(0, 10)} index="name" categories={['Počet chyb']} colors={['cyan']} yAxisWidth={130} layout="vertical" />
-            </GlassCard>
-            <GlassCard className="lg:col-span-2">
-                <Title className="text-white">Chyby podle uživatele</Title>
+            <Card className="lg:col-span-3 shadow-lg">
+                <Title className="text-slate-800">TOP 10 Typů Chyb</Title>
+                <BarChart className="mt-6 h-80" data={errorData.chartsData.errorsByType.slice(0, 10)} index="name" categories={['Počet chyb']} colors={['blue']} yAxisWidth={130} layout="vertical" />
+            </Card>
+            <Card className="lg:col-span-2 shadow-lg">
+                <Title className="text-slate-800">Chyby podle uživatele</Title>
                 <BarChart className="mt-6 h-80" data={errorData.chartsData.errorsByUser} index="name" categories={['Počet chyb']} colors={['fuchsia']} />
-            </GlassCard>
+            </Card>
           </Grid>
 
-          <GlassCard>
-            <Title className="text-white">Materiály s největším rozdílem v množství</Title>
+          <Card className="shadow-lg">
+            <Title className="text-slate-800">Materiály s největším rozdílem v množství</Title>
             <BarChart className="mt-6 h-80" data={errorData.chartsData.topMaterialDiscrepancy} index="name" categories={['Absolutní rozdíl']} colors={['amber']} />
-          </GlassCard>
+          </Card>
 
-          <GlassCard>
+          <Card className="shadow-lg">
             <div className='flex justify-between items-center mb-4'>
-                <Title className="text-white">Detailní záznamy chyb</Title>
+                <Title className="text-slate-800">Detailní záznamy chyb</Title>
                 <TextInput icon={SearchIcon} placeholder="Hledat v záznamech..." value={searchQuery} onValueChange={setSearchQuery} className="max-w-xs" />
             </div>
-            <div className="overflow-y-auto h-[500px] border-t border-slate-800">
+            <div className="overflow-y-auto h-[500px] border-t">
               <table className="min-w-full">
-                <thead className="sticky top-0 bg-slate-900/50 backdrop-blur-md z-10">
+                <thead className="sticky top-0 bg-white border-b z-10">
                   <tr>
-                    <th className="p-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Čas</th>
-                    <th className="p-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Typ Chyby</th>
-                    <th className="p-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Uživatel</th>
-                    <th className="p-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Materiál</th>
-                    <th className="p-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Pozice</th>
-                    <th className="p-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Číslo zakázky</th>
-                    <th className="p-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Rozdíl</th>
+                    <th className="p-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Čas</th>
+                    <th className="p-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Typ Chyby</th>
+                    <th className="p-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Uživatel</th>
+                    <th className="p-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Materiál</th>
+                    <th className="p-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Pozice</th>
+                    <th className="p-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Číslo zakázky</th>
+                    <th className="p-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Rozdíl</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800">
+                <tbody className="divide-y">
                   {filteredErrors.map((error, idx) => (
-                    <tr key={idx} className="hover:bg-slate-800/50 transition-colors duration-150">
-                      <td className="p-4 whitespace-nowrap text-sm text-slate-400">{new Date(error.timestamp).toLocaleString('cs-CZ')}</td>
-                      <td className="p-4 whitespace-nowrap text-sm text-cyan-400 font-medium">{error.errorType}</td>
-                      <td className="p-4 whitespace-nowrap text-sm text-white">{error.user}</td>
-                      <td className="p-4 whitespace-nowrap text-sm text-slate-400">{error.material}</td>
-                      <td className="p-4 whitespace-nowrap text-sm text-slate-400">{error.position}</td>
-                      <td className="p-4 whitespace-nowrap text-sm text-slate-400">{error.orderNumber}</td>
-                      <td className={`p-4 whitespace-nowrap text-sm font-bold ${error.qtyDifference !== 0 ? 'text-amber-400' : 'text-slate-500'}`}>{error.qtyDifference}</td>
+                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors duration-150">
+                      <td className="p-4 whitespace-nowrap text-sm text-slate-500">{new Date(error.timestamp).toLocaleString('cs-CZ')}</td>
+                      <td className="p-4 whitespace-nowrap text-sm text-blue-600 font-medium">{error.errorType}</td>
+                      <td className="p-4 whitespace-nowrap text-sm text-slate-800">{error.user}</td>
+                      <td className="p-4 whitespace-nowrap text-sm text-slate-500">{error.material}</td>
+                      <td className="p-4 whitespace-nowrap text-sm text-slate-500">{error.position}</td>
+                      <td className="p-4 whitespace-nowrap text-sm text-slate-500">{error.orderNumber}</td>
+                      <td className={`p-4 whitespace-nowrap text-sm font-bold ${error.qtyDifference !== 0 ? 'text-amber-600' : 'text-slate-400'}`}>{error.qtyDifference}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </GlassCard>
+          </Card>
         </div>
       ) : (
-        <div className="flex items-center justify-center h-[60vh] border-2 border-dashed border-slate-700/50 rounded-xl bg-slate-900/20">
+        <div className="flex items-center justify-center h-[60vh] border-2 border-dashed border-slate-800 rounded-xl bg-slate-900/50">
              <div className='text-center'>
-                <AlertCircle className="h-16 w-16 text-slate-600 mb-4 mx-auto" />
-                <h2 className="text-xl font-medium text-slate-400">Žádná data k zobrazení</h2>
-                <p className="text-slate-500 mt-1">Nahrajte prosím report chyb pro zobrazení analýzy.</p>
+                <AlertCircle className="h-16 w-16 text-slate-700 mb-4 mx-auto" />
+                <h2 className="text-xl font-medium text-slate-500">Žádná data k zobrazení</h2>
+                <p className="text-slate-600 mt-1">Nahrajte prosím report chyb pro zobrazení analýzy.</p>
              </div>
         </div>
       )}
