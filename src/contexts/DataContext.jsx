@@ -35,6 +35,8 @@ export const DataProvider = ({ children }) => {
             setSummary(processed);
         } catch (error) {
             toast.error("Chyba při načítání dat zakázek.");
+            setAllOrdersData([]);
+            setSummary(null);
         } finally {
             setIsLoadingData(false);
         }
@@ -50,6 +52,7 @@ export const DataProvider = ({ children }) => {
             setErrorData(processedErrors);
         } catch (error) {
             toast.error("Chyba při načítání logu chyb.");
+            setErrorData(null);
         } finally {
             setIsLoadingErrorData(false);
         }

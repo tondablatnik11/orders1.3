@@ -31,26 +31,26 @@ const ErrorMonitorTab = () => {
     </Card>
   );
 
-  const filteredErrors = errorData?.detailedErrors.filter(error =>
+  const filteredErrors = errorData?.detailedErrors?.filter(error =>
     Object.values(error).some(value =>
       String(value).toLowerCase().includes(searchQuery.toLowerCase())
     )
   ) || [];
 
   return (
-    <div className="p-4 sm:p-6 bg-slate-900 min-h-full">
+    <div className="p-4 sm:p-6 bg-slate-100 min-h-full">
       <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
-        <h1 className="text-3xl font-bold text-white tracking-tight">Analýza Chyb Skenování</h1>
-        <div className="flex items-center gap-2">
+        <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Analýza Chyb Skenování</h1>
+        <div className='flex items-center gap-2'>
             <Button onClick={() => fileInputRef.current?.click()} icon={UploadCloud} size="lg">Nahrát Report</Button>
             <Button onClick={refetchErrorData} loading={isLoadingErrorData} icon={RefreshCw} size="lg" variant="secondary">Aktualizovat</Button>
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".xlsx" />
         </div>
-        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".xlsx" />
       </div>
 
       {isLoadingErrorData ? (
           <div className="flex justify-center items-center h-96">
-            <RefreshCw className="w-10 h-10 text-slate-500 animate-spin" />
+            <RefreshCw className="w-10 h-10 text-slate-400 animate-spin" />
           </div>
       ) : errorData && errorData.detailedErrors.length > 0 ? (
         <div className="space-y-6">

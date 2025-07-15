@@ -1,6 +1,9 @@
 import * as XLSX from 'xlsx';
 
-// Funkce 1: Zpracuje XLSX soubor a vrátí data připravená pro vložení do Supabase
+/**
+ * Funkce 1: Zpracuje nahraný XLSX soubor a vrátí data připravená pro vložení do Supabase.
+ * Převádí názvy sloupců na snake_case pro databázi.
+ */
 export const processErrorDataForSupabase = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -43,7 +46,8 @@ export const processErrorDataForSupabase = (file) => {
         resolve(dataForSupabase);
 
       } catch (error) {
-        reject(new Error('Nepodařilo se zpracovat XLSX soubor.'));
+        console.error("Chyba při parsování XLSX:", error);
+        reject(new Error('Nepodařilo se zpracovat XLSX soubor. Zkontrolujte formát.'));
       }
     };
     reader.onerror = () => reject(new Error('Chyba při čtení souboru.'));
@@ -51,7 +55,10 @@ export const processErrorDataForSupabase = (file) => {
   });
 };
 
-// Funkce 2: Zpracuje pole dat (ze Supabase) pro zobrazení v grafech
+/**
+ * Funkce 2: Zpracuje pole dat (načtené ze Supabase) pro zobrazení v grafech a tabulkách.
+ * Očekává data s názvy sloupců v snake_case.
+ */
 export const processArrayForDisplay = (data) => {
   const errors = data.map(row => ({
     position: row.position,
@@ -101,6 +108,7 @@ export const processArrayForDisplay = (data) => {
   };
 };
 
+// Pomocná funkce pro seskupování dat pro grafy
 const aggregate = (data, key) => {
     const aggregation = data.reduce((acc, item) => {
         const value = item[key] || 'Nezadáno';
