@@ -11,11 +11,10 @@ export const processErrorDataForSupabase = (file) => {
     reader.onload = (event) => {
       try {
         const bstr = event.target.result;
-        // Zde je klíčová změna: vracíme zpět parametr cellDates: true pro spolehlivé parsování datumu
         const workbook = XLSX.read(bstr, { type: 'binary', cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null, raw: false });
         
         const dataForSupabase = jsonData.map(row => {
           try {
@@ -23,47 +22,38 @@ export const processErrorDataForSupabase = (file) => {
             const timeValue = row['Time'] || row['time'];
 
             if (!dateValue) return null;
+            
+            let datePart = new Date(dateValue);
 
-            // Nová, univerzální logika pro zpracování data
-            let datePart;
-            if (dateValue instanceof Date) {
-              datePart = dateValue;
-            } else if (typeof dateValue === 'number') {
-              datePart = new Date(Date.UTC(1899, 11, 30 + dateValue));
-            } else if (typeof dateValue === 'string' && dateValue.includes('/')) {
-              const parts = dateValue.split('/');
-              if (parts.length === 3) {
-                const month = parseInt(parts[0], 10);
-                const day = parseInt(parts[1], 10);
-                const year = parseInt(parts[2], 10);
-                datePart = new Date(year, month - 1, day);
-              } else {
-                return null;
-              }
-            } else {
-              return null;
+            if (isNaN(datePart.getTime())) {
+                // Fallback pro případy, kdy je datum ve špatném formátu
+                if (typeof dateValue === 'string' && dateValue.includes('/')) {
+                    const parts = dateValue.split('/');
+                    datePart = new Date(`${parts[2]}-${parts[0]}-${parts[1]}`);
+                } else {
+                    return null;
+                }
             }
+             if (isNaN(datePart.getTime())) return null;
 
-            if (!datePart || isNaN(datePart.getTime())) return null;
-
-            // Bezpečné zpracování času
             if (timeValue) {
-              if (timeValue instanceof Date) {
-                datePart.setHours(timeValue.getHours());
-                datePart.setMinutes(timeValue.getMinutes());
-                datePart.setSeconds(timeValue.getSeconds());
-              } else if (typeof timeValue === 'number') {
-                const totalSeconds = Math.round(timeValue * 86400);
-                datePart.setHours(Math.floor(totalSeconds / 3600));
-                datePart.setMinutes(Math.floor((totalSeconds % 3600) / 60));
-                datePart.setSeconds(totalSeconds % 60);
-              }
+                const timeStr = String(timeValue);
+                const timeParts = timeStr.match(/(\d+):(\d+):(\d+)/);
+                if(timeParts) {
+                    datePart.setHours(parseInt(timeParts[1],10));
+                    datePart.setMinutes(parseInt(timeParts[2],10));
+                    datePart.setSeconds(parseInt(timeParts[3],10));
+                }
             }
 
             const errorType = [row['Text'], row['Text.1']].filter(v => v != null).join(' - ').trim() || 'Neznámá chyba';
             const sourceDiff = Number(row['Source bin differ.'] || 0);
             
+            // Unikátní klíč pro každý záznam, aby se předešlo duplicitám
+            const unique_key = `${datePart.toISOString()}_${String(row['Material'] || '').trim()}_${String(row['Created By'] || '').trim()}`;
+
             return {
+              unique_key,
               position: String(row['Storage Bin'] || 'N/A').trim(),
               error_type: errorType,
               material: String(row['Material'] || 'N/A').trim(),
