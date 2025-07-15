@@ -92,11 +92,18 @@ const ErrorMonitorTab = () => {
                 <BarChart className="mt-6 h-80" data={errorData.chartsData.errorsByUser} index="name" categories={['Počet chyb']} colors={['fuchsia']} />
             </Card>
           </Grid>
-
-          <Card className="shadow-lg">
-            <Title className="text-slate-800">Materiály s největším rozdílem v množství</Title>
-            <BarChart className="mt-6 h-80" data={errorData.chartsData.topMaterialDiscrepancy} index="name" categories={['Absolutní rozdíl']} colors={['amber']} />
-          </Card>
+          
+          {/* Přidán nový graf */}
+          <Grid numItemsLg={2} className="gap-6">
+             <Card className="shadow-lg">
+                <Title className="text-slate-800">TOP 10 Chybových Pozic</Title>
+                <BarChart className="mt-6 h-80" data={errorData.chartsData.errorsByPosition.slice(0, 10)} index="name" categories={['Počet chyb']} colors={['violet']} />
+             </Card>
+             <Card className="shadow-lg">
+                <Title className="text-slate-800">Materiály s největším rozdílem v množství</Title>
+                <BarChart className="mt-6 h-80" data={errorData.chartsData.topMaterialDiscrepancy} index="name" categories={['Absolutní rozdíl']} colors={['amber']} />
+             </Card>
+          </Grid>
 
           <Card className="shadow-lg">
             <div className='flex justify-between items-center mb-4'>
@@ -117,14 +124,15 @@ const ErrorMonitorTab = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
+                  {/* Změna zde: Opraveny barvy textu pro lepší čitelnost */}
                   {filteredErrors.map((error, idx) => (
                     <tr key={idx} className="hover:bg-slate-50/50 transition-colors duration-150">
                       <td className="p-4 whitespace-nowrap text-sm text-slate-500">{new Date(error.timestamp).toLocaleString('cs-CZ')}</td>
                       <td className="p-4 whitespace-nowrap text-sm text-blue-600 font-medium">{error.errorType}</td>
-                      <td className="p-4 whitespace-nowrap text-sm text-slate-800">{error.user}</td>
-                      <td className="p-4 whitespace-nowrap text-sm text-slate-500">{error.material}</td>
-                      <td className="p-4 whitespace-nowrap text-sm text-slate-500">{error.position}</td>
-                      <td className="p-4 whitespace-nowrap text-sm text-slate-500">{error.orderNumber}</td>
+                      <td className="p-4 whitespace-nowrap text-sm text-slate-800 font-medium">{error.user}</td>
+                      <td className="p-4 whitespace-nowrap text-sm text-slate-600">{error.material}</td>
+                      <td className="p-4 whitespace-nowrap text-sm text-slate-600">{error.position}</td>
+                      <td className="p-4 whitespace-nowrap text-sm text-slate-600">{error.orderNumber}</td>
                       <td className={`p-4 whitespace-nowrap text-sm font-bold ${error.qtyDifference !== 0 ? 'text-amber-600' : 'text-slate-400'}`}>{error.qtyDifference}</td>
                     </tr>
                   ))}
