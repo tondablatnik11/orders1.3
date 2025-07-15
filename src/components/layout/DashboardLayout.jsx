@@ -1,90 +1,59 @@
 'use client';
-import React, { useState, useEffect } from 'react';
-import { useUI } from '@/hooks/useUI';
-import { useData } from '@/hooks/useData';
-import { useAuth } from '@/hooks/useAuth';
+import React, { useState } from 'react';
 import Sidebar from './Sidebar';
-import AppHeader from './AppHeader';
 
-// Importy všech záložek
-import DashboardTab from '@/components/tabs/DashboardTab';
-import DelayedOrdersTab from '@/components/tabs/DelayedOrdersTab';
-import OrderSearchTab from '@/components/tabs/OrderSearchTab';
-import AnnouncedLoadingsTab from '@/components/tabs/AnnouncedLoadingsTab';
-import TicketsTab from '@/components/tabs/TicketsTab';
-import SettingsTab from '@/components/tabs/SettingsTab';
-import ChatTab from '@/components/tabs/ChatTab';
-import WarehouseActivitiesTab from '@/components/tabs/WarehouseActivitiesTab';
-import ErrorMonitorTab from '@/components/tabs/ErrorMonitorTab';
+// Importujte VŠECHNY vaše komponenty pro záložky
+import DashboardTab from '../tabs/DashboardTab';
+import ErrorMonitorTab from '../tabs/ErrorMonitorTab';
+import OrderSearchTab from '../tabs/OrderSearchTab';
+import AnnouncedLoadingsTab from '../tabs/AnnouncedLoadingsTab';
+import DelayedOrdersTab from '../tabs/DelayedOrdersTab';
+import DailySummaryTab from '../tabs/DailySummaryTab';
+import WarehouseActivitiesTab from '../tabs/WarehouseActivitiesTab';
 
-export default function DashboardLayout() {
-    const { t } = useUI();
-    const { summary, isLoadingData } = useData();
-    const { userProfile, loading: authLoading } = useAuth();
-    const [activeTab, setActiveTab] = useState(0); 
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+const DashboardLayout = () => {
+    // Tento stav (`useState`) řídí, která záložka je právě aktivní.
+    // Výchozí hodnota je 'dashboard'.
+    const [activeTab, setActiveTab] = useState('dashboard'); 
 
-    // Načtení XLSX skriptu pro práci se soubory
-    useEffect(() => {
-        const loadXLSXScript = () => {
-            if (typeof window.XLSX === 'undefined') {
-                const script = document.createElement('script');
-                script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
-                script.async = true;
-                document.body.appendChild(script);
-            }
-        };
-        loadXLSXScript();
-    }, []);
-
-    // Zobrazení načítací obrazovky, dokud není ověřen uživatel
-    if (authLoading || !userProfile) {
-        return <div className="flex items-center justify-center min-h-screen bg-gray-950 text-white">Načítání profilu...</div>;
-    }
-
-    // Funkce pro zobrazení správného obsahu záložky
+    // Tato funkce rozhoduje, která komponenta se má zobrazit na základě
+    // hodnoty ve stavu `activeTab`.
     const renderActiveTab = () => {
-        // Tyto záložky nezávisí na načtení dat objednávek
-        if (activeTab === 5) return <SettingsTab initialProfile={userProfile} />;
-        if (activeTab === 6) return <ChatTab />;
-        if (activeTab === 7) return <WarehouseActivitiesTab />;
-        if (activeTab === 8) return <ErrorMonitorTab />; // <-- Vaše nová záložka
-
-        // Zobrazit načítání, pokud se stahují data pro ostatní záložky
-        if (isLoadingData) {
-            return <div className="text-center p-8 text-lg">Načítám data objednávek...</div>;
-        }
-        
-        // Zobrazit výzvu k nahrání souboru, pokud nejsou žádná data
-        if (!summary) {
-            return (
-                <div className="text-center mt-12">
-                    <h2 className="text-2xl font-semibold mb-4">Vítejte v Hellmann-Connect!</h2>
-                    <p className="mb-6 text-xl text-gray-400">{t.uploadFilePrompt}</p>
-                </div>
-            );
-        }
-        
-        // Zobrazení záložek, které potřebují data
         switch (activeTab) {
-            case 0: return <DashboardTab />;
-            case 1: return <DelayedOrdersTab />;
-            case 2: return <OrderSearchTab />;
-            case 3: return <AnnouncedLoadingsTab />;
-            case 4: return <TicketsTab />;
-            default: return <DashboardTab />;
+            case 'dashboard':
+                return <DashboardTab />;
+            case 'errorMonitor':
+                return <ErrorMonitorTab />;
+            case 'orderSearch':
+                return <OrderSearchTab />;
+            case 'announcedLoadings':
+                return <AnnouncedLoadingsTab />;
+            case 'delayedOrders':
+                return <DelayedOrdersTab />;
+            case 'dailySummary':
+                return <DailySummaryTab />;
+            case 'warehouseActivities':
+                return <WarehouseActivitiesTab />;
+            // Pokud byste přidal další záložky, přidejte je i sem.
+            default:
+                return <DashboardTab />;
         }
     };
 
     return (
-        <div className="flex h-screen bg-gray-800">
-            <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-            <div className="flex flex-col flex-1 overflow-hidden">
-                <AppHeader activeTab={activeTab} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
-                <main className="flex-1 p-6 lg:p-10 overflow-y-auto bg-gray-800">
-                    {renderActiveTab()}
-                </main>
-            </div>
+        <div className="flex h-screen bg-white dark:bg-slate-900">
+            {/* Sidebar nyní dostává dvě klíčové informace:
+              1. activeTab: Aby věděl, kterou položku zvýraznit.
+              2. onTabChange: Funkci, kterou má zavolat, když uživatel klikne na jinou položku.
+                 V tomto případě je to `setActiveTab`, která změní stav v tomto souboru.
+            */}
+            <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+            
+            <main className="flex-1 overflow-y-auto">
+                {renderActiveTab()}
+            </main>
         </div>
     );
-}
+};
+
+export default DashboardLayout;
