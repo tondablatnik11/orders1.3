@@ -5,8 +5,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUI } from '@/hooks/useUI';
 import { FiGrid, FiBarChart2, FiSearch, FiTruck, FiMessageSquare, FiLifeBuoy, FiSettings, FiLogOut, FiArchive, FiAlertCircle } from 'react-icons/fi';
 
-const Sidebar = () => { // <-- ODSTRANĚNY PROPS
-    const { t, activeTab, setActiveTab } = useUI(); // <-- POUŽITÍ KONTEXTU
+// Komponenta opět přijímá props
+const Sidebar = ({ activeTab, setActiveTab }) => {
+    const { t } = useUI();
     const { userProfile, logout } = useAuth();
 
     const menuItems = [
@@ -21,7 +22,8 @@ const Sidebar = () => { // <-- ODSTRANĚNY PROPS
     ];
 
     return (
-        <div className="flex flex-col h-full w-64 bg-gray-900 text-gray-300 border-r border-gray-700">
+        // PŘIDÁN ČERVENÝ OKRAJ PRO DEBUGGING
+        <div className="flex flex-col h-full w-64 bg-gray-900 text-gray-300 border-r-4 border-red-500">
             <div className="flex items-center justify-center h-20 px-6 border-b border-gray-800">
                 <Image src="/logo.jpg" alt="Hellmann Logo" width={150} height={40} priority style={{ width: 'auto', height: 'auto' }} />
             </div>

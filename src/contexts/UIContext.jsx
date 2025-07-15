@@ -8,7 +8,6 @@ export const useUI = () => useContext(UIContext);
 export const UIProvider = ({ children }) => {
   const [lang, setLang] = useState('cz');
   const [darkMode, setDarkMode] = useState(true);
-  const [activeTab, setActiveTab] = useState(0); // <-- PŘIDÁNO
 
   const toggleLang = () => {
     setLang(prev => {
@@ -23,8 +22,6 @@ export const UIProvider = ({ children }) => {
     darkMode,
     toggleLang,
     lang,
-    activeTab,      // <-- PŘIDÁNO
-    setActiveTab,   // <-- PŘIDÁNO
   };
 
   return (

@@ -5,9 +5,10 @@ import { useUI } from '@/hooks/useUI';
 import Notifications from './Notifications';
 import { FiSearch, FiUploadCloud, FiGlobe, FiAlertCircle } from 'react-icons/fi';
 
-export default function AppHeader() { // <-- ODSTRANĚN PROP
+// Komponenta opět přijímá prop 'activeTab'
+export default function AppHeader({ activeTab }) {
     const { handleFileUpload, handleErrorLogUpload } = useData();
-    const { t, toggleLang, activeTab } = useUI(); // <-- POUŽITÍ KONTEXTU
+    const { t, toggleLang } = useUI();
 
     const isErrorMonitorTab = activeTab === 8;
 
