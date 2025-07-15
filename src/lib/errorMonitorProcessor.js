@@ -78,7 +78,8 @@ export const processArrayForDisplay = (data) => {
   const materialDiscrepancy = errors
     .filter(e => e.qtyDifference !== 0)
     .reduce((acc, e) => {
-        acc[e.material] = (acc[e.material] || 0) + Math.abs(e.qtyDifference);
+        const material = String(e.material).trim() || 'Nezadáno';
+        acc[material] = (acc[material] || 0) + Math.abs(e.qtyDifference);
         return acc;
     }, {});
   
@@ -111,7 +112,16 @@ export const processArrayForDisplay = (data) => {
 // Pomocná funkce pro seskupování dat pro grafy
 const aggregate = (data, key) => {
     const aggregation = data.reduce((acc, item) => {
-        const value = item[key] || 'Nezadáno';
+        let value = item[key];
+
+        // Zajištění, že hodnota je string a oříznutí mezer.
+        // Pokud je výsledek prázdný, použije se "Nezadáno".
+        if (typeof value !== 'string' || value.trim() === '') {
+            value = 'Nezadáno';
+        } else {
+            value = value.trim();
+        }
+        
         acc[value] = (acc[value] || 0) + 1;
         return acc;
     }, {});
