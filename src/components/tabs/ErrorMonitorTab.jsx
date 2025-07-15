@@ -66,12 +66,41 @@ const ErrorMonitorTab = () => {
             await sleep(500);
             let invalidRows = 0;
             const processedData = jsonData.map((row, index) => {
-                const date = new Date(`${row['Created On']} ${row['Time']}`);
-                if (isNaN(date.getTime())) {
-                    console.warn(`Přeskakuji řádek ${index + 2} kvůli neplatnému datu.`);
+                //  ⬇️⬇️⬇️ NOVÁ, ODOLNÁ LOGIKA PRO ZPRACOVÁNÍ DATA ⬇️⬇️⬇️
+                const dateStr = row['Created On'];
+                const timeStr = row['Time'];
+                if (!dateStr || !timeStr) {
+                    console.warn(`Přeskakuji řádek ${index + 2}: Chybí datum nebo čas.`);
                     invalidRows++;
                     return null;
                 }
+                
+                const dateParts = dateStr.split('/');
+                if (dateParts.length !== 3) {
+                    console.warn(`Přeskakuji řádek ${index + 2}: Neočekávaný formát data: ${dateStr}`);
+                    invalidRows++;
+                    return null;
+                }
+                
+                // Formát mm/dd/yyyy
+                const month = parseInt(dateParts[0], 10) - 1; // Měsíce jsou v JS od 0
+                const day = parseInt(dateParts[1], 10);
+                const year = parseInt(dateParts[2], 10);
+                
+                const timeParts = timeStr.split(':');
+                const hours = parseInt(timeParts[0], 10);
+                const minutes = parseInt(timeParts[1], 10);
+                const seconds = parseInt(timeParts[2], 10);
+
+                const date = new Date(year, month, day, hours, minutes, seconds);
+
+                if (isNaN(date.getTime())) {
+                    console.warn(`Přeskakuji řádek ${index + 2} kvůli neplatnému datu po sestavení.`);
+                    invalidRows++;
+                    return null;
+                }
+                // ⬆️⬆️⬆️ KONEC NOVÉ LOGIKY PRO DATUM ⬆️⬆️⬆️
+
                 const text1 = row['Text']?.trim() || '';
                 const text2 = row['Text.1']?.trim() || '';
                 return {
@@ -88,7 +117,7 @@ const ErrorMonitorTab = () => {
             }).filter(Boolean);
 
             if (processedData.length === 0) {
-                throw new Error("V souboru nebyla nalezena žádná platná data k importu.");
+                throw new Error("V souboru nebyla nalezena žádná platná data k importu. Zkontrolujte formát data.");
             }
 
             setUploadMessage(`Krok 4/5: Nahrávám ${processedData.length} platných záznamů do databáze...`);
@@ -108,15 +137,14 @@ const ErrorMonitorTab = () => {
 
         } catch (error) {
             console.error('Import selhal:', error);
-            // Zobrazíme finální chybu velkým písmem a červeně
             setUploadMessage(`CHYBA: ${error.message}`);
         } finally {
             setUploading(false);
-            setTimeout(() => setUploadMessage(''), 10000); // Necháme zprávu viditelnou déle
+            setTimeout(() => setUploadMessage(''), 10000);
         }
     };
     
-    // Zbytek kódu (KPIs, Charts, JSX) zůstává stejný...
+    // Zbytek kódu je beze změny
     const kpis = useMemo(() => {
         if (!errorData || errorData.length === 0) return { total: 0, mostCommon: 'N/A' };
         const descriptions = getTopN(errorData, 'description', 1);
@@ -139,7 +167,6 @@ const ErrorMonitorTab = () => {
                                 {uploading ? 'Pracuji...' : 'Vybrat soubor'}
                             </label>
                             <input id="file-upload" type="file" accept=".xlsx, .xls" className="hidden" onChange={handleFileImport} disabled={uploading} />
-                            {/* Zvětšíme a zvýrazníme stavovou zprávu */}
                             {uploadMessage && <p className={`text-md font-semibold ${uploadMessage.startsWith('CHYBA') ? 'text-red-500' : 'text-gray-300'}`}>{uploadMessage}</p>}
                         </div>
                     </div>
