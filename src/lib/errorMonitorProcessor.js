@@ -11,57 +11,52 @@ export const processErrorDataForSupabase = (file) => {
     reader.onload = (event) => {
       try {
         const bstr = event.target.result;
-        const workbook = XLSX.read(bstr, { type: 'binary' });
+        // Zde je klíčová změna: vracíme zpět parametr cellDates: true pro spolehlivé parsování datumu
+        const workbook = XLSX.read(bstr, { type: 'binary', cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
         
         const dataForSupabase = jsonData.map(row => {
           try {
-            // --- ZDE JE FINÁLNÍ OPRAVA ---
             const dateValue = row['Created On'] || row['created on'];
             const timeValue = row['Time'] || row['time'];
 
             if (!dateValue) return null;
 
+            // Nová, univerzální logika pro zpracování data
             let datePart;
-            // Zpracování data (zvládne text i číslo z Excelu)
-            if (typeof dateValue === 'number') {
-              // Zpracování data jako čísla z Excelu
+            if (dateValue instanceof Date) {
+              datePart = dateValue;
+            } else if (typeof dateValue === 'number') {
               datePart = new Date(Date.UTC(1899, 11, 30 + dateValue));
-            } else if (typeof dateValue === 'string') {
-              // Robustní parsování pro formát MM/DD/YYYY
+            } else if (typeof dateValue === 'string' && dateValue.includes('/')) {
               const parts = dateValue.split('/');
               if (parts.length === 3) {
                 const month = parseInt(parts[0], 10);
                 const day = parseInt(parts[1], 10);
                 const year = parseInt(parts[2], 10);
-                // JS měsíce jsou 0-indexované, proto month - 1
                 datePart = new Date(year, month - 1, day);
               } else {
-                // Fallback pro jiné textové formáty
-                datePart = new Date(dateValue);
+                return null;
               }
             } else {
-              // Pokud je formát neznámý, řádek přeskočíme
               return null;
             }
 
-            // Pokud je datum stále neplatné, řádek přeskočíme
             if (!datePart || isNaN(datePart.getTime())) return null;
 
             // Bezpečné zpracování času
             if (timeValue) {
-              if (typeof timeValue === 'string' && timeValue.includes(':')) {
-                  const timeParts = timeValue.split(':');
-                  datePart.setHours(parseInt(timeParts[0] || 0, 10));
-                  datePart.setMinutes(parseInt(timeParts[1] || 0, 10));
-                  datePart.setSeconds(parseInt(timeParts[2] || 0, 10));
+              if (timeValue instanceof Date) {
+                datePart.setHours(timeValue.getHours());
+                datePart.setMinutes(timeValue.getMinutes());
+                datePart.setSeconds(timeValue.getSeconds());
               } else if (typeof timeValue === 'number') {
-                  const totalSeconds = Math.round(timeValue * 86400);
-                  datePart.setHours(Math.floor(totalSeconds / 3600));
-                  datePart.setMinutes(Math.floor((totalSeconds % 3600) / 60));
-                  datePart.setSeconds(totalSeconds % 60);
+                const totalSeconds = Math.round(timeValue * 86400);
+                datePart.setHours(Math.floor(totalSeconds / 3600));
+                datePart.setMinutes(Math.floor((totalSeconds % 3600) / 60));
+                datePart.setSeconds(totalSeconds % 60);
               }
             }
 
@@ -77,21 +72,21 @@ export const processErrorDataForSupabase = (file) => {
               user: String(row['Created By'] || 'N/A').trim(),
               timestamp: datePart.toISOString(),
             };
-          } catch(e) {
+          } catch (e) {
             console.error("Chyba při zpracování řádku:", row, e);
             return null;
           }
         }).filter(Boolean);
 
         if (dataForSupabase.length === 0) {
-          throw new Error("V souboru nebyla nalezena žádná platná data ke zpracování. Zkontrolujte formát data (očekáváno MM/DD/YYYY) a názvy sloupců.");
+          throw new Error("V souboru nebyla nalezena žádná platná data. Zkontrolujte názvy sloupců a formát data.");
         }
 
         resolve(dataForSupabase);
 
       } catch (error) {
         console.error("Chyba při parsování XLSX:", error);
-        reject(new Error(error.message || 'Nepodařilo se zpracovat XLSX soubor.'));
+        reject(new Error(error.message || 'Nepodařilo se zpracovat soubor.'));
       }
     };
     reader.onerror = () => reject(new Error('Chyba při čtení souboru.'));
@@ -99,14 +94,11 @@ export const processErrorDataForSupabase = (file) => {
   });
 };
 
+
 // --- ZBYTEK SOUBORU ZŮSTÁVÁ STEJNÝ ---
 
-/**
- * Zpracuje pole dat (načtené ze Supabase) pro zobrazení v grafech a tabulkách.
- */
 export const processArrayForDisplay = (data) => {
   if (!data || data.length === 0) return null;
-
   const errors = data.map(row => {
     const timestamp = new Date(row.timestamp);
     return {
@@ -118,22 +110,18 @@ export const processArrayForDisplay = (data) => {
       user: row.user,
       timestamp: row.timestamp,
       hour: format(timestamp, 'HH'),
-      dayOfWeek: getDay(timestamp), // 0=Ne, 1=Po...
+      dayOfWeek: getDay(timestamp),
     };
   });
-
   const totalErrors = errors.length;
   const errorsByType = aggregate(errors, 'errorType', 'Počet chyb');
   const errorsByUser = aggregate(errors, 'user', 'Počet chyb');
   const errorsByPosition = aggregate(errors, 'position', 'Počet chyb');
-  
   const errorsByHour = aggregateByTime(errors, 'hour', 24, (i) => `${String(i).padStart(2, '0')}:00`);
   const errorsByDay = aggregateByTime(errors, 'dayOfWeek', 7, (i) => {
-    // Upraveno pro správné řazení od pondělí
     const dayIndex = (i + 6) % 7;
     return format(new Date(2024, 0, dayIndex + 1), 'eeee', { locale: cs });
   });
-
   const materialDiscrepancy = errors
     .filter(e => e.qtyDifference !== 0)
     .reduce((acc, e) => {
@@ -141,19 +129,15 @@ export const processArrayForDisplay = (data) => {
         acc[material] = (acc[material] || 0) + Math.abs(e.qtyDifference);
         return acc;
     }, {});
-  
   const topMaterialDiscrepancy = Object.entries(materialDiscrepancy)
     .sort(([,a], [,b]) => b - a)
     .slice(0, 10)
     .map(([name, value]) => ({ name, 'Absolutní rozdíl': value }));
-
   const mostCommonError = errorsByType[0]?.name || 'N/A';
   const userWithMostErrors = errorsByUser[0]?.name || 'N/A';
   const materialWithMostErrors = aggregate(errors, 'material', 'Počet chyb')[0]?.name || 'N/A';
   const totalDifference = errors.reduce((sum, e) => sum + Math.abs(e.qtyDifference), 0);
-
   const sortedErrors = errors.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
   return {
     detailedErrors: sortedErrors,
     summaryMetrics: {
@@ -185,7 +169,6 @@ const aggregate = (data, key, metricName) => {
         acc[value] = (acc[value] || 0) + 1;
         return acc;
     }, {});
-
     return Object.entries(aggregation)
         .map(([name, value]) => ({ name, [metricName]: value }))
         .sort((a, b) => b[metricName] - a[metricName]);
@@ -197,7 +180,6 @@ const aggregateByTime = (data, key, range, formatter) => {
         acc[value] = (acc[value] || 0) + 1;
         return acc;
     }, {});
-
     return Array.from({ length: range }, (_, i) => ({
         key: formatter(i),
         'Počet chyb': aggregation[i] || 0,
