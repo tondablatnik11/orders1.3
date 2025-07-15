@@ -14,31 +14,45 @@ export const processErrorDataForSupabase = (file) => {
         const workbook = XLSX.read(bstr, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        // Přidán parametr pro zachování prázdných hodnot, aby nedocházelo k chybám
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
         
         const dataForSupabase = jsonData.map(row => {
           try {
-            // --- ZDE JE OPRAVA ---
-            // Flexibilnější hledání sloupců a bezpečnější zpracování
+            // --- ZDE JE FINÁLNÍ OPRAVA ---
             const dateValue = row['Created On'] || row['created on'];
             const timeValue = row['Time'] || row['time'];
 
-            // Pokud chybí datum, řádek přeskočíme
             if (!dateValue) return null;
 
-            // Zpracování data (zvládne text i číslo z Excelu)
             let datePart;
+            // Zpracování data (zvládne text i číslo z Excelu)
             if (typeof dateValue === 'number') {
-              datePart = new Date((dateValue - 25569) * 86400 * 1000);
+              // Zpracování data jako čísla z Excelu
+              datePart = new Date(Date.UTC(1899, 11, 30 + dateValue));
+            } else if (typeof dateValue === 'string') {
+              // Robustní parsování pro formát MM/DD/YYYY
+              const parts = dateValue.split('/');
+              if (parts.length === 3) {
+                const month = parseInt(parts[0], 10);
+                const day = parseInt(parts[1], 10);
+                const year = parseInt(parts[2], 10);
+                // JS měsíce jsou 0-indexované, proto month - 1
+                datePart = new Date(year, month - 1, day);
+              } else {
+                // Fallback pro jiné textové formáty
+                datePart = new Date(dateValue);
+              }
             } else {
-              datePart = new Date(dateValue);
+              // Pokud je formát neznámý, řádek přeskočíme
+              return null;
             }
-            if (isNaN(datePart.getTime())) return null; // Přeskočíme neplatná data
 
-            // Bezpečné zpracování času - pouze pokud hodnota existuje
+            // Pokud je datum stále neplatné, řádek přeskočíme
+            if (!datePart || isNaN(datePart.getTime())) return null;
+
+            // Bezpečné zpracování času
             if (timeValue) {
-              if (typeof timeValue === 'string') {
+              if (typeof timeValue === 'string' && timeValue.includes(':')) {
                   const timeParts = timeValue.split(':');
                   datePart.setHours(parseInt(timeParts[0] || 0, 10));
                   datePart.setMinutes(parseInt(timeParts[1] || 0, 10));
@@ -70,14 +84,14 @@ export const processErrorDataForSupabase = (file) => {
         }).filter(Boolean);
 
         if (dataForSupabase.length === 0) {
-          throw new Error("V souboru nebyla nalezena žádná platná data ke zpracování.");
+          throw new Error("V souboru nebyla nalezena žádná platná data ke zpracování. Zkontrolujte formát data (očekáváno MM/DD/YYYY) a názvy sloupců.");
         }
 
         resolve(dataForSupabase);
 
       } catch (error) {
         console.error("Chyba při parsování XLSX:", error);
-        reject(new Error(error.message || 'Nepodařilo se zpracovat XLSX soubor. Zkontrolujte formát.'));
+        reject(new Error(error.message || 'Nepodařilo se zpracovat XLSX soubor.'));
       }
     };
     reader.onerror = () => reject(new Error('Chyba při čtení souboru.'));
@@ -85,6 +99,7 @@ export const processErrorDataForSupabase = (file) => {
   });
 };
 
+// --- ZBYTEK SOUBORU ZŮSTÁVÁ STEJNÝ ---
 
 /**
  * Zpracuje pole dat (načtené ze Supabase) pro zobrazení v grafech a tabulkách.
@@ -103,7 +118,7 @@ export const processArrayForDisplay = (data) => {
       user: row.user,
       timestamp: row.timestamp,
       hour: format(timestamp, 'HH'),
-      dayOfWeek: getDay(timestamp),
+      dayOfWeek: getDay(timestamp), // 0=Ne, 1=Po...
     };
   });
 
@@ -114,7 +129,8 @@ export const processArrayForDisplay = (data) => {
   
   const errorsByHour = aggregateByTime(errors, 'hour', 24, (i) => `${String(i).padStart(2, '0')}:00`);
   const errorsByDay = aggregateByTime(errors, 'dayOfWeek', 7, (i) => {
-    const dayIndex = (i + 1) % 7; // Posun, aby týden začínal pondělím
+    // Upraveno pro správné řazení od pondělí
+    const dayIndex = (i + 6) % 7;
     return format(new Date(2024, 0, dayIndex + 1), 'eeee', { locale: cs });
   });
 
