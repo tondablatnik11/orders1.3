@@ -17,7 +17,6 @@ const ErrorMonitorTab = () => {
     setIsLoading(true);
     setErrorMessage('');
     
-    // Zobrazíme notifikaci pouze při manuálním nahrávání
     if (source instanceof File) {
         toast.loading('Zpracovávám soubor...');
     }
@@ -85,18 +84,24 @@ const ErrorMonitorTab = () => {
       case 'High': return 'bg-red-500';
       case 'Medium': return 'bg-yellow-500';
       case 'Low': return 'bg-green-500';
-      default: return 'bg-gray-400';
+      default: return 'bg-slate-600';
     }
   };
 
+  const DarkCard = ({ children, className = '' }) => (
+    <div className={`bg-slate-900 border border-slate-800 rounded-lg p-4 sm:p-6 ${className}`}>
+        {children}
+    </div>
+  );
+
   return (
-    <div className="p-4 sm:p-6 bg-slate-100 min-h-full">
+    // Změna zde: Tmavé pozadí pro celou komponentu
+    <div className="p-4 sm:p-6 bg-slate-950 min-h-full text-slate-300">
       <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
-        <Title>Monitoring Chyb Aplikace</Title>
+        <h1 className="text-2xl font-semibold text-white">Monitoring Chyb Aplikace</h1>
         <div className="flex items-center gap-2">
             <input
               type="file"
-              // Změna zde: Přijímáme pouze .xlsx soubory
               accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               onChange={handleFileUpload}
               ref={fileInputRef}
@@ -121,63 +126,69 @@ const ErrorMonitorTab = () => {
       </div>
 
       {errorMessage && !isLoading && (
-        <Card className="mb-6 bg-red-100 border-red-500">
+        <DarkCard className="bg-red-900/20 border-red-500/30">
           <div className="flex items-center">
-            <AlertCircle className="h-5 w-5 text-red-700 mr-3 shrink-0" />
-            <Text className="text-red-800">{errorMessage}</Text>
+            <AlertCircle className="h-5 w-5 text-red-500 mr-3 shrink-0" />
+            <span className="text-red-400">{errorMessage}</span>
           </div>
-        </Card>
+        </DarkCard>
       )}
 
       {!isLoading && errorData && errorData.detailedErrors.length > 0 ? (
         <div className="space-y-6">
           <Grid numItemsLg={3} className="gap-6">
-            <Card><Text>Celkem chyb</Text><p className="text-2xl sm:text-3xl font-semibold">{errorData.summaryMetrics.totalErrors}</p></Card>
-            <Card><Text>Unikátní typy chyb</Text><p className="text-2xl sm:text-3xl font-semibold">{errorData.summaryMetrics.uniqueErrorTypes}</p></Card>
-            <Card><Text>Vysoká priorita</Text><p className="text-2xl sm:text-3xl font-semibold text-red-600">{errorData.summaryMetrics.totalHighPriority}</p></Card>
+            <DarkCard><Text className="text-slate-400">Celkem chyb</Text><p className="text-3xl font-semibold text-white">{errorData.summaryMetrics.totalErrors}</p></DarkCard>
+            <DarkCard><Text className="text-slate-400">Unikátní typy chyb</Text><p className="text-3xl font-semibold text-white">{errorData.summaryMetrics.uniqueErrorTypes}</p></DarkCard>
+            <DarkCard><Text className="text-slate-400">Vysoká priorita</Text><p className="text-3xl font-semibold text-red-500">{errorData.summaryMetrics.totalHighPriority}</p></DarkCard>
           </Grid>
           
           <Grid numItemsLg={5} className="gap-6">
-            <div className="lg:col-span-3"><Card><Title>Chyby podle Aplikační Oblasti</Title><BarChart className="mt-4 h-80" data={errorData.chartsData.errorsByArea} index="name" categories={['value']} colors={['orange']} yAxisWidth={100} layout="vertical" /></Card></div>
-            <div className="lg:col-span-2"><Card><Title>Chyby podle Priority</Title><DonutChart className="mt-10 h-64" data={errorData.chartsData.errorsByPriority} category="value" index="name" colors={['red', 'yellow', 'green']} /></Card></div>
+            <DarkCard className="lg:col-span-3">
+                <Title className="text-white">Chyby podle Aplikační Oblasti</Title>
+                <BarChart className="mt-4 h-80" data={errorData.chartsData.errorsByArea} index="name" categories={['value']} colors={['cyan']} yAxisWidth={100} layout="vertical" />
+            </DarkCard>
+            <DarkCard className="lg:col-span-2">
+                <Title className="text-white">Chyby podle Priority</Title>
+                <DonutChart className="mt-10 h-64" data={errorData.chartsData.errorsByPriority} category="value" index="name" colors={['red', 'yellow', 'green']} />
+            </DarkCard>
           </Grid>
 
-          <Card>
-            <Title>Detailní přehled chyb</Title>
+          <DarkCard>
+            <Title className="text-white">Detailní přehled chyb</Title>
             <div className="overflow-x-auto mt-4">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-slate-200">
+              <table className="min-w-full">
+                <thead className="border-b border-slate-700">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Priorita</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Čas</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Popis chyby</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Stav</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Uživatel</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Priorita</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Čas</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Popis chyby</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Stav</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Uživatel</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-slate-800">
                   {errorData.detailedErrors.map((error) => (
-                    <tr key={error.id}>
-                      <td className="px-4 py-4 whitespace-nowrap"><span className={`inline-block h-4 w-4 rounded-full ring-2 ring-white ${priorityColor(error.priority)}`} title={error.priority}></span></td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{new Date(error.timestamp).toLocaleString('cs-CZ')}</td>
-                      <td className="px-4 py-4 text-sm text-gray-900 max-w-sm truncate" title={error.description}>{error.description}</td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{error.status}</td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{error.user}</td>
+                    <tr key={error.id} className="hover:bg-slate-800/40">
+                      <td className="px-4 py-4 whitespace-nowrap"><span className={`inline-block h-4 w-4 rounded-full ring-2 ring-slate-900 ${priorityColor(error.priority)}`} title={error.priority}></span></td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{new Date(error.timestamp).toLocaleString('cs-CZ')}</td>
+                      <td className="px-4 py-4 text-sm text-white max-w-sm truncate" title={error.description}>{error.description}</td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{error.status}</td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{error.user}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </Card>
+          </DarkCard>
         </div>
       ) : (
-        <Card className="flex flex-col items-center justify-center h-96 border-dashed border-2">
+        <DarkCard className="flex flex-col items-center justify-center h-96 border-dashed border-slate-700">
             {isLoading ? (
-                <><RefreshCw className="h-16 w-16 text-gray-400 mb-4 animate-spin" /><Title className="text-gray-600">Načítám data...</Title></>
+                <><RefreshCw className="h-16 w-16 text-slate-500 mb-4 animate-spin" /><Title className="text-slate-400">Načítám data...</Title></>
             ) : (
-                <><AlertCircle className="h-16 w-16 text-gray-400 mb-4" /><Title className="text-gray-600">Žádná data k zobrazení</Title><Text className="text-gray-500">Nebyly nalezeny žádné záznamy o chybách.</Text></>
+                <><AlertCircle className="h-16 w-16 text-slate-500 mb-4" /><Title className="text-slate-400">Žádná data k zobrazení</Title><Text className="text-slate-500">Nebyly nalezeny žádné záznamy o chybách.</Text></>
             )}
-        </Card>
+        </DarkCard>
       )}
     </div>
   );
