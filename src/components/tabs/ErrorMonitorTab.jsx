@@ -1,261 +1,176 @@
-'use client';
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { getSupabase } from '@/lib/supabaseClient';
-import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
-
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-const getTopN = (data, key, n = 10) => {
-    if (!data) return [];
-    const counts = data.reduce((acc, item) => {
-        const value = item[key] || 'N/A';
-        acc[value] = (acc[value] || 0) + 1;
-        return acc;
-    }, {});
-    return Object.entries(counts).sort(([, a], [, b]) => b - a).slice(0, n).map(([name, value]) => ({ name, value }));
-};
+import React, { useState, useRef } from 'react';
+import { processErrorLog } from '@/lib/errorMonitorProcessor';
+import { Card, Title, Text, Button, DonutChart, BarChart, Grid, Col } from '@tremor/react';
+import { UploadCloud, AlertCircle } from 'lucide-react';
 
 const ErrorMonitorTab = () => {
-    const [errorData, setErrorData] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [uploading, setUploading] = useState(false);
-    const [uploadMessage, setUploadMessage] = useState('');
+  const [errorData, setErrorData] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const fileInputRef = useRef(null);
 
-    const fetchErrors = useCallback(async () => {
-        setLoading(true);
-        const supabase = getSupabase();
-        const { data, error } = await supabase.from('errors').select('*').order('timestamp', { ascending: false });
-        if (error) {
-            console.error('Chyba při načítání dat ze Supabase:', error);
-            setUploadMessage(`Chyba při načítání: ${error.message}`);
-        } else {
-            setErrorData(data || []);
-        }
-        setLoading(false);
-    }, []);
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
 
-    useEffect(() => {
-        fetchErrors();
-    }, [fetchErrors]);
+    setIsLoading(true);
+    setErrorMessage('');
+    setErrorData(null);
 
-    const parseDateTime = (dateInput, timeInput) => {
-        if (!dateInput || !timeInput) return null;
-
-        let date;
-        // Zpracování číselného formátu data z Excelu
-        if (typeof dateInput === 'number') {
-            const utc_days = Math.floor(dateInput - 25569);
-            const utc_value = utc_days * 86400;
-            const date_info = new Date(utc_value * 1000);
-            date = new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate());
-        } else {
-             // Zpracování textového formátu data
-            const parts = String(dateInput).split(/[/.-]/);
-            if (parts.length === 3) {
-                // Předpokládáme formát MM/DD/YYYY nebo DD.MM.YYYY
-                const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
-                const month = parts[0].length === 2 ? parts[0] : parts[1];
-                const day = parts[0].length === 2 ? parts[1] : parts[0];
-                date = new Date(`${year}-${month}-${day}`);
-            } else {
-                 date = new Date(dateInput);
-            }
-        }
-        
-        if (isNaN(date.getTime())) return null;
-
-        // Zpracování času
-        const timeParts = String(timeInput).split(':');
-        if (timeParts.length >= 2) {
-            date.setHours(parseInt(timeParts[0], 10));
-            date.setMinutes(parseInt(timeParts[1], 10));
-            if (timeParts.length === 3) {
-                 date.setSeconds(parseInt(timeParts[2], 10));
-            }
-        }
-        
-        return !isNaN(date.getTime()) ? date : null;
+    try {
+      const data = await processErrorLog(file);
+      setErrorData(data);
+    } catch (error) {
+      setErrorMessage(error.message || 'Nepodařilo se zpracovat soubor. Zkontrolujte prosím formát a obsah souboru.');
+    } finally {
+      setIsLoading(false);
+      // Reset file inputu pro možnost nahrát stejný soubor znovu
+      if(fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
+  };
 
-    const handleFileImport = async (event) => {
-        const file = event.target.files[0];
-        if (!file) return;
+  const handleButtonClick = () => {
+    fileInputRef.current?.click();
+  };
 
-        setUploading(true);
-        setUploadMessage('');
-        
-        if (typeof XLSX === 'undefined') {
-            toast.error("Knihovna pro zpracování XLSX souborů není načtena. Zkuste prosím obnovit stránku.");
-            setUploading(false);
-            return;
-        }
+  const priorityColor = (priority) => {
+    switch (priority) {
+      case 'High': return 'bg-red-500';
+      case 'Medium': return 'bg-yellow-500';
+      case 'Low': return 'bg-green-500';
+      default: return 'bg-gray-400';
+    }
+  };
 
-        try {
-            const supabase = getSupabase();
-            
-            setUploadMessage('Krok 1/5: Čtu soubor...');
-            await sleep(200);
-            const fileData = await file.arrayBuffer();
+  return (
+    <div className="p-6 bg-gray-50 min-h-full">
+      <div className="flex justify-between items-center mb-6">
+        <Title>Monitoring Chyb Aplikace</Title>
+        <input
+          type="file"
+          accept=".csv"
+          onChange={handleFileUpload}
+          ref={fileInputRef}
+          className="hidden"
+        />
+        <Button
+          onClick={handleButtonClick}
+          loading={isLoading}
+          icon={UploadCloud}
+          color="red"
+        >
+          Nahrát log chyb
+        </Button>
+      </div>
 
-            setUploadMessage('Krok 2/5: Zpracovávám XLSX data...');
-            await sleep(200);
-            const workbook = XLSX.read(fileData, { type: 'array' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      {errorMessage && (
+        <Card className="mb-6 bg-red-100 border-red-500">
+          <div className="flex items-center">
+            <AlertCircle className="h-5 w-5 text-red-700 mr-3" />
+            <Text className="text-red-800">{errorMessage}</Text>
+          </div>
+        </Card>
+      )}
 
-            if (!Array.isArray(jsonData) || jsonData.length === 0) {
-                throw new Error("Soubor neobsahuje žádná data nebo je poškozený.");
-            }
-
-            setUploadMessage(`Krok 3/5: Nalezeno ${jsonData.length} řádků. Validuji data...`);
-            await sleep(200);
-            
-            const processedData = jsonData.map((row) => {
-                const date = parseDateTime(row['Created On'], row['Time']);
-                if (!date) {
-                    return null;
-                }
-                
-                const text1 = row['Text']?.trim() || '';
-                const text2 = row['Text.1']?.trim() || '';
-
-                return {
-                    timestamp: date.toISOString(),
-                    description: `${text1} ${text2}`.trim() || 'N/A',
-                    material: row['Material'] || 'N/A',
-                    error_location: row['Storage Bin'] || 'N/A',
-                    order_reference: String(row['Dest.Storage Bin']) || 'N/A',
-                    user: row['Created By'] || 'N/A',
-                    target_qty: row['Source target qty'] || 0,
-                    actual_qty: row['Source actual qty.'] || 0,
-                    diff_qty: row['Source bin differ.'] || 0,
-                };
-            }).filter(Boolean);
-
-            if (processedData.length === 0) {
-                throw new Error(`Soubor byl zpracován, ale neobsahoval žádné platné řádky s datem. Zkontrolujte formát data a času.`);
-            }
-
-            setUploadMessage(`Krok 4/5: Nahrávám ${processedData.length} platných záznamů...`);
-            await sleep(200);
-
-            const CHUNK_SIZE = 100;
-            for (let i = 0; i < processedData.length; i += CHUNK_SIZE) {
-                const chunk = processedData.slice(i, i + CHUNK_SIZE);
-                const { error } = await supabase.from('errors').insert(chunk);
-                if (error) {
-                    throw new Error(`Chyba databáze při nahrávání: ${error.message}`);
-                }
-            }
-            setUploadMessage('Krok 5/5: Import dokončen! Aktualizuji zobrazení...');
-            await sleep(200);
-            await fetchErrors();
-            setUploadMessage('Hotovo!');
-
-        } catch (error) {
-            console.error('Import selhal:', error);
-            toast.error(`CHYBA: ${error.message}`);
-            setUploadMessage(`CHYBA: ${error.message}`);
-        } finally {
-            setUploading(false);
-            setTimeout(() => setUploadMessage(''), 12000);
-        }
-    };
-    
-    const kpis = useMemo(() => {
-        if (!errorData || errorData.length === 0) return { total: 0, mostCommon: 'N/A' };
-        const descriptions = getTopN(errorData, 'description', 1);
-        return { total: errorData.length, mostCommon: descriptions.length > 0 ? descriptions[0].name : 'N/A' };
-    }, [errorData]);
-    
-    const chartData = useMemo(() => ({
-        byDescription: getTopN(errorData, 'description'),
-    }), [errorData]);
-
-    return (
+      {errorData ? (
         <div className="space-y-6">
+          {/* Souhrnné karty */}
+          <Grid numItemsLg={3} className="gap-6">
             <Card>
-                <CardHeader><CardTitle>Importovat chyby z XLSX</CardTitle></CardHeader>
-                <CardContent>
-                    <div className="flex flex-col space-y-4">
-                        <p className="text-sm text-gray-400">Vyberte .xlsx soubor. Data budou zkontrolována a uložena do databáze.</p>
-                        <div className="flex items-center space-x-4">
-                            <label htmlFor="file-upload" className={`inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 cursor-pointer ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                {uploading ? 'Pracuji...' : 'Vybrat soubor'}
-                            </label>
-                            <input id="file-upload" type="file" accept=".xlsx, .xls" className="hidden" onChange={handleFileImport} disabled={uploading} />
-                            {uploadMessage && <p className={`text-md font-semibold ${uploadMessage.startsWith('CHYBA') ? 'text-red-500' : 'text-gray-300'}`}>{uploadMessage}</p>}
-                        </div>
-                    </div>
-                </CardContent>
+                <Text>Celkem chyb</Text>
+                <p className="text-3xl font-semibold">{errorData.summaryMetrics.totalErrors}</p>
+            </Card>
+            <Card>
+                <Text>Unikátní typy chyb</Text>
+                <p className="text-3xl font-semibold">{errorData.summaryMetrics.uniqueErrorTypes}</p>
+            </Card>
+            <Card>
+                <Text>Vysoká priorita</Text>
+                <p className="text-3xl font-semibold">{errorData.summaryMetrics.totalHighPriority}</p>
+            </Card>
+          </Grid>
+          
+          {/* Grafy */}
+          <Grid numItemsLg={2} className="gap-6">
+            <Card>
+              <Title>Chyby podle Priority</Title>
+              <BarChart
+                className="mt-4 h-72"
+                data={errorData.chartsData.errorsByPriority}
+                index="name"
+                categories={['value']}
+                colors={['red']}
+                yAxisWidth={48}
+                showLegend={false}
+              />
+            </Card>
+            <Card>
+              <Title>Chyby podle Stavu</Title>
+               <DonutChart
+                className="mt-4 h-72"
+                data={errorData.chartsData.errorsByStatus}
+                category="value"
+                index="name"
+                colors={['cyan', 'blue', 'indigo']}
+              />
+            </Card>
+          </Grid>
+
+           <Card>
+              <Title>Chyby podle Aplikační Oblasti</Title>
+              <BarChart
+                className="mt-4 h-80"
+                data={errorData.chartsData.errorsByArea}
+                index="name"
+                categories={['value']}
+                colors={['orange']}
+                yAxisWidth={100}
+                layout="vertical"
+              />
             </Card>
 
-            {loading && <p className="text-center text-gray-300">Načítám data z databáze...</p>}
-            
-            {!loading && errorData && (
-                 <div className="flex flex-col gap-6">
-                    <Card>
-                        <CardHeader><CardTitle>Detailní přehled chyb</CardTitle></CardHeader>
-                        <CardContent>
-                            <div className="overflow-x-auto max-h-[500px]">
-                                <table className="w-full text-sm text-left text-gray-400">
-                                    <thead className="text-xs text-gray-400 uppercase bg-gray-700 sticky top-0">
-                                        <tr>
-                                            <th scope="col" className="px-4 py-3">Čas</th>
-                                            <th scope="col" className="px-4 py-3">Popis chyby</th>
-                                            <th scope="col" className="px-4 py-3">Materiál</th>
-                                            <th scope="col" className="px-4 py-3">Pozice</th>
-                                            <th scope="col" className="px-4 py-3">Uživatel</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-700">
-                                        {errorData.map((error) => (
-                                            <tr key={error.id} className="hover:bg-gray-800">
-                                                <td className="px-4 py-2 whitespace-nowrap">{new Date(error.timestamp).toLocaleString('cs-CZ')}</td>
-                                                <td className="px-4 py-2 font-medium text-white">{error.description}</td>
-                                                <td className="px-4 py-2">{error.material}</td>
-                                                <td className="px-4 py-2">{error.error_location}</td>
-                                                <td className="px-4 py-2">{error.user}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                        <Card className="lg:col-span-1">
-                            <CardHeader><CardTitle>Celkový počet chyb</CardTitle></CardHeader>
-                            <CardContent><p className="text-4xl font-bold">{kpis.total}</p></CardContent>
-                        </Card>
-                         <Card className="lg:col-span-1">
-                            <CardHeader><CardTitle>Nejčastější chyba</CardTitle></CardHeader>
-                            <CardContent><p className="text-xl font-semibold">{kpis.mostCommon}</p></CardContent>
-                        </Card>
-                        <Card className="lg:col-span-2">
-                            <CardHeader><CardTitle>TOP 10 nejčastějších chyb</CardTitle></CardHeader>
-                            <CardContent className="h-[300px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={chartData.byDescription} layout="vertical" margin={{ left: 150, top: 5, right: 20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#4A5568" />
-                                        <XAxis type="number" stroke="#A0AEC0" />
-                                        <YAxis type="category" dataKey="name" width={150} stroke="#A0AEC0" tick={{ fontSize: 12, fill: '#A0AEC0' }} />
-                                        <Tooltip contentStyle={{ backgroundColor: '#2D3748', border: '1px solid #4A5568' }} />
-                                        <Bar dataKey="value" name="Počet" fill="#8884d8" />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </CardContent>
-                        </Card>
-                    </div>
-                </div>
-            )}
+          {/* Detailní tabulka chyb */}
+          <Card>
+            <Title>Detailní přehled chyb</Title>
+            <div className="overflow-x-auto mt-4">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priorita</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Čas</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Popis chyby</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stav</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uživatel</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {errorData.detailedErrors.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).map((error) => (
+                    <tr key={error.id}>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <span className={`inline-block h-4 w-4 rounded-full ${priorityColor(error.priority)}`} title={error.priority}></span>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(error.timestamp).toLocaleString('cs-CZ')}</td>
+                      <td className="px-4 py-4 text-sm text-gray-900 max-w-sm truncate">{error.description}</td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{error.status}</td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{error.user}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         </div>
-    );
+      ) : (
+        <Card className="flex flex-col items-center justify-center h-96 border-dashed border-2">
+            <UploadCloud className="h-16 w-16 text-gray-400 mb-4" />
+            <Title className="text-gray-600">Žádná data k zobrazení</Title>
+            <Text className="text-gray-500">Nahrajte prosím soubor s logem chyb pro zobrazení analýzy.</Text>
+        </Card>
+      )}
+    </div>
+  );
 };
 
 export default ErrorMonitorTab;
