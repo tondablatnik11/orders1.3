@@ -1,8 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { processArrayForDisplay } from '@/lib/errorMonitorProcessor'; // Používáme jen funkci pro zobrazení
+import { processArrayForDisplay } from '@/lib/errorMonitorProcessor';
 import { getSupabase } from '@/lib/supabaseClient';
 import { Card, Title, Text, Button, BarChart, Grid, TextInput } from '@tremor/react';
-import { UploadCloud, AlertCircle, SearchIcon, BarChart3, Users, AlertTriangle, RefreshCw } from 'lucide-react';
+import { RefreshCw, SearchIcon, BarChart3, Users, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const supabase = getSupabase();
@@ -11,15 +11,13 @@ const ErrorMonitorTab = () => {
   const [errorData, setErrorData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const fileInputRef = useRef(null);
 
   const fetchAndDisplayData = useCallback(async () => {
     setIsLoading(true);
     const { data, error } = await supabase.from('errors').select('*').order('timestamp', { ascending: false });
 
     if (error) {
-        toast.error('Chyba při načítání dat z databáze.');
-        console.error(error);
+        toast.error('Chyba při načítání dat.');
         setErrorData(null);
     } else {
         const processedData = processArrayForDisplay(data); 
@@ -54,13 +52,12 @@ const ErrorMonitorTab = () => {
     <div className="p-4 sm:p-6 bg-slate-900 min-h-full">
       <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
         <h1 className="text-3xl font-bold text-white tracking-tight">Analýza Chyb Skenování</h1>
-        <div className="flex items-center gap-2">
-            {/* Tlačítko pro nahrávání bylo dočasně odstraněno, aby se ladila chyba zobrazení */}
-            <Button onClick={fetchAndDisplayData} loading={isLoading} icon={RefreshCw} size="lg" variant="primary">Aktualizovat Data</Button>
-        </div>
+        <Button onClick={fetchAndDisplayData} loading={isLoading} icon={RefreshCw} size="lg" variant="primary">Aktualizovat</Button>
       </div>
 
-      {errorData ? (
+      {isLoading ? (
+          <div className="flex justify-center items-center h-96"><RefreshCw className="w-10 h-10 text-slate-500 animate-spin" /></div>
+      ) : errorData && errorData.detailedErrors.length > 0 ? (
         <div className="space-y-6">
           <Grid numItemsLg={3} className="gap-6">
             <KpiCard title="Celkem chyb" value={errorData.summaryMetrics.totalErrors} icon={<BarChart3 className="w-6 h-6 text-blue-500"/>} />
@@ -71,7 +68,6 @@ const ErrorMonitorTab = () => {
           <Grid numItemsLg={5} className="gap-6">
             <Card className="lg:col-span-3 shadow-lg">
                 <Title>TOP 10 Typů Chyb</Title>
-                {/* Oprava zde: Přidána minimální výška pro graf */}
                 <div className="mt-6 h-80">
                     <BarChart data={errorData.chartsData.errorsByType.slice(0, 10)} index="name" categories={['Počet chyb']} colors={['blue']} yAxisWidth={130} layout="vertical" />
                 </div>
@@ -92,7 +88,7 @@ const ErrorMonitorTab = () => {
                 </div>
              </Card>
              <Card className="shadow-lg">
-                <Title>Materiály s největším rozdílem v množství</Title>
+                <Title>Materiály s největším rozdílem</Title>
                 <div className="mt-6 h-80">
                     <BarChart data={errorData.chartsData.topMaterialDiscrepancy} index="name" categories={['Absolutní rozdíl']} colors={['amber']} />
                 </div>
@@ -132,8 +128,8 @@ const ErrorMonitorTab = () => {
           </Card>
         </div>
       ) : (
-        <div className="flex items-center justify-center h-[60vh] border-2 border-dashed border-slate-800 rounded-xl bg-slate-900/50">
-             <div className='text-center'><AlertCircle className="h-16 w-16 text-slate-700 mb-4 mx-auto" /><h2 className="text-xl font-medium text-slate-500">Žádná data k zobrazení</h2><p className="text-slate-600 mt-1">Klikněte na "Aktualizovat" pro načtení dat z databáze.</p></div>
+        <div className="flex items-center justify-center h-[60vh]">
+            <Text>Žádná data k zobrazení. Zkuste aktualizovat.</Text>
         </div>
       )}
     </div>
