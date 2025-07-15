@@ -2,14 +2,13 @@
 import React, { useState, useRef } from 'react';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
-import { Card, Title, Text, Button, BarChart, AreaChart, Grid, TextInput, DonutChart } from '@tremor/react';
-import { RefreshCw, Search, BarChart3, Users, AlertTriangle, UploadCloud, PackageX } from 'lucide-react';
+import { Card, Title, Text, Button, BarChart, AreaChart, Grid, TextInput, DonutChart, Legend } from '@tremor/react';
+import { RefreshCw, Search, BarChart3, Users, AlertTriangle, UploadCloud, PackageX, CalendarDays, Clock } from 'lucide-react';
 
-// Vylepšená KPI karta
 const KpiCard = ({ title, value, icon, t }) => (
-    <Card decoration="top" decorationColor="blue">
+    <Card decoration="top" decorationColor="indigo">
         <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-500/20 rounded-lg text-blue-400">
+            <div className="p-3 bg-indigo-500/20 rounded-lg text-indigo-400">
                 {icon}
             </div>
             <div>
@@ -61,25 +60,41 @@ export default function ErrorMonitorTab() {
                 </div>
             ) : errorData && errorData.detailedErrors.length > 0 ? (
                 <div className="space-y-6">
-                    <Grid numItemsLg={4} className="gap-6">
-                        <KpiCard title="Celkem chyb" value={errorData.summaryMetrics.totalErrors} icon={<BarChart3 />} t={t} />
-                        <KpiCard title="Nejčastější chyba" value={errorData.summaryMetrics.mostCommonError} icon={<AlertTriangle />} t={t} />
+                    <Grid numItemsLg={3} numItemsSm={2} className="gap-6">
+                        <KpiCard title="Celkem chyb" value={errorData.summaryMetrics.totalErrors} icon={<AlertTriangle />} t={t} />
+                        <KpiCard title="Nejčastější chyba" value={errorData.summaryMetrics.mostCommonError} icon={<BarChart3 />} t={t} />
                         <KpiCard title="Nejaktivnější uživatel" value={errorData.summaryMetrics.userWithMostErrors} icon={<Users />} t={t} />
                         <KpiCard title="Celkový rozdíl v množství" value={errorData.summaryMetrics.totalDifference} icon={<PackageX />} t={t} />
+                        <KpiCard title="Materiál s nejvíce chybami" value={errorData.summaryMetrics.materialWithMostErrors} icon={<PackageX />} t={t} />
                     </Grid>
                     
-                    <Grid numItemsLg={2} className="gap-6">
-                        <Card>
+                    <Grid numItemsLg={3} className="gap-6">
+                        <Card className="lg:col-span-2">
                            <Title>Chyby v průběhu dne</Title>
                             <AreaChart
                                 className="h-72 mt-4"
                                 data={errorData.chartsData.errorsByHour}
-                                index="hodina"
+                                index="key"
                                 categories={['Počet chyb']}
                                 colors={['indigo']}
+                                showAnimation={true}
                             />
                         </Card>
-                         <Card>
+                        <Card>
+                            <Title>Chyby podle dne v týdnu</Title>
+                            <BarChart
+                                className="mt-4 h-72"
+                                data={errorData.chartsData.errorsByDay}
+                                index="key"
+                                categories={['Počet chyb']}
+                                colors={['cyan']}
+                                showAnimation={true}
+                            />
+                        </Card>
+                    </Grid>
+                    
+                    <Grid numItemsLg={2} className="gap-6">
+                       <Card>
                             <Title>TOP 5 typů chyb</Title>
                             <DonutChart
                                 className="mt-8 h-64"
@@ -87,24 +102,11 @@ export default function ErrorMonitorTab() {
                                 category="Počet chyb"
                                 index="name"
                                 colors={["blue", "cyan", "indigo", "violet", "fuchsia"]}
+                                showAnimation={true}
                             />
+                             <Legend categories={errorData.chartsData.errorsByType.slice(0, 5).map(e => e.name)} colors={["blue", "cyan", "indigo", "violet", "fuchsia"]} className="mt-4" />
                         </Card>
-                    </Grid>
-                    
-                    <Grid numItemsLg={2} className="gap-6">
-                        <Card>
-                            <Title>TOP 10 Chybových Pozic</Title>
-                            <BarChart 
-                                className="mt-6 h-80"
-                                data={errorData.chartsData.errorsByPosition.slice(0, 10)} 
-                                index="name" 
-                                categories={['Počet chyb']} 
-                                colors={['violet']} 
-                                yAxisWidth={100}
-                                layout="vertical"
-                            />
-                        </Card>
-                        <Card>
+                         <Card>
                             <Title>TOP 10 Materiálů s největším rozdílem</Title>
                              <BarChart 
                                 className="mt-6 h-80"
@@ -114,6 +116,7 @@ export default function ErrorMonitorTab() {
                                 colors={['amber']}
                                 yAxisWidth={100}
                                 layout="vertical" 
+                                showAnimation={true}
                             />
                         </Card>
                     </Grid>
@@ -131,8 +134,6 @@ export default function ErrorMonitorTab() {
                                         <th className="p-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Typ Chyby</th>
                                         <th className="p-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Uživatel</th>
                                         <th className="p-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Materiál</th>
-                                        <th className="p-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Pozice</th>
-                                        <th className="p-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Číslo zakázky</th>
                                         <th className="p-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Rozdíl</th>
                                     </tr>
                                 </thead>
@@ -143,8 +144,6 @@ export default function ErrorMonitorTab() {
                                             <td className="p-3 whitespace-nowrap text-sm text-blue-400 font-medium">{error.errorType}</td>
                                             <td className="p-3 whitespace-nowrap text-sm text-gray-200 font-medium">{error.user}</td>
                                             <td className="p-3 whitespace-nowrap text-sm text-gray-400">{error.material}</td>
-                                            <td className="p-3 whitespace-nowrap text-sm text-gray-400">{error.position}</td>
-                                            <td className="p-3 whitespace-nowrap text-sm text-gray-400">{error.orderNumber}</td>
                                             <td className={`p-3 whitespace-nowrap text-sm font-bold text-center ${error.qtyDifference > 0 ? 'text-green-400' : error.qtyDifference < 0 ? 'text-red-400' : 'text-gray-500'}`}>{error.qtyDifference > 0 ? `+${error.qtyDifference}` : error.qtyDifference}</td>
                                         </tr>
                                     ))}
