@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { format } from 'date-fns';
 
 /**
  * Funkce 1: Zpracuje nahraný XLSX soubor a vrátí data připravená pro vložení do Supabase.
@@ -27,18 +28,18 @@ export const processErrorDataForSupabase = (file) => {
             const targetQty = Number(row['Source target qty'] || 0);
             const actualQty = Number(row['Source actual qty.'] || 0);
             
-            let errorType = row['Text'] || 'Neznámá chyba';
-            if (String(errorType).trim().toLowerCase() === 'location') {
+            let errorType = String(row['Text'] || 'Neznámá chyba').trim();
+            if (errorType.toLowerCase() === 'location') {
                 errorType = 'Location empty';
             }
 
             return {
-              position: row['Storage Bin'] || 'N/A',
+              position: String(row['Storage Bin'] || 'N/A').trim(),
               error_type: errorType,
-              material: row['Material'] || 'N/A',
-              order_number: row['Dest.Storage Bin'] || 'N/A',
+              material: String(row['Material'] || 'N/A').trim(),
+              order_number: String(row['Dest.Storage Bin'] || 'N/A').trim(),
               qty_difference: targetQty - actualQty,
-              user: row['Created By'] || 'N/A',
+              user: String(row['Created By'] || 'N/A').trim(),
               timestamp: datePart.toISOString(),
             };
         }).filter(Boolean);
@@ -65,9 +66,10 @@ export const processArrayForDisplay = (data) => {
     errorType: row.error_type,
     material: row.material,
     orderNumber: row.order_number,
-    qtyDifference: row.qty_difference,
+    qtyDifference: Number(row.qty_difference) || 0,
     user: row.user,
     timestamp: row.timestamp,
+    hour: format(new Date(row.timestamp), 'HH'), // Přidána hodina pro analýzu
   }));
 
   const totalErrors = errors.length;
@@ -75,6 +77,9 @@ export const processArrayForDisplay = (data) => {
   const errorsByUser = aggregate(errors, 'user');
   const errorsByPosition = aggregate(errors, 'position');
   
+  // Nový graf: Chyby podle hodiny
+  const errorsByHour = aggregateByHour(errors);
+
   const materialDiscrepancy = errors
     .filter(e => e.qtyDifference !== 0)
     .reduce((acc, e) => {
@@ -85,11 +90,12 @@ export const processArrayForDisplay = (data) => {
   
   const topMaterialDiscrepancy = Object.entries(materialDiscrepancy)
     .sort(([,a], [,b]) => b - a)
-    .slice(0, 7)
+    .slice(0, 10) // Zobrazení TOP 10
     .map(([name, value]) => ({ name, 'Absolutní rozdíl': value }));
 
   const mostCommonError = errorsByType[0]?.name || 'N/A';
   const userWithMostErrors = errorsByUser[0]?.name || 'N/A';
+  const totalDifference = errors.reduce((sum, e) => sum + Math.abs(e.qtyDifference), 0);
 
   const sortedErrors = errors.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
@@ -99,12 +105,14 @@ export const processArrayForDisplay = (data) => {
       totalErrors,
       mostCommonError,
       userWithMostErrors,
+      totalDifference, // Nová metrika
     },
     chartsData: {
       errorsByType,
       errorsByUser,
       topMaterialDiscrepancy,
       errorsByPosition,
+      errorsByHour, // Nová data pro graf
     }
   };
 };
@@ -113,9 +121,7 @@ export const processArrayForDisplay = (data) => {
 const aggregate = (data, key) => {
     const aggregation = data.reduce((acc, item) => {
         let value = item[key];
-
-        // Zajištění, že hodnota je string a oříznutí mezer.
-        // Pokud je výsledek prázdný, použije se "Nezadáno".
+        
         if (typeof value !== 'string' || value.trim() === '') {
             value = 'Nezadáno';
         } else {
@@ -129,4 +135,22 @@ const aggregate = (data, key) => {
     return Object.entries(aggregation)
         .map(([name, value]) => ({ name, 'Počet chyb': value }))
         .sort((a, b) => b['Počet chyb'] - a['Počet chyb']);
+};
+
+// Nová pomocná funkce pro seskupování podle hodiny
+const aggregateByHour = (data) => {
+    const aggregation = data.reduce((acc, item) => {
+        const hour = item.hour;
+        acc[hour] = (acc[hour] || 0) + 1;
+        return acc;
+    }, {});
+
+    // Vytvoříme pole pro všechny hodiny (00-23) a naplníme je daty
+    return Array.from({ length: 24 }, (_, i) => {
+        const hour = String(i).padStart(2, '0');
+        return {
+            hodina: `${hour}:00`,
+            'Počet chyb': aggregation[hour] || 0,
+        };
+    });
 };
