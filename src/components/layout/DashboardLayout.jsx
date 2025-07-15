@@ -33,11 +33,11 @@ const DashboardLayout = () => {
     };
 
     return (
-        <div className="flex h-screen bg-tremor-background-muted dark:bg-dark-tremor-background-muted">
+        <div className="flex h-screen bg-slate-900">
             <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-            <div className="flex flex-col flex-1">
-                <AppHeader />
-                <main className="flex-1 overflow-y-auto">
+            <div className="flex flex-col flex-1 min-w-0">
+                <AppHeader activeTab={activeTab} />
+                <main className="flex-1 overflow-y-auto p-6">
                     {renderActiveTab()}
                 </main>
             </div>
