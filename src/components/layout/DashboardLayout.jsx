@@ -1,8 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import Sidebar from './Sidebar';
-
-// Importujte všechny vaše existující záložky
+import Sidebar from './Sidebar';// Importujte VŠECHNY vaše komponenty pro záložky
 import DashboardTab from '../tabs/DashboardTab';
 import ErrorMonitorTab from '../tabs/ErrorMonitorTab';
 import OrderSearchTab from '../tabs/OrderSearchTab';
@@ -10,42 +8,39 @@ import AnnouncedLoadingsTab from '../tabs/AnnouncedLoadingsTab';
 import DelayedOrdersTab from '../tabs/DelayedOrdersTab';
 import DailySummaryTab from '../tabs/DailySummaryTab';
 import WarehouseActivitiesTab from '../tabs/WarehouseActivitiesTab';
-
-// Dočasné prázdné komponenty pro nové záložky
-const PlaceholderTab = ({ title }) => (
-    <div className="p-6 bg-slate-900 min-h-full text-white">
-        <h1 className="text-3xl font-bold">{title}</h1>
-        <p className="mt-2 text-slate-400">Tato stránka je ve vývoji.</p>
-    </div>
-);
-
-const DashboardLayout = () => {
-    const [activeTab, setActiveTab] = useState('dashboard'); 
-
-    const renderActiveTab = () => {
-        switch (activeTab) {
-            case 'dashboard': return <DashboardTab />;
-            case 'orderSearch': return <OrderSearchTab />;
-            case 'announcedLoadings': return <AnnouncedLoadingsTab />;
-            case 'delayedOrders': return <DelayedOrdersTab />;
-            case 'dailySummary': return <DailySummaryTab />;
-            case 'warehouseActivities': return <WarehouseActivitiesTab />;
-            case 'errorMonitor': return <ErrorMonitorTab />;
-            // Přidána logika pro nové záložky
-            case 'chat': return <PlaceholderTab title="Chat" />;
-            case 'settings': return <PlaceholderTab title="Nastavení" />;
-            default: return <DashboardTab />;
-        }
-    };
-
-    return (
-        <div className="flex h-screen bg-white dark:bg-slate-900">
-            <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-            <main className="flex-1 overflow-y-auto">
-                {renderActiveTab()}
-            </main>
-        </div>
-    );
+import ChatTab from '../tabs/ChatTab'; // Ujistěte se, že tento soubor existuje
+import SettingsTab from '../tabs/SettingsTab'; // Ujistěte se, že tento soubor existujeconst DashboardLayout = () => {
+const [activeTab, setActiveTab] = useState('dashboard');const renderActiveTab = () =&gt; {
+    switch (activeTab) {
+        case 'dashboard':
+            return &lt;DashboardTab /&gt;;
+        case 'orderSearch':
+            return &lt;OrderSearchTab /&gt;;
+        case 'announcedLoadings':
+            return &lt;AnnouncedLoadingsTab /&gt;;
+        case 'delayedOrders':
+            return &lt;DelayedOrdersTab /&gt;;
+        case 'dailySummary':
+            return &lt;DailySummaryTab /&gt;;
+        case 'warehouseActivities':
+            return &lt;WarehouseActivitiesTab /&gt;;
+        case 'errorMonitor':
+            return &lt;ErrorMonitorTab /&gt;;
+        case 'chat':
+            return &lt;ChatTab /&gt;;
+        case 'settings':
+            return &lt;SettingsTab /&gt;;
+        default:
+            return &lt;DashboardTab /&gt;;
+    }
 };
 
-export default DashboardLayout;
+return (
+    &lt;div className=&quot;flex h-screen bg-white dark:bg-slate-900&quot;&gt;
+        &lt;Sidebar activeTab={activeTab} onTabChange={setActiveTab} /&gt;
+        &lt;main className=&quot;flex-1 overflow-y-auto&quot;&gt;
+            {renderActiveTab()}
+        &lt;/main&gt;
+    &lt;/div&gt;
+);
+};

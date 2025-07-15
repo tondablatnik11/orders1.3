@@ -1,18 +1,17 @@
 'use client';
-import { useAuth } from '@/hooks/useAuth';
+import AppProviders from '@/components/layout/AppProviders';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import LoginPage from '@/components/auth/Login';
+import Login from '@/components/auth/Login';
+import { useAuth } from '@/hooks/useAuth';
+import { Toaster } from 'react-hot-toast';export default function Home() {
+const { user, loading } = useAuth();if (loading) {
+return (
 
-export default function Home() {
-  const { loading, currentUser } = useAuth();
+Načítání...
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-950 text-gray-100">
-        Načítání...
-      </div>
-    );
-  }
+);
+}return (
 
-  return currentUser ? <DashboardLayout /> : <LoginPage />;
+
+);
 }
