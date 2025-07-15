@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 
-// Zpracuje nahraný soubor a připraví data pro Supabase
-export const processErrorData = (file) => {
+// Funkce 1: Zpracuje XLSX soubor a vrátí data připravená pro vložení do Supabase
+export const processErrorDataForSupabase = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -40,7 +40,7 @@ export const processErrorData = (file) => {
             };
         }).filter(Boolean);
 
-        resolve({ dataForSupabase });
+        resolve(dataForSupabase);
 
       } catch (error) {
         reject(new Error('Nepodařilo se zpracovat XLSX soubor.'));
@@ -51,7 +51,7 @@ export const processErrorData = (file) => {
   });
 };
 
-// Zpracuje pole dat (ze Supabase) pro zobrazení v grafech
+// Funkce 2: Zpracuje pole dat (ze Supabase) pro zobrazení v grafech
 export const processArrayForDisplay = (data) => {
   const errors = data.map(row => ({
     position: row.position,

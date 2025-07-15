@@ -1,34 +1,23 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { processArrayForDisplay } from '@/lib/errorMonitorProcessor';
-import { getSupabase } from '@/lib/supabaseClient';
+import React, { useState, useRef } from 'react';
+import { useData } from '@/contexts/DataContext';
 import { Card, Title, Text, Button, BarChart, Grid, TextInput } from '@tremor/react';
-import { RefreshCw, SearchIcon, BarChart3, Users, AlertTriangle } from 'lucide-react';
-import toast from 'react-hot-toast';
-
-const supabase = getSupabase();
+import { RefreshCw, SearchIcon, BarChart3, Users, AlertTriangle, UploadCloud } from 'lucide-react';
 
 const ErrorMonitorTab = () => {
-  const [errorData, setErrorData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { errorData, isLoadingErrorData, refetchErrorData, handleErrorLogUpload } = useData();
   const [searchQuery, setSearchQuery] = useState('');
+  const fileInputRef = useRef(null);
 
-  const fetchAndDisplayData = useCallback(async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase.from('errors').select('*').order('timestamp', { ascending: false });
-
-    if (error) {
-        toast.error('Chyba při načítání dat.');
-        setErrorData(null);
-    } else {
-        const processedData = processArrayForDisplay(data); 
-        setErrorData(processedData);
-    }
-    setIsLoading(false);
-  }, []);
-
-  useEffect(() => {
-    fetchAndDisplayData();
-  }, [fetchAndDisplayData]);
+  const handleFileChange = (event) => {
+      const file = event.target.files[0];
+      if (file) {
+          handleErrorLogUpload(file);
+      }
+      // Reset inputu, aby bylo možné nahrát stejný soubor znovu
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+  };
 
   const KpiCard = ({ title, value, icon }) => (
     <Card className="shadow-lg">
@@ -52,11 +41,17 @@ const ErrorMonitorTab = () => {
     <div className="p-4 sm:p-6 bg-slate-900 min-h-full">
       <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
         <h1 className="text-3xl font-bold text-white tracking-tight">Analýza Chyb Skenování</h1>
-        <Button onClick={fetchAndDisplayData} loading={isLoading} icon={RefreshCw} size="lg" variant="primary">Aktualizovat</Button>
+        <div className="flex items-center gap-2">
+            <Button onClick={() => fileInputRef.current?.click()} icon={UploadCloud} size="lg">Nahrát Report</Button>
+            <Button onClick={refetchErrorData} loading={isLoadingErrorData} icon={RefreshCw} size="lg" variant="secondary">Aktualizovat</Button>
+        </div>
+        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".xlsx" />
       </div>
 
-      {isLoading ? (
-          <div className="flex justify-center items-center h-96"><RefreshCw className="w-10 h-10 text-slate-500 animate-spin" /></div>
+      {isLoadingErrorData ? (
+          <div className="flex justify-center items-center h-96">
+            <RefreshCw className="w-10 h-10 text-slate-500 animate-spin" />
+          </div>
       ) : errorData && errorData.detailedErrors.length > 0 ? (
         <div className="space-y-6">
           <Grid numItemsLg={3} className="gap-6">
@@ -69,13 +64,25 @@ const ErrorMonitorTab = () => {
             <Card className="lg:col-span-3 shadow-lg">
                 <Title>TOP 10 Typů Chyb</Title>
                 <div className="mt-6 h-80">
-                    <BarChart data={errorData.chartsData.errorsByType.slice(0, 10)} index="name" categories={['Počet chyb']} colors={['blue']} yAxisWidth={130} layout="vertical" />
+                    <BarChart 
+                        data={errorData.chartsData.errorsByType.slice(0, 10)} 
+                        index="name" 
+                        categories={['Počet chyb']} 
+                        colors={['blue']} 
+                        yAxisWidth={130} 
+                        layout="vertical" 
+                    />
                 </div>
             </Card>
             <Card className="lg:col-span-2 shadow-lg">
                 <Title>Chyby podle uživatele</Title>
                 <div className="mt-6 h-80">
-                    <BarChart data={errorData.chartsData.errorsByUser} index="name" categories={['Počet chyb']} colors={['fuchsia']} />
+                    <BarChart 
+                        data={errorData.chartsData.errorsByUser} 
+                        index="name" 
+                        categories={['Počet chyb']} 
+                        colors={['fuchsia']} 
+                    />
                 </div>
             </Card>
           </Grid>
@@ -84,19 +91,32 @@ const ErrorMonitorTab = () => {
              <Card className="shadow-lg">
                 <Title>TOP 10 Chybových Pozic</Title>
                 <div className="mt-6 h-80">
-                    <BarChart data={errorData.chartsData.errorsByPosition.slice(0, 10)} index="name" categories={['Počet chyb']} colors={['violet']} />
+                    <BarChart 
+                        data={errorData.chartsData.errorsByPosition.slice(0, 10)} 
+                        index="name" 
+                        categories={['Počet chyb']} 
+                        colors={['violet']} 
+                    />
                 </div>
              </Card>
              <Card className="shadow-lg">
                 <Title>Materiály s největším rozdílem</Title>
                 <div className="mt-6 h-80">
-                    <BarChart data={errorData.chartsData.topMaterialDiscrepancy} index="name" categories={['Absolutní rozdíl']} colors={['amber']} />
+                    <BarChart 
+                        data={errorData.chartsData.topMaterialDiscrepancy} 
+                        index="name" 
+                        categories={['Absolutní rozdíl']} 
+                        colors={['amber']} 
+                    />
                 </div>
              </Card>
           </Grid>
 
           <Card className="shadow-lg">
-            <div className='flex justify-between items-center mb-4'><Title>Detailní záznamy chyb</Title><TextInput icon={SearchIcon} placeholder="Hledat v záznamech..." value={searchQuery} onValueChange={setSearchQuery} className="max-w-xs" /></div>
+            <div className='flex justify-between items-center mb-4'>
+                <Title>Detailní záznamy chyb</Title>
+                <TextInput icon={SearchIcon} placeholder="Hledat v záznamech..." value={searchQuery} onValueChange={setSearchQuery} className="max-w-xs" />
+            </div>
             <div className="overflow-y-auto h-[500px] border-t">
               <table className="min-w-full">
                 <thead className="sticky top-0 bg-blue-600 border-b border-blue-700 z-10">
@@ -129,7 +149,7 @@ const ErrorMonitorTab = () => {
         </div>
       ) : (
         <div className="flex items-center justify-center h-[60vh]">
-            <Text>Žádná data k zobrazení. Zkuste aktualizovat.</Text>
+            <Text>Žádná data k zobrazení. Zkuste aktualizovat nebo nahrát nový report.</Text>
         </div>
       )}
     </div>

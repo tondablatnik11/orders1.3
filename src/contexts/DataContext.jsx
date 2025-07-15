@@ -1,36 +1,30 @@
 'use client';
-
 import React, { createContext, useState, useEffect, useCallback, useMemo, useContext } from 'react';
 import { getSupabase } from '../lib/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
 import { processData } from '../lib/dataProcessor';
-// Opravený import pro zpracování chyb
-import { processErrorData } from '../lib/errorMonitorProcessor';
+import { processArrayForDisplay, processErrorDataForSupabase } from '../lib/errorMonitorProcessor';
 import toast from 'react-hot-toast';
-
-// Ujistěte se, že máte knihovnu pro práci s XLSX soubory, pokud ji ještě nemáte
-// npm install xlsx
 import * as XLSX from 'xlsx';
-
 
 export const DataContext = createContext(null);
 export const useData = () => useContext(DataContext);
 
 export const DataProvider = ({ children }) => {
-    // Stavy pro data objednávek (deliveries)
+    // Stavy pro data zakázek (původní funkčnost)
     const [allOrdersData, setAllOrdersData] = useState([]);
     const [summary, setSummary] = useState(null);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
     
     // Stavy pro data z Error Monitoru
-    const [errorLogData, setErrorLogData] = useState(null); // Změněno na null pro konzistenci
+    const [errorData, setErrorData] = useState(null);
     const [isLoadingErrorData, setIsLoadingErrorData] = useState(true);
 
-    const { currentUser, loading: authLoading } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const supabase = getSupabase();
 
-    // Načítání dat objednávek
+    // Načítání dat zakázek
     const fetchData = useCallback(async () => {
         setIsLoadingData(true);
         try {
@@ -41,57 +35,38 @@ export const DataProvider = ({ children }) => {
             setSummary(processed);
         } catch (error) {
             toast.error("Chyba při načítání dat zakázek.");
-            console.error("DataContext: Chyba při načítání dat:", error);
-            setAllOrdersData([]);
-            setSummary(null);
         } finally {
             setIsLoadingData(false);
         }
     }, [supabase]);
-    
+
     // Načítání dat chyb
     const fetchErrorData = useCallback(async () => {
         setIsLoadingErrorData(true);
         try {
-            const { data, error } = await supabase.from("errors").select('*').limit(1000);
+            const { data, error } = await supabase.from("errors").select('*').order('timestamp', { ascending: false }).limit(1000);
             if (error) throw error;
-            const processedErrors = await processErrorData(data || []);
-            setErrorLogData(processedErrors);
+            const processedErrors = processArrayForDisplay(data || []);
+            setErrorData(processedErrors);
         } catch (error) {
             toast.error("Chyba při načítání logu chyb.");
-            console.error("DataContext: Chyba při načítání chyb:", error);
-            setErrorLogData(null);
         } finally {
             setIsLoadingErrorData(false);
         }
     }, [supabase]);
 
-
     useEffect(() => {
-        if (currentUser && !authLoading) {
+        if (user && !authLoading) {
             fetchData();
-            fetchErrorData(); // Načteme i data chyb
-        } else if (!currentUser && !authLoading) {
-            // Resetování stavů po odhlášení
-            setAllOrdersData([]);
-            setSummary(null);
-            setErrorLogData(null);
-            setIsLoadingData(false);
-            setIsLoadingErrorData(false);
+            fetchErrorData();
         }
-    }, [currentUser, authLoading, fetchData, fetchErrorData]);
+    }, [user, authLoading, fetchData, fetchErrorData]);
 
-    // Funkce pro nahrání souboru s objednávkami (zůstává z vašeho kódu)
+    // Původní funkce pro nahrávání souboru se zakázkami
     const handleFileUpload = useCallback(async (file) => {
         if (!file) return;
         toast.loading('Zpracovávám soubor zakázek...');
-        
-        const parseExcelDate = (excelDate) => {
-            if (typeof excelDate === 'number') {
-                return new Date((excelDate - 25569) * 86400 * 1000).toISOString();
-            }
-            return null;
-        };
+        const parseExcelDate = (excelDate) => excelDate ? new Date((excelDate - 25569) * 86400 * 1000).toISOString() : null;
 
         const reader = new FileReader();
         reader.onload = async (evt) => {
@@ -101,42 +76,45 @@ export const DataProvider = ({ children }) => {
                 const wsname = wb.SheetNames[0];
                 const ws = wb.Sheets[wsname];
                 const jsonData = XLSX.utils.sheet_to_json(ws);
-
-                const transformedData = jsonData.map(row => ({
-                    "Delivery No": String(row["Delivery No"] || row["Delivery"] || '').trim(),
-                    "Status": Number(row["Status"]),
-                    "del.type": row["del.type"],
-                    "Loading Date": parseExcelDate(row["Loading Date"]),
-                    "Note": row["Note"] || "",
-                    "Forwarding agent name": row["Forwarding agent name"],
-                    "Name of ship-to party": row["Name of ship-to party"],
-                    "Total Weight": row["Total Weight"],
-                    "Bill of lading": row["Bill of lading"],
-                    "Country ship-to prty": row["Country ship-to prty"],
-                    "created_at": new Date().toISOString(),
-                    "updated_at": new Date().toISOString(),
-                })).filter(row => row["Delivery No"]);
+                const transformedData = jsonData.map(row => ({ "Delivery No": String(row["Delivery No"] || '').trim(), "Status": Number(row["Status"]), "del.type": row["del.type"], "Loading Date": parseExcelDate(row["Loading Date"]), "Note": row["Note"] || "", "Forwarding agent name": row["Forwarding agent name"], "Name of ship-to party": row["Name of ship-to party"], "Total Weight": row["Total Weight"], "Bill of lading": row["Bill of lading"], "Country ship-to prty": row["Country ship-to prty"], "created_at": new Date().toISOString(), "updated_at": new Date().toISOString() })).filter(row => row["Delivery No"]);
 
                 if (transformedData.length > 0) {
                     const { error } = await supabase.from('deliveries').upsert(transformedData, { onConflict: 'Delivery No' });
                     if (error) throw error;
                     toast.dismiss();
-                    toast.success(`Data byla úspěšně nahrána! (${transformedData.length} záznamů)`);
-                    fetchData(); // Znovu načteme data po nahrání
+                    toast.success('Data byla úspěšně nahrána!');
+                    fetchData();
                 } else {
                     toast.dismiss();
-                    toast.error('Nenalezena žádná platná data k nahrání.');
+                    toast.error('Nenalezena žádná platná data.');
                 }
             } catch (error) {
-                console.error('Chyba při nahrávání souboru:', error);
                 toast.dismiss();
-                toast.error(`Chyba při nahrávání dat: ${error.message}`);
+                toast.error(`Chyba při nahrávání: ${error.message}`);
             }
         };
         reader.readAsBinaryString(file);
     }, [supabase, fetchData]);
     
-    // Memoizovaná hodnota pro context
+    // Nová funkce pro nahrání souboru s chybami
+    const handleErrorLogUpload = useCallback(async (file) => {
+        if (!file) return;
+        toast.loading('Zpracovávám a ukládám log chyb...');
+        try {
+            const dataForSupabase = await processErrorDataForSupabase(file);
+            if (dataForSupabase && dataForSupabase.length > 0) {
+                const { error } = await supabase.from('errors').insert(dataForSupabase);
+                if (error) throw error;
+            }
+            toast.dismiss();
+            toast.success('Log chyb byl úspěšně nahrán!');
+            fetchErrorData();
+        } catch (error) {
+            toast.dismiss();
+            toast.error(`Chyba při nahrávání logu: ${error.message}`);
+        }
+    }, [supabase, fetchErrorData]);
+
     const value = useMemo(() => ({
         allOrdersData,
         summary,
@@ -146,11 +124,11 @@ export const DataProvider = ({ children }) => {
         selectedOrderDetails,
         setSelectedOrderDetails,
         supabase,
-        // Poskytujeme data a stavy pro Error Monitor
-        errorLogData,
+        errorData,
         isLoadingErrorData,
-        refetchErrorData: fetchErrorData
-    }), [allOrdersData, summary, isLoadingData, fetchData, handleFileUpload, selectedOrderDetails, supabase, errorLogData, isLoadingErrorData, fetchErrorData]);
+        refetchErrorData: fetchErrorData,
+        handleErrorLogUpload,
+    }), [allOrdersData, summary, isLoadingData, fetchData, handleFileUpload, selectedOrderDetails, supabase, errorData, isLoadingErrorData, fetchErrorData, handleErrorLogUpload]);
 
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };
