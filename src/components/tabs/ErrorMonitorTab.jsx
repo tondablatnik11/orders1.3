@@ -6,10 +6,8 @@ import { getSupabase } from '@/lib/supabaseClient';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 
-// Pomocná funkce pro uspání
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Funkce pro získání top N položek z dat
 const getTopN = (data, key, n = 10) => {
     if (!data) return [];
     const counts = data.reduce((acc, item) => {
@@ -43,34 +41,43 @@ const ErrorMonitorTab = () => {
         fetchErrors();
     }, [fetchErrors]);
 
-    // Funkce pro parsování data, která je odolnější
-    const parseDateTime = (dateStr, timeStr) => {
-        if (!dateStr || !timeStr) return null;
+    const parseDateTime = (dateInput, timeInput) => {
+        if (!dateInput || !timeInput) return null;
 
-        // Zkusíme nejdříve standardní formáty
-        const dateTime = new Date(`${dateStr} ${timeStr}`);
-        if (!isNaN(dateTime.getTime())) {
-            return dateTime;
-        }
-
-        // Pokud selže, zkusíme parsovat formát 'mm/dd/yyyy'
-        const dateParts = String(dateStr).split('/');
-        if (dateParts.length === 3) {
-            const month = parseInt(dateParts[0], 10) - 1;
-            const day = parseInt(dateParts[1], 10);
-            const year = parseInt(dateParts[2], 10);
-            const timeParts = String(timeStr).split(':');
-            if (timeParts.length === 3) {
-                const hours = parseInt(timeParts[0], 10);
-                const minutes = parseInt(timeParts[1], 10);
-                const seconds = parseInt(timeParts[2], 10);
-                const parsedDate = new Date(year, month, day, hours, minutes, seconds);
-                if (!isNaN(parsedDate.getTime())) {
-                    return parsedDate;
-                }
+        let date;
+        // Zpracování číselného formátu data z Excelu
+        if (typeof dateInput === 'number') {
+            const utc_days = Math.floor(dateInput - 25569);
+            const utc_value = utc_days * 86400;
+            const date_info = new Date(utc_value * 1000);
+            date = new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate());
+        } else {
+             // Zpracování textového formátu data
+            const parts = String(dateInput).split(/[/.-]/);
+            if (parts.length === 3) {
+                // Předpokládáme formát MM/DD/YYYY nebo DD.MM.YYYY
+                const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+                const month = parts[0].length === 2 ? parts[0] : parts[1];
+                const day = parts[0].length === 2 ? parts[1] : parts[0];
+                date = new Date(`${year}-${month}-${day}`);
+            } else {
+                 date = new Date(dateInput);
             }
         }
-        return null;
+        
+        if (isNaN(date.getTime())) return null;
+
+        // Zpracování času
+        const timeParts = String(timeInput).split(':');
+        if (timeParts.length >= 2) {
+            date.setHours(parseInt(timeParts[0], 10));
+            date.setMinutes(parseInt(timeParts[1], 10));
+            if (timeParts.length === 3) {
+                 date.setSeconds(parseInt(timeParts[2], 10));
+            }
+        }
+        
+        return !isNaN(date.getTime()) ? date : null;
     }
 
     const handleFileImport = async (event) => {
@@ -127,10 +134,10 @@ const ErrorMonitorTab = () => {
                     actual_qty: row['Source actual qty.'] || 0,
                     diff_qty: row['Source bin differ.'] || 0,
                 };
-            }).filter(Boolean); // Odstraní všechny null hodnoty
+            }).filter(Boolean);
 
             if (processedData.length === 0) {
-                throw new Error(`Soubor byl zpracován, ale neobsahoval žádné platné řádky s datem. Zkontrolujte formát data (očekáváno 'mm/dd/yyyy') a času.`);
+                throw new Error(`Soubor byl zpracován, ale neobsahoval žádné platné řádky s datem. Zkontrolujte formát data a času.`);
             }
 
             setUploadMessage(`Krok 4/5: Nahrávám ${processedData.length} platných záznamů...`);
@@ -159,7 +166,6 @@ const ErrorMonitorTab = () => {
         }
     };
     
-    // Zbytek kódu je beze změny
     const kpis = useMemo(() => {
         if (!errorData || errorData.length === 0) return { total: 0, mostCommon: 'N/A' };
         const descriptions = getTopN(errorData, 'description', 1);
