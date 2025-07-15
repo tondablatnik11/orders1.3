@@ -75,13 +75,14 @@ const ErrorMonitorTab = () => {
                     actual_qty: row['Source actual qty.'] || 0,
                     diff_qty: row['Source bin differ.'] || 0,
                 };
-            }).filter(Boolean); // Odstraní všechny null (neplatné) řádky
+            }).filter(Boolean);
 
             if (invalidRows > 0) {
-                console.warn(`Celkem přeskočeno ${invalidRows} řádků kvůli neplatnému datu.`);
+                setUploadMessage(`Nahrávám ${processedData.length} záznamů. Přeskočeno ${invalidRows} neplatných.`);
+            } else {
+                 setUploadMessage(`Nahrávám ${processedData.length} platných záznamů...`);
             }
-
-            setUploadMessage(`Nahrávám ${processedData.length} platných záznamů...`);
+            
             const CHUNK_SIZE = 100;
             for (let i = 0; i < processedData.length; i += CHUNK_SIZE) {
                 const chunk = processedData.slice(i, i + CHUNK_SIZE);
@@ -95,7 +96,7 @@ const ErrorMonitorTab = () => {
             setUploadMessage(`Chyba při importu: ${error.message}`);
         } finally {
             setUploading(false);
-            setTimeout(() => setUploadMessage(''), 5000);
+            setTimeout(() => setUploadMessage(''), 6000);
         }
     };
 
@@ -113,9 +114,7 @@ const ErrorMonitorTab = () => {
     return (
         <div className="space-y-6">
             <Card>
-                <CardHeader>
-                    <CardTitle>Importovat chyby z XLSX</CardTitle>
-                </CardHeader>
+                <CardHeader><CardTitle>Importovat chyby z XLSX</CardTitle></CardHeader>
                 <CardContent>
                     <div className="flex flex-col space-y-4">
                         <p className="text-sm text-gray-400">Vyberte .xlsx soubor. Data budou zkontrolována, zpracována a uložena do databáze.</p>
@@ -134,11 +133,8 @@ const ErrorMonitorTab = () => {
             
             {!loading && errorData && (
                 <div className="flex flex-col gap-6">
-                    {/* 1. Velká tabulka nahoře */}
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Detailní přehled chyb</CardTitle>
-                        </CardHeader>
+                        <CardHeader><CardTitle>Detailní přehled chyb</CardTitle></CardHeader>
                         <CardContent>
                             <div className="overflow-x-auto max-h-[500px]">
                                 <table className="w-full text-sm text-left text-gray-400">
@@ -157,6 +153,7 @@ const ErrorMonitorTab = () => {
                                     </thead>
                                     <tbody className="divide-y divide-gray-700">
                                         {errorData.map((error) => (
+                                            //  Klíčová oprava je zde: key={error.id}
                                             <tr key={error.id} className="hover:bg-gray-800">
                                                 <td className="px-4 py-2 whitespace-nowrap">{new Date(error.timestamp).toLocaleString('cs-CZ')}</td>
                                                 <td className="px-4 py-2 font-medium text-white">{error.description}</td>
@@ -175,7 +172,6 @@ const ErrorMonitorTab = () => {
                         </CardContent>
                     </Card>
 
-                    {/* 2. Mřížka s KPI a grafy dole */}
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                         <Card className="lg:col-span-1">
                             <CardHeader><CardTitle>Celkový počet chyb</CardTitle></CardHeader>
