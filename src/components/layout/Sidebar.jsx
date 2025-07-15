@@ -1,54 +1,66 @@
-import React from 'react';
-import { Home, Clock, Search, Truck, Ticket, Settings, MessageSquare, ListChecks, ShieldAlert } from 'lucide-react'; // Přidána ikona ShieldAlert
+import { forwardRef } from 'react';
+import { Home, Search, Bell, CalendarDays, Truck, Warehouse, AlertTriangle, LogOut } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import Image from 'next/image';
 
-// Pomocná komponenta pro jednu položku v menu
-const NavItem = ({ icon, children, isActive, onClick }) => {
-  return (
-    <li
-      className={`
-        flex items-center p-3 my-1 rounded-lg cursor-pointer transition-colors
-        ${isActive
-          ? 'bg-blue-600 text-white shadow-lg'
-          : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-        }
-      `}
-      onClick={onClick}
-    >
-      {icon}
-      <span className="ml-4 font-medium">{children}</span>
-    </li>
-  );
-};
+const Sidebar = forwardRef(({ activeTab, onTabChange }, ref) => {
+    const { user, signOut } = useAuth();
 
-// Hlavní komponenta postranního menu
-const Sidebar = ({ activeTab, setActiveTab }) => {
-  return (
-    <aside className="w-64 bg-gray-900 text-white flex-shrink-0 p-4 flex flex-col">
-      <div className="text-2xl font-bold mb-8 text-center">
-        Hellmann-Connect
-      </div>
-      <nav>
-        <ul>
-          <NavItem icon={<Home />} isActive={activeTab === 0} onClick={() => setActiveTab(0)}>Přehled</NavItem>
-          <NavItem icon={<Clock />} isActive={activeTab === 1} onClick={() => setActiveTab(1)}>Zpožděné</NavItem>
-          <NavItem icon={<Search />} isActive={activeTab === 2} onClick={() => setActiveTab(2)}>Vyhledávání</NavItem>
-          <NavItem icon={<Truck />} isActive={activeTab === 3} onClick={() => setActiveTab(3)}>Ohlášené</NavItem>
-          <NavItem icon={<Ticket />} isActive={activeTab === 4} onClick={() => setActiveTab(4)}>Tickety</NavItem>
-          <NavItem icon={<ListChecks />} isActive={activeTab === 7} onClick={() => setActiveTab(7)}>Skladové činnosti</NavItem>
-          
-          {/* === ZDE JE PŘIDÁNA NOVÁ POLOŽKA === */}
-          <NavItem icon={<ShieldAlert />} isActive={activeTab === 8} onClick={() => setActiveTab(8)}>Error Monitor</NavItem>
-        </ul>
-      </nav>
-      
-      <div className="mt-auto">
-        <ul>
-          <NavItem icon={<MessageSquare />} isActive={activeTab === 6} onClick={() => setActiveTab(6)}>Chat</NavItem>
-          <NavItem icon={<Settings />} isActive={activeTab === 5} onClick={() => setActiveTab(5)}>Nastavení</NavItem>
-        </ul>
-      </div>
-    </aside>
-  );
-};
+    const menuItems = [
+        { id: 'dashboard', label: 'Přehled', icon: Home },
+        { id: 'orderSearch', label: 'Hledat zakázku', icon: Search },
+        { id: 'announcedLoadings', label: 'Ohlášené nakládky', icon: Bell },
+        { id: 'delayedOrders', label: 'Zpožděné zakázky', icon: CalendarDays },
+        { id: 'dailySummary', label: 'Denní souhrn', icon: Truck },
+        { id: 'warehouseActivities', label: 'Skladové aktivity', icon: Warehouse },
+        { id: 'errorMonitor', label: 'Error Monitor', icon: AlertTriangle },
+    ];
 
+    const NavLink = ({ item }) => (
+        <li
+            onClick={() => onTabChange(item.id)}
+            className={`
+                flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors
+                ${activeTab === item.id 
+                    ? 'bg-blue-600 text-white shadow-lg' 
+                    : 'text-slate-400 hover:bg-slate-700 hover:text-white'
+                }
+            `}
+        >
+            <item.icon className="w-5 h-5" />
+            <span className="font-medium">{item.label}</span>
+        </li>
+    );
+
+    return (
+        <div ref={ref} className="fixed lg:static inset-y-0 left-0 z-30 w-64 bg-slate-800 text-white flex flex-col p-4 shadow-2xl">
+            <div className="flex items-center gap-3 px-2 mb-8">
+                <Image src="/logo.svg" alt="Logo" width={40} height={40} />
+                <span className="text-xl font-bold">Orders 1.3</span>
+            </div>
+
+            <nav className="flex-1">
+                <ul className="space-y-2">
+                    {menuItems.map(item => <NavLink key={item.id} item={item} />)}
+                </ul>
+            </nav>
+
+            <div className="border-t border-slate-700 pt-4">
+                <div className="flex items-center gap-3 px-2 py-2.5 rounded-lg">
+                    <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center font-bold">
+                        {user ? user.email.charAt(0).toUpperCase() : '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="font-semibold truncate">{user ? user.email : 'Neznámý uživatel'}</p>
+                    </div>
+                    <button onClick={signOut} className="p-2 rounded-md hover:bg-slate-700 transition-colors">
+                        <LogOut className="w-5 h-5 text-slate-400" />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+});
+
+Sidebar.displayName = 'Sidebar';
 export default Sidebar;
