@@ -51,19 +51,23 @@ export const processData = (rawData) => {
         if (isNaN(status)) return;
         
         const loadingDate = parseDataDate(row["Loading Date"]);
-        
-        if (loadingDate && isBefore(loadingDate, today) && remainingStatuses.includes(status)) {
-            summary.delayed++;
-            const carrier = row["Forwarding agent name"] || "Neznámý";
-            summary.delayedByCarrier[carrier] = (summary.delayedByCarrier[carrier] || 0) + 1;
-            summary.delayedOrdersList.push({
-                ...row,
-                delivery: String(row["Delivery No"] || '').trim(),
-                status: status,
-                delType: row["del.type"],
-                loadingDate: loadingDate.toISOString(),
-                delayDays: differenceInDays(today, loadingDate),
-            });
+
+        if (loadingDate) {
+            const delayDays = differenceInDays(today, startOfDay(loadingDate));
+
+            if (delayDays > 0 && remainingStatuses.includes(status)) {
+                summary.delayed++;
+                const carrier = row["Forwarding agent name"] || "Neznámý";
+                summary.delayedByCarrier[carrier] = (summary.delayedByCarrier[carrier] || 0) + 1;
+                summary.delayedOrdersList.push({
+                    ...row,
+                    delivery: String(row["Delivery No"] || '').trim(),
+                    status: status,
+                    delType: row["del.type"],
+                    loadingDate: loadingDate.toISOString(),
+                    delayDays: delayDays,
+                });
+            }
         }
         
         const countryCode2 = row["Country ship-to prty"];
