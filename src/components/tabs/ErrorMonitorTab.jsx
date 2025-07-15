@@ -1,8 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { processErrorData } from '@/lib/errorMonitorProcessor';
-import { supabase } from '@/lib/supabaseClient'; 
+// Změna zde: importujeme getSupabase místo supabase
+import { getSupabase } from '@/lib/supabaseClient'; 
 import { Card, Title, Text, Button, DonutChart, BarChart, Grid } from '@tremor/react';
 import { UploadCloud, AlertCircle, RefreshCw } from 'lucide-react';
+
+// Změna zde: Získáme klienta zavoláním funkce
+const supabase = getSupabase();
 
 const ErrorMonitorTab = () => {
   const [errorData, setErrorData] = useState(null);
@@ -16,10 +20,8 @@ const ErrorMonitorTab = () => {
     try {
       let dataToProcess;
       if (source instanceof File) {
-        // Zpracování souboru
         dataToProcess = source;
       } else {
-        // Načtení dat ze Supabase
         const { data: supabaseData, error } = await supabase
           .from('errors')
           .select('*')
@@ -36,13 +38,12 @@ const ErrorMonitorTab = () => {
     } catch (error) {
       console.error("Chyba při zpracování dat:", error);
       setErrorMessage(error.message || 'Nepodařilo se načíst nebo zpracovat data o chybách.');
-      setErrorData(null); // Vyčistit stará data při chybě
+      setErrorData(null);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Prvotní načtení dat z databáze při zobrazení komponenty
   useEffect(() => {
     fetchAndProcessData();
   }, [fetchAndProcessData]);
@@ -52,7 +53,6 @@ const ErrorMonitorTab = () => {
     if (file) {
       fetchAndProcessData(file);
     }
-    // Reset file inputu
     if(fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -77,7 +77,6 @@ const ErrorMonitorTab = () => {
 
   return (
     <div className="p-4 sm:p-6 bg-gray-50/50 min-h-full">
-      {/* Hlavička */}
       <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
         <Title>Monitoring Chyb Aplikace</Title>
         <div className="flex items-center gap-2">
@@ -106,7 +105,6 @@ const ErrorMonitorTab = () => {
         </div>
       </div>
 
-      {/* Chybová zpráva */}
       {errorMessage && (
         <Card className="mb-6 bg-red-100 border-red-500">
           <div className="flex items-center">
@@ -116,7 +114,6 @@ const ErrorMonitorTab = () => {
         </Card>
       )}
 
-      {/* Dashboard s daty */}
       {!isLoading && errorData && errorData.detailedErrors.length > 0 ? (
         <div className="space-y-6">
           <Grid numItemsLg={3} className="gap-6">
@@ -178,7 +175,6 @@ const ErrorMonitorTab = () => {
           </Card>
         </div>
       ) : (
-        // Stav při načítání nebo pokud nejsou žádná data
         <Card className="flex flex-col items-center justify-center h-96 border-dashed border-2">
             {isLoading ? (
                 <>
