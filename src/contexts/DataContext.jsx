@@ -3,7 +3,7 @@ import React, { createContext, useState, useEffect, useCallback, useMemo } from 
 import { getSupabase } from '../lib/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
 import { processData } from '../lib/dataProcessor';
-import { processErrorLogData } from '../lib/errorMonitorProcessor'; // <-- PŘIDÁN IMPORT
+import { processErrorLogData } from '../lib/lvsErrorProcessor.js'; // <-- ZMĚNA IMPORTU
 import toast from 'react-hot-toast';
 
 export const DataContext = createContext(null);
@@ -15,7 +15,6 @@ export const DataProvider = ({ children }) => {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
   
-  // Stavy pro Error Monitor
   const [errorLogData, setErrorLogData] = useState([]);
   const [errorSummary, setErrorSummary] = useState(null);
   const [isLoadingErrorData, setIsLoadingErrorData] = useState(true);
@@ -105,7 +104,6 @@ export const DataProvider = ({ children }) => {
     reader.readAsBinaryString(file);
   }, [supabase, fetchData]);
   
-  // Nová funkce pro nahrávání error logu
   const handleErrorLogUpload = useCallback(async (file) => {
     if (!file || typeof window.XLSX === 'undefined') return;
     toast.loading('Zpracovávám soubor s chybami...');
@@ -146,7 +144,6 @@ export const DataProvider = ({ children }) => {
     selectedOrderDetails,
     setSelectedOrderDetails,
     supabase,
-    // Přidáno pro Error Monitor
     errorLogData,
     errorSummary,
     isLoadingErrorData,

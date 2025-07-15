@@ -13,15 +13,15 @@ import AnnouncedLoadingsTab from '@/components/tabs/AnnouncedLoadingsTab';
 import TicketsTab from '@/components/tabs/TicketsTab';
 import SettingsTab from '@/components/tabs/SettingsTab';
 import ChatTab from '@/components/tabs/ChatTab';
-import WarehouseActivitiesTab from '@/components/tabs/WarehouseActivitiesTab';
-import ErrorMonitorTab from '@/components/tabs/ErrorMonitorTab';
+import WarehouseOpsTab from '@/components/tabs/WarehouseOpsTab'; // <-- ZMĚNA IMPORTU
+import LvsErrorTab from '@/components/tabs/LvsErrorTab';       // <-- ZMĚNA IMPORTU
 
 
 export default function DashboardLayout() {
     const { t } = useUI();
     const { summary, isLoadingData } = useData();
     const { userProfile, loading: authLoading } = useAuth();
-    const [activeTab, setActiveTab] = useState(0); // Zpět na lokální stav
+    const [activeTab, setActiveTab] = useState(0); 
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
     useEffect(() => {
@@ -43,8 +43,8 @@ export default function DashboardLayout() {
     const renderActiveTab = () => {
         if (activeTab === 5) return <SettingsTab initialProfile={userProfile} />;
         if (activeTab === 6) return <ChatTab />;
-        if (activeTab === 7) return <WarehouseActivitiesTab />;
-        if (activeTab === 8) return <ErrorMonitorTab />;
+        if (activeTab === 7) return <WarehouseOpsTab />; // <-- POUŽITÍ NOVÉ KOMPONENTY
+        if (activeTab === 8) return <LvsErrorTab />;       // <-- POUŽITÍ NOVÉ KOMPONENTY
 
 
         if (isLoadingData) {
@@ -72,10 +72,8 @@ export default function DashboardLayout() {
 
     return (
         <div className="flex h-screen bg-gray-800">
-            {/* Předáváme stav jako props */}
             <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
             <div className="flex flex-col flex-1 overflow-hidden">
-                {/* Předáváme stav jako props */}
                 <AppHeader activeTab={activeTab} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
                 <main className="flex-1 p-6 lg:p-10 overflow-y-auto bg-gray-800">
                     {renderActiveTab()}
