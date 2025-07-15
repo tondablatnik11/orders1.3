@@ -82,23 +82,23 @@ const ErrorMonitorTab = () => {
   const priorityColor = (priority) => {
     switch (priority) {
       case 'High': return 'bg-red-500';
-      case 'Medium': return 'bg-yellow-500';
+      case 'Medium': return 'bg-amber-500';
       case 'Low': return 'bg-green-500';
       default: return 'bg-slate-600';
     }
   };
 
-  const DarkCard = ({ children, className = '' }) => (
-    <div className={`bg-slate-900 border border-slate-800 rounded-lg p-4 sm:p-6 ${className}`}>
+  // Vlastní komponenta pro kartu s novým designem
+  const StyledCard = ({ children, className = '' }) => (
+    <div className={`bg-sky-900/50 border border-cyan-400/10 rounded-xl p-4 sm:p-6 shadow-lg shadow-cyan-900/10 ${className}`}>
         {children}
     </div>
   );
 
   return (
-    // Změna zde: Tmavé pozadí pro celou komponentu
-    <div className="p-4 sm:p-6 bg-slate-950 min-h-full text-slate-300">
+    <div className="p-4 sm:p-6 bg-sky-950 min-h-full text-slate-300">
       <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
-        <h1 className="text-2xl font-semibold text-white">Monitoring Chyb Aplikace</h1>
+        <h1 className="text-2xl font-semibold text-cyan-400">Monitoring Chyb Aplikace</h1>
         <div className="flex items-center gap-2">
             <input
               type="file"
@@ -119,6 +119,7 @@ const ErrorMonitorTab = () => {
               onClick={handleRefreshClick}
               loading={isLoading}
               icon={RefreshCw}
+              color="cyan"
             >
               Aktualizovat
             </Button>
@@ -126,69 +127,78 @@ const ErrorMonitorTab = () => {
       </div>
 
       {errorMessage && !isLoading && (
-        <DarkCard className="bg-red-900/20 border-red-500/30">
+        <StyledCard className="bg-red-900/20 border-red-500/30">
           <div className="flex items-center">
             <AlertCircle className="h-5 w-5 text-red-500 mr-3 shrink-0" />
             <span className="text-red-400">{errorMessage}</span>
           </div>
-        </DarkCard>
+        </StyledCard>
       )}
 
       {!isLoading && errorData && errorData.detailedErrors.length > 0 ? (
         <div className="space-y-6">
           <Grid numItemsLg={3} className="gap-6">
-            <DarkCard><Text className="text-slate-400">Celkem chyb</Text><p className="text-3xl font-semibold text-white">{errorData.summaryMetrics.totalErrors}</p></DarkCard>
-            <DarkCard><Text className="text-slate-400">Unikátní typy chyb</Text><p className="text-3xl font-semibold text-white">{errorData.summaryMetrics.uniqueErrorTypes}</p></DarkCard>
-            <DarkCard><Text className="text-slate-400">Vysoká priorita</Text><p className="text-3xl font-semibold text-red-500">{errorData.summaryMetrics.totalHighPriority}</p></DarkCard>
+            <StyledCard>
+                <Text className="text-sky-200">Celkem chyb</Text>
+                <p className="text-3xl font-semibold text-white">{errorData.summaryMetrics.totalErrors}</p>
+            </StyledCard>
+            <StyledCard>
+                <Text className="text-sky-200">Unikátní typy chyb</Text>
+                <p className="text-3xl font-semibold text-white">{errorData.summaryMetrics.uniqueErrorTypes}</p>
+            </StyledCard>
+            <StyledCard>
+                <Text className="text-sky-200">Vysoká priorita</Text>
+                <p className="text-3xl font-semibold text-red-500">{errorData.summaryMetrics.totalHighPriority}</p>
+            </StyledCard>
           </Grid>
           
           <Grid numItemsLg={5} className="gap-6">
-            <DarkCard className="lg:col-span-3">
+            <StyledCard className="lg:col-span-3">
                 <Title className="text-white">Chyby podle Aplikační Oblasti</Title>
                 <BarChart className="mt-4 h-80" data={errorData.chartsData.errorsByArea} index="name" categories={['value']} colors={['cyan']} yAxisWidth={100} layout="vertical" />
-            </DarkCard>
-            <DarkCard className="lg:col-span-2">
+            </StyledCard>
+            <StyledCard className="lg:col-span-2">
                 <Title className="text-white">Chyby podle Priority</Title>
-                <DonutChart className="mt-10 h-64" data={errorData.chartsData.errorsByPriority} category="value" index="name" colors={['red', 'yellow', 'green']} />
-            </DarkCard>
+                <DonutChart className="mt-10 h-64" data={errorData.chartsData.errorsByPriority} category="value" index="name" colors={['red-600', 'amber-500', 'green-600']} />
+            </StyledCard>
           </Grid>
 
-          <DarkCard>
+          <StyledCard>
             <Title className="text-white">Detailní přehled chyb</Title>
             <div className="overflow-x-auto mt-4">
               <table className="min-w-full">
-                <thead className="border-b border-slate-700">
+                <thead className="border-b-2 border-sky-800">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Priorita</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Čas</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Popis chyby</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Stav</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Uživatel</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-sky-300 uppercase tracking-wider">Priorita</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-sky-300 uppercase tracking-wider">Čas</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-sky-300 uppercase tracking-wider">Popis chyby</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-sky-300 uppercase tracking-wider">Stav</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-sky-300 uppercase tracking-wider">Uživatel</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800">
+                <tbody className="divide-y divide-sky-900">
                   {errorData.detailedErrors.map((error) => (
-                    <tr key={error.id} className="hover:bg-slate-800/40">
-                      <td className="px-4 py-4 whitespace-nowrap"><span className={`inline-block h-4 w-4 rounded-full ring-2 ring-slate-900 ${priorityColor(error.priority)}`} title={error.priority}></span></td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{new Date(error.timestamp).toLocaleString('cs-CZ')}</td>
+                    <tr key={error.id} className="hover:bg-sky-900">
+                      <td className="px-4 py-4 whitespace-nowrap"><span className={`inline-block h-4 w-4 rounded-full ring-2 ring-sky-950 ${priorityColor(error.priority)}`} title={error.priority}></span></td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-sky-300">{new Date(error.timestamp).toLocaleString('cs-CZ')}</td>
                       <td className="px-4 py-4 text-sm text-white max-w-sm truncate" title={error.description}>{error.description}</td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{error.status}</td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{error.user}</td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-sky-300">{error.status}</td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-sky-300">{error.user}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </DarkCard>
+          </StyledCard>
         </div>
       ) : (
-        <DarkCard className="flex flex-col items-center justify-center h-96 border-dashed border-slate-700">
+        <StyledCard className="flex flex-col items-center justify-center h-96 border-dashed border-sky-800">
             {isLoading ? (
-                <><RefreshCw className="h-16 w-16 text-slate-500 mb-4 animate-spin" /><Title className="text-slate-400">Načítám data...</Title></>
+                <><RefreshCw className="h-16 w-16 text-sky-700 mb-4 animate-spin" /><Title className="text-sky-500">Načítám data...</Title></>
             ) : (
-                <><AlertCircle className="h-16 w-16 text-slate-500 mb-4" /><Title className="text-slate-400">Žádná data k zobrazení</Title><Text className="text-slate-500">Nebyly nalezeny žádné záznamy o chybách.</Text></>
+                <><AlertCircle className="h-16 w-16 text-sky-700 mb-4" /><Title className="text-sky-500">Žádná data k zobrazení</Title><Text className="text-sky-600">Nebyly nalezeny žádné záznamy o chybách.</Text></>
             )}
-        </DarkCard>
+        </StyledCard>
       )}
     </div>
   );
