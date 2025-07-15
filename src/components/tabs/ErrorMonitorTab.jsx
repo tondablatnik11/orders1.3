@@ -3,10 +3,13 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { getSupabase } from '@/lib/supabaseClient';
+import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 
+// Pomocná funkce pro uspání
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Funkce pro získání top N položek z dat
 const getTopN = (data, key, n = 10) => {
     if (!data) return [];
     const counts = data.reduce((acc, item) => {
@@ -40,12 +43,49 @@ const ErrorMonitorTab = () => {
         fetchErrors();
     }, [fetchErrors]);
 
+    // Funkce pro parsování data, která je odolnější
+    const parseDateTime = (dateStr, timeStr) => {
+        if (!dateStr || !timeStr) return null;
+
+        // Zkusíme nejdříve standardní formáty
+        const dateTime = new Date(`${dateStr} ${timeStr}`);
+        if (!isNaN(dateTime.getTime())) {
+            return dateTime;
+        }
+
+        // Pokud selže, zkusíme parsovat formát 'mm/dd/yyyy'
+        const dateParts = String(dateStr).split('/');
+        if (dateParts.length === 3) {
+            const month = parseInt(dateParts[0], 10) - 1;
+            const day = parseInt(dateParts[1], 10);
+            const year = parseInt(dateParts[2], 10);
+            const timeParts = String(timeStr).split(':');
+            if (timeParts.length === 3) {
+                const hours = parseInt(timeParts[0], 10);
+                const minutes = parseInt(timeParts[1], 10);
+                const seconds = parseInt(timeParts[2], 10);
+                const parsedDate = new Date(year, month, day, hours, minutes, seconds);
+                if (!isNaN(parsedDate.getTime())) {
+                    return parsedDate;
+                }
+            }
+        }
+        return null;
+    }
+
     const handleFileImport = async (event) => {
         const file = event.target.files[0];
         if (!file) return;
 
         setUploading(true);
         setUploadMessage('');
+        
+        if (typeof XLSX === 'undefined') {
+            toast.error("Knihovna pro zpracování XLSX souborů není načtena. Zkuste prosím obnovit stránku.");
+            setUploading(false);
+            return;
+        }
+
         try {
             const supabase = getSupabase();
             
@@ -60,39 +100,22 @@ const ErrorMonitorTab = () => {
             const worksheet = workbook.Sheets[sheetName];
             const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-            // --- PŘIDÁNA FINÁLNÍ KONTROLA ZDE ---
-            if (!Array.isArray(jsonData)) {
-                throw new Error("Nepodařilo se zpracovat soubor. Ujistěte se, že je to platný XLSX soubor a není poškozený.");
+            if (!Array.isArray(jsonData) || jsonData.length === 0) {
+                throw new Error("Soubor neobsahuje žádná data nebo je poškozený.");
             }
 
             setUploadMessage(`Krok 3/5: Nalezeno ${jsonData.length} řádků. Validuji data...`);
             await sleep(200);
-            let invalidRows = 0;
-            const processedData = jsonData.map((row, index) => {
-                const dateStr = row['Created On'];
-                const timeStr = row['Time'];
-                if (!dateStr || !timeStr) {
-                    invalidRows++; return null;
-                }
-                const dateParts = String(dateStr).split('/');
-                if (dateParts.length !== 3) {
-                    invalidRows++; return null;
-                }
-                const month = parseInt(dateParts[0], 10) - 1;
-                const day = parseInt(dateParts[1], 10);
-                const year = parseInt(dateParts[2], 10);
-                const timeParts = String(timeStr).split(':');
-                const hours = parseInt(timeParts[0], 10);
-                const minutes = parseInt(timeParts[1], 10);
-                const seconds = parseInt(timeParts[2], 10);
-                const date = new Date(year, month, day, hours, minutes, seconds);
-
-                if (isNaN(date.getTime())) {
-                    invalidRows++; return null;
+            
+            const processedData = jsonData.map((row) => {
+                const date = parseDateTime(row['Created On'], row['Time']);
+                if (!date) {
+                    return null;
                 }
                 
                 const text1 = row['Text']?.trim() || '';
                 const text2 = row['Text.1']?.trim() || '';
+
                 return {
                     timestamp: date.toISOString(),
                     description: `${text1} ${text2}`.trim() || 'N/A',
@@ -104,14 +127,15 @@ const ErrorMonitorTab = () => {
                     actual_qty: row['Source actual qty.'] || 0,
                     diff_qty: row['Source bin differ.'] || 0,
                 };
-            }).filter(Boolean);
+            }).filter(Boolean); // Odstraní všechny null hodnoty
 
             if (processedData.length === 0) {
-                throw new Error(`Soubor byl zpracován, ale neobsahoval žádné řádky s platným datem ve formátu mm/dd/yyyy. Celkem zkontrolováno: ${jsonData.length} řádků.`);
+                throw new Error(`Soubor byl zpracován, ale neobsahoval žádné platné řádky s datem. Zkontrolujte formát data (očekáváno 'mm/dd/yyyy') a času.`);
             }
 
             setUploadMessage(`Krok 4/5: Nahrávám ${processedData.length} platných záznamů...`);
             await sleep(200);
+
             const CHUNK_SIZE = 100;
             for (let i = 0; i < processedData.length; i += CHUNK_SIZE) {
                 const chunk = processedData.slice(i, i + CHUNK_SIZE);
@@ -127,6 +151,7 @@ const ErrorMonitorTab = () => {
 
         } catch (error) {
             console.error('Import selhal:', error);
+            toast.error(`CHYBA: ${error.message}`);
             setUploadMessage(`CHYBA: ${error.message}`);
         } finally {
             setUploading(false);
