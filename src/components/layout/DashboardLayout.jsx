@@ -13,6 +13,9 @@ import AnnouncedLoadingsTab from '@/components/tabs/AnnouncedLoadingsTab';
 import TicketsTab from '@/components/tabs/TicketsTab';
 import SettingsTab from '@/components/tabs/SettingsTab';
 import ChatTab from '@/components/tabs/ChatTab';
+import WarehouseActivitiesTab from '@/components/tabs/WarehouseActivitiesTab';
+import ErrorMonitorTab from '@/components/tabs/ErrorMonitorTab';
+
 
 export default function DashboardLayout() {
     const { t } = useUI();
@@ -40,6 +43,9 @@ export default function DashboardLayout() {
     const renderActiveTab = () => {
         if (activeTab === 5) return <SettingsTab initialProfile={userProfile} />;
         if (activeTab === 6) return <ChatTab />;
+        if (activeTab === 7) return <WarehouseActivitiesTab />;
+        if (activeTab === 8) return <ErrorMonitorTab />;
+
 
         if (isLoadingData) {
             return <div className="text-center p-8 text-lg">Načítám data objednávek...</div>;
@@ -68,7 +74,7 @@ export default function DashboardLayout() {
         <div className="flex h-screen bg-gray-800">
             <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
             <div className="flex flex-col flex-1 overflow-hidden">
-                <AppHeader onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+                <AppHeader activeTab={activeTab} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
                 <main className="flex-1 p-6 lg:p-10 overflow-y-auto bg-gray-800">
                     {renderActiveTab()}
                 </main>

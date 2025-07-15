@@ -32,7 +32,7 @@ export default function DashboardTab() {
     const todayCardRef = useRef(null);
 
     useEffect(() => {
-        if (scrollContainerRef.current && todayCardRef.current) {
+        if (summary && scrollContainerRef.current && todayCardRef.current) {
             const container = scrollContainerRef.current;
             const todayCard = todayCardRef.current;
             const scrollAmount = todayCard.offsetLeft - (container.offsetWidth / 2) + (todayCard.offsetWidth / 2);

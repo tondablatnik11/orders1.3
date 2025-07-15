@@ -3,7 +3,7 @@ import React from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/useAuth';
 import { useUI } from '@/hooks/useUI';
-import { FiGrid, FiBarChart2, FiSearch, FiTruck, FiMessageSquare, FiLifeBuoy, FiSettings, FiLogOut } from 'react-icons/fi';
+import { FiGrid, FiBarChart2, FiSearch, FiTruck, FiMessageSquare, FiLifeBuoy, FiSettings, FiLogOut, FiWarehouse, FiAlertCircle } from 'react-icons/fi';
 
 const Sidebar = ({ activeTab, setActiveTab }) => {
     const { t } = useUI();
@@ -15,6 +15,8 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
         { id: 2, labelKey: 'orderSearchTab', icon: FiSearch },
         { id: 3, labelKey: 'announcedLoadingsTab', icon: FiTruck },
         { id: 4, labelKey: 'ticketsTab', icon: FiLifeBuoy },
+        { id: 7, labelKey: 'warehouseActivitiesTab', icon: FiWarehouse },
+        { id: 8, labelKey: 'errorMonitorTab', icon: FiAlertCircle },
         { id: 6, labelKey: 'chatTab', icon: FiMessageSquare },
     ];
 
