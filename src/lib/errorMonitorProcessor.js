@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { format, parse, getDay } from 'date-fns';
+import { format, getDay } from 'date-fns';
 import { cs } from 'date-fns/locale';
 
 /**
@@ -11,37 +11,47 @@ export const processErrorDataForSupabase = (file) => {
     reader.onload = (event) => {
       try {
         const bstr = event.target.result;
-        const workbook = XLSX.read(bstr, { type: 'binary', cellDates: true });
+        const workbook = XLSX.read(bstr, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        // Přidán parametr pro zachování prázdných hodnot, aby nedocházelo k chybám
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
         
         const dataForSupabase = jsonData.map(row => {
           try {
-            // Zpracování data a času
-            const dateStr = row['Created On'];
-            const timeStr = row['Time'];
-            if (!dateStr || !timeStr) return null;
+            // --- ZDE JE OPRAVA ---
+            // Flexibilnější hledání sloupců a bezpečnější zpracování
+            const dateValue = row['Created On'] || row['created on'];
+            const timeValue = row['Time'] || row['time'];
 
-            const datePart = new Date(dateStr);
-            if (isNaN(datePart)) return null;
+            // Pokud chybí datum, řádek přeskočíme
+            if (!dateValue) return null;
 
-            if (typeof timeStr === 'string') {
-              const timeParts = timeStr.split(':');
-              datePart.setHours(parseInt(timeParts[0] || 0, 10));
-              datePart.setMinutes(parseInt(timeParts[1] || 0, 10));
-              datePart.setSeconds(parseInt(timeParts[2] || 0, 10));
-            } else if (typeof timeStr === 'number') { // Zpracování času jako desetinného čísla z Excelu
-              const totalSeconds = Math.round(timeStr * 86400);
-              datePart.setHours(Math.floor(totalSeconds / 3600));
-              datePart.setMinutes(Math.floor((totalSeconds % 3600) / 60));
-              datePart.setSeconds(totalSeconds % 60);
+            // Zpracování data (zvládne text i číslo z Excelu)
+            let datePart;
+            if (typeof dateValue === 'number') {
+              datePart = new Date((dateValue - 25569) * 86400 * 1000);
+            } else {
+              datePart = new Date(dateValue);
+            }
+            if (isNaN(datePart.getTime())) return null; // Přeskočíme neplatná data
+
+            // Bezpečné zpracování času - pouze pokud hodnota existuje
+            if (timeValue) {
+              if (typeof timeValue === 'string') {
+                  const timeParts = timeValue.split(':');
+                  datePart.setHours(parseInt(timeParts[0] || 0, 10));
+                  datePart.setMinutes(parseInt(timeParts[1] || 0, 10));
+                  datePart.setSeconds(parseInt(timeParts[2] || 0, 10));
+              } else if (typeof timeValue === 'number') {
+                  const totalSeconds = Math.round(timeValue * 86400);
+                  datePart.setHours(Math.floor(totalSeconds / 3600));
+                  datePart.setMinutes(Math.floor((totalSeconds % 3600) / 60));
+                  datePart.setSeconds(totalSeconds % 60);
+              }
             }
 
-            // Kombinace textových polí pro typ chyby
-            const errorType = [row['Text'], row['Text.1']].filter(Boolean).join(' - ').trim() || 'Neznámá chyba';
-
-            // Zpracování rozdílů v množství
+            const errorType = [row['Text'], row['Text.1']].filter(v => v != null).join(' - ').trim() || 'Neznámá chyba';
             const sourceDiff = Number(row['Source bin differ.'] || 0);
             
             return {
@@ -57,13 +67,17 @@ export const processErrorDataForSupabase = (file) => {
             console.error("Chyba při zpracování řádku:", row, e);
             return null;
           }
-        }).filter(Boolean); // Odstraní řádky, kde došlo k chybě
+        }).filter(Boolean);
+
+        if (dataForSupabase.length === 0) {
+          throw new Error("V souboru nebyla nalezena žádná platná data ke zpracování.");
+        }
 
         resolve(dataForSupabase);
 
       } catch (error) {
         console.error("Chyba při parsování XLSX:", error);
-        reject(new Error('Nepodařilo se zpracovat XLSX soubor. Zkontrolujte formát.'));
+        reject(new Error(error.message || 'Nepodařilo se zpracovat XLSX soubor. Zkontrolujte formát.'));
       }
     };
     reader.onerror = () => reject(new Error('Chyba při čtení souboru.'));
@@ -89,7 +103,7 @@ export const processArrayForDisplay = (data) => {
       user: row.user,
       timestamp: row.timestamp,
       hour: format(timestamp, 'HH'),
-      dayOfWeek: getDay(timestamp), // 0 = neděle, 1 = pondělí, ...
+      dayOfWeek: getDay(timestamp),
     };
   });
 
@@ -99,7 +113,10 @@ export const processArrayForDisplay = (data) => {
   const errorsByPosition = aggregate(errors, 'position', 'Počet chyb');
   
   const errorsByHour = aggregateByTime(errors, 'hour', 24, (i) => `${String(i).padStart(2, '0')}:00`);
-  const errorsByDay = aggregateByTime(errors, 'dayOfWeek', 7, (i) => format(new Date(2024, 0, i + 1), 'eeee', { locale: cs }));
+  const errorsByDay = aggregateByTime(errors, 'dayOfWeek', 7, (i) => {
+    const dayIndex = (i + 1) % 7; // Posun, aby týden začínal pondělím
+    return format(new Date(2024, 0, dayIndex + 1), 'eeee', { locale: cs });
+  });
 
   const materialDiscrepancy = errors
     .filter(e => e.qtyDifference !== 0)
@@ -141,7 +158,6 @@ export const processArrayForDisplay = (data) => {
   };
 };
 
-// Vylepšená agregační funkce
 const aggregate = (data, key, metricName) => {
     const aggregation = data.reduce((acc, item) => {
         let value = item[key];
@@ -159,7 +175,6 @@ const aggregate = (data, key, metricName) => {
         .sort((a, b) => b[metricName] - a[metricName]);
 };
 
-// Seskupování podle času (hodiny, dny v týdnu)
 const aggregateByTime = (data, key, range, formatter) => {
     const aggregation = data.reduce((acc, item) => {
         const value = item[key];
