@@ -1,11 +1,11 @@
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'; // Vaše existující komponenta Card
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient'; // <-- Správný import funkce
 import * as XLSX from 'xlsx';
 
-// --- Pomocná funkce pro agregaci dat pro grafy ---
+// Pomocná funkce pro agregaci dat (zůstává stejná)
 const getTopN = (data, key, n = 10) => {
     if (!data) return [];
     const counts = data.reduce((acc, item) => {
@@ -13,11 +13,7 @@ const getTopN = (data, key, n = 10) => {
         acc[value] = (acc[value] || 0) + 1;
         return acc;
     }, {});
-
-    return Object.entries(counts)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, n)
-        .map(([name, value]) => ({ name, value }));
+    return Object.entries(counts).sort(([, a], [, b]) => b - a).slice(0, n).map(([name, value]) => ({ name, value }));
 };
 
 const ErrorMonitorTab = () => {
@@ -25,6 +21,9 @@ const ErrorMonitorTab = () => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState('');
+  
+  // Získáme klienta pomocí vaší funkce
+  const supabase = getSupabase();
 
   const fetchErrors = useCallback(async () => {
     setLoading(true);
@@ -36,7 +35,7 @@ const ErrorMonitorTab = () => {
       setErrorData(data);
     }
     setLoading(false);
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     fetchErrors();
@@ -45,7 +44,6 @@ const ErrorMonitorTab = () => {
   const handleFileImport = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
-
     setUploading(true);
     setUploadMessage('Zpracovávám soubor...');
     try {
@@ -55,7 +53,6 @@ const ErrorMonitorTab = () => {
       const worksheet = workbook.Sheets[sheetName];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-      setUploadMessage('Transformuji data...');
       const processedData = jsonData.map(row => {
         const text1 = row['Text']?.trim() || '';
         const text2 = row['Text.1']?.trim() || '';
@@ -106,6 +103,7 @@ const ErrorMonitorTab = () => {
     byUser: getTopN(errorData, 'user'),
   }), [errorData]);
 
+  // Vzhled komponenty (JSX) zůstává stejný
   return (
     <div className="space-y-6">
       <Card>
@@ -223,5 +221,3 @@ const ErrorMonitorTab = () => {
     </div>
   );
 };
-
-export default ErrorMonitorTab;
