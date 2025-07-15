@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { processErrorData, processArrayForDisplay } from '@/lib/errorMonitorProcessor'; // Upravený import
+import { processArrayForDisplay } from '@/lib/errorMonitorProcessor'; // Používáme jen funkci pro zobrazení
 import { getSupabase } from '@/lib/supabaseClient';
 import { Card, Title, Text, Button, BarChart, Grid, TextInput } from '@tremor/react';
 import { UploadCloud, AlertCircle, SearchIcon, BarChart3, Users, AlertTriangle, RefreshCw } from 'lucide-react';
@@ -13,7 +13,6 @@ const ErrorMonitorTab = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const fileInputRef = useRef(null);
 
-  // Funkce pro načtení a zobrazení dat z databáze
   const fetchAndDisplayData = useCallback(async () => {
     setIsLoading(true);
     const { data, error } = await supabase.from('errors').select('*').order('timestamp', { ascending: false });
@@ -23,48 +22,14 @@ const ErrorMonitorTab = () => {
         console.error(error);
         setErrorData(null);
     } else {
-        // Použijeme procesor pro zobrazení dat ze Supabase
         const processedData = processArrayForDisplay(data); 
         setErrorData(processedData);
     }
     setIsLoading(false);
   }, []);
 
-  // Prvotní načtení dat při startu
   useEffect(() => {
     fetchAndDisplayData();
-  }, [fetchAndDisplayData]);
-
-  // Funkce pro nahrání a uložení souboru
-  const handleFileUpload = useCallback(async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    setIsLoading(true);
-    toast.loading('Zpracovávám a ukládám soubor...');
-
-    try {
-      const { dataForSupabase } = await processErrorData(file);
-      
-      if (dataForSupabase && dataForSupabase.length > 0) {
-        // Vložení dat do Supabase
-        const { error: insertError } = await supabase.from('errors').insert(dataForSupabase);
-        if (insertError) throw insertError;
-      }
-      
-      toast.dismiss();
-      toast.success('Data byla úspěšně nahrána do databáze!');
-      // Po úspěšném nahrání znovu načteme data z databáze
-      fetchAndDisplayData(); 
-      
-    } catch (error) {
-      toast.dismiss();
-      toast.error(error.message || 'Nepodařilo se zpracovat nebo uložit soubor.');
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-      if(fileInputRef.current) fileInputRef.current.value = "";
-    }
   }, [fetchAndDisplayData]);
 
   const KpiCard = ({ title, value, icon }) => (
@@ -90,10 +55,9 @@ const ErrorMonitorTab = () => {
       <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
         <h1 className="text-3xl font-bold text-white tracking-tight">Analýza Chyb Skenování</h1>
         <div className="flex items-center gap-2">
-            <Button onClick={() => fileInputRef.current?.click()} loading={isLoading} icon={UploadCloud} size="lg">Nahrát Report (.xlsx)</Button>
-            <Button onClick={fetchAndDisplayData} loading={isLoading} icon={RefreshCw} size="lg" variant="secondary">Aktualizovat</Button>
+            {/* Tlačítko pro nahrávání bylo dočasně odstraněno, aby se ladila chyba zobrazení */}
+            <Button onClick={fetchAndDisplayData} loading={isLoading} icon={RefreshCw} size="lg" variant="primary">Aktualizovat Data</Button>
         </div>
-        <input type="file" accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={handleFileUpload} ref={fileInputRef} className="hidden" />
       </div>
 
       {errorData ? (
@@ -105,13 +69,34 @@ const ErrorMonitorTab = () => {
           </Grid>
           
           <Grid numItemsLg={5} className="gap-6">
-            <Card className="lg:col-span-3 shadow-lg"><Title>TOP 10 Typů Chyb</Title><BarChart className="mt-6 h-80" data={errorData.chartsData.errorsByType.slice(0, 10)} index="name" categories={['Počet chyb']} colors={['blue']} yAxisWidth={130} layout="vertical" /></Card>
-            <Card className="lg:col-span-2 shadow-lg"><Title>Chyby podle uživatele</Title><BarChart className="mt-6 h-80" data={errorData.chartsData.errorsByUser} index="name" categories={['Počet chyb']} colors={['fuchsia']} /></Card>
+            <Card className="lg:col-span-3 shadow-lg">
+                <Title>TOP 10 Typů Chyb</Title>
+                {/* Oprava zde: Přidána minimální výška pro graf */}
+                <div className="mt-6 h-80">
+                    <BarChart data={errorData.chartsData.errorsByType.slice(0, 10)} index="name" categories={['Počet chyb']} colors={['blue']} yAxisWidth={130} layout="vertical" />
+                </div>
+            </Card>
+            <Card className="lg:col-span-2 shadow-lg">
+                <Title>Chyby podle uživatele</Title>
+                <div className="mt-6 h-80">
+                    <BarChart data={errorData.chartsData.errorsByUser} index="name" categories={['Počet chyb']} colors={['fuchsia']} />
+                </div>
+            </Card>
           </Grid>
           
           <Grid numItemsLg={2} className="gap-6">
-             <Card className="shadow-lg"><Title>TOP 10 Chybových Pozic</Title><BarChart className="mt-6 h-80" data={errorData.chartsData.errorsByPosition.slice(0, 10)} index="name" categories={['Počet chyb']} colors={['violet']} /></Card>
-             <Card className="shadow-lg"><Title>Materiály s největším rozdílem v množství</Title><BarChart className="mt-6 h-80" data={errorData.chartsData.topMaterialDiscrepancy} index="name" categories={['Absolutní rozdíl']} colors={['amber']} /></Card>
+             <Card className="shadow-lg">
+                <Title>TOP 10 Chybových Pozic</Title>
+                <div className="mt-6 h-80">
+                    <BarChart data={errorData.chartsData.errorsByPosition.slice(0, 10)} index="name" categories={['Počet chyb']} colors={['violet']} />
+                </div>
+             </Card>
+             <Card className="shadow-lg">
+                <Title>Materiály s největším rozdílem v množství</Title>
+                <div className="mt-6 h-80">
+                    <BarChart data={errorData.chartsData.topMaterialDiscrepancy} index="name" categories={['Absolutní rozdíl']} colors={['amber']} />
+                </div>
+             </Card>
           </Grid>
 
           <Card className="shadow-lg">
@@ -129,7 +114,6 @@ const ErrorMonitorTab = () => {
                     <th className="p-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Rozdíl</th>
                   </tr>
                 </thead>
-                {/* Toto byla chybná část - nyní je opravená */}
                 <tbody className="divide-y divide-slate-200">
                   {filteredErrors.map((error, idx) => (
                     <tr key={idx} className="hover:bg-slate-50 transition-colors duration-150">
@@ -149,7 +133,7 @@ const ErrorMonitorTab = () => {
         </div>
       ) : (
         <div className="flex items-center justify-center h-[60vh] border-2 border-dashed border-slate-800 rounded-xl bg-slate-900/50">
-             <div className='text-center'><AlertCircle className="h-16 w-16 text-slate-700 mb-4 mx-auto" /><h2 className="text-xl font-medium text-slate-500">Žádná data k zobrazení</h2><p className="text-slate-600 mt-1">Nahrajte report chyb nebo klikněte na "Aktualizovat" pro načtení dat z databáze.</p></div>
+             <div className='text-center'><AlertCircle className="h-16 w-16 text-slate-700 mb-4 mx-auto" /><h2 className="text-xl font-medium text-slate-500">Žádná data k zobrazení</h2><p className="text-slate-600 mt-1">Klikněte na "Aktualizovat" pro načtení dat z databáze.</p></div>
         </div>
       )}
     </div>
