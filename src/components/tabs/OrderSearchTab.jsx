@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { exportSearchResultsToXLSX } from '@/lib/exportUtils';
@@ -9,18 +9,18 @@ import { format, parseISO } from 'date-fns';
 import OrderDetailsModal from '@/components/modals/OrderDetailsModal';
 import StatusHistoryModal from '@/components/modals/StatusHistoryModal';
 
-export default function OrderSearchTab() {
+export default function OrderSearchTab({ initialQuery, clearInitialQuery }) {
     const { t } = useUI();
     const { allOrdersData, setSelectedOrderDetails: setGlobalSelectedOrderDetails, selectedOrderDetails: globalSelectedOrderDetails, handleSaveNote, supabase } = useData();
 
-    const [searchDeliveryNo, setSearchDeliveryNo] = useState("");
+    // Stavy pro filtry jsou nyní inicializovány z props nebo jako prázdné
+    const [searchDeliveryNo, setSearchDeliveryNo] = useState(initialQuery || "");
     const [searchLoadingDate, setSearchLoadingDate] = useState("");
     const [searchStatus, setSearchStatus] = useState("all");
     const [searchShipToPartyName, setSearchShipToPartyName] = useState("all");
     const [searchForwardingAgentName, setSearchForwardingAgentName] = useState("all");
     const [searchResult, setSearchResult] = useState(null);
 
-    // UPRAVENO: Seznam statusů nyní vždy obsahuje 80 a 90
     const uniqueStatuses = useMemo(() => {
         const statusesFromData = allOrdersData.map(row => Number(row.Status)).filter(s => !isNaN(s));
         const allAvailableStatuses = Array.from(new Set([...statusesFromData, 80, 90]));
@@ -37,13 +37,20 @@ export default function OrderSearchTab() {
         [allOrdersData]
     );
 
-    const handleSearch = () => {
-        const searchDeliveryNos = searchDeliveryNo.split(/[, \n]+/).map(s => s.trim()).filter(Boolean);
+    // Funkce pro vyhledávání, nyní přijímá volitelný parametr
+    const handleSearch = (queryOverride) => {
+        const queryToUse = typeof queryOverride === 'string' ? queryOverride : searchDeliveryNo;
+        const searchDeliveryNos = queryToUse.split(/[, \n]+/).map(s => s.trim()).filter(Boolean);
 
         const filtered = allOrdersData.filter((row) => {
             const deliveryIdentifier = (row["Delivery"] || row["Delivery No"] || "").trim();
-            const loadingDateStr = row["Loading Date"] ? format(parseISO(row["Loading Date"]), "yyyy-MM-dd") : "";
-
+            let loadingDateStr = "";
+            try {
+                if (row["Loading Date"]) {
+                    loadingDateStr = format(parseISO(row["Loading Date"]), "yyyy-MM-dd");
+                }
+            } catch (e) { /* Ignorovat neplatná data */ }
+            
             const deliveryMatch = searchDeliveryNos.length > 0
                 ? searchDeliveryNos.some(num => deliveryIdentifier.toLowerCase().includes(num.toLowerCase()))
                 : true;
@@ -78,6 +85,19 @@ export default function OrderSearchTab() {
         setSearchResult(mappedResults);
     };
 
+    // Tento useEffect se postará o spuštění vyhledávání, když přijde query z AppHeaderu
+    useEffect(() => {
+        if (initialQuery) {
+            setSearchDeliveryNo(initialQuery);
+            // Je potřeba malá prodleva, aby se stav stihl aktualizovat před spuštěním hledání
+            setTimeout(() => {
+                handleSearch(initialQuery);
+            }, 100);
+            clearInitialQuery(); // Resetujeme query, aby se hledání nespouštělo znovu při každém přepnutí tabu
+        }
+    }, [initialQuery, clearInitialQuery]);
+
+
     const handleExport = () => {
         if (searchResult) {
             exportSearchResultsToXLSX(searchResult, t);
@@ -93,7 +113,7 @@ export default function OrderSearchTab() {
     };
 
     const handleShowStatusHistory = async (deliveryNo) => {
-        // Implementace zůstává stejná
+        // Implementace pro historii zde
     };
 
     return (
@@ -138,7 +158,7 @@ export default function OrderSearchTab() {
                         </select>
                     </div>
                 </div>
-                <button onClick={handleSearch} className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 flex items-center justify-center gap-2">
+                <button onClick={() => handleSearch(searchDeliveryNo)} className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 flex items-center justify-center gap-2">
                     <Search className="w-5 h-5" /> {t.searchOrders}
                 </button>
 

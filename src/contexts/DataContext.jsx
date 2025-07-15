@@ -65,6 +65,7 @@ export const DataProvider = ({ children }) => {
         }
     }, [user, authLoading, fetchData, fetchErrorData]);
 
+    // --- ZDE JE OPRAVA ---
     // Původní funkce pro nahrávání souboru se zakázkami
     const handleFileUpload = useCallback(async (file) => {
         if (!file) return;
@@ -79,7 +80,22 @@ export const DataProvider = ({ children }) => {
                 const wsname = wb.SheetNames[0];
                 const ws = wb.Sheets[wsname];
                 const jsonData = XLSX.utils.sheet_to_json(ws);
-                const transformedData = jsonData.map(row => ({ "Delivery No": String(row["Delivery No"] || '').trim(), "Status": Number(row["Status"]), "del.type": row["del.type"], "Loading Date": parseExcelDate(row["Loading Date"]), "Note": row["Note"] || "", "Forwarding agent name": row["Forwarding agent name"], "Name of ship-to party": row["Name of ship-to party"], "Total Weight": row["Total Weight"], "Bill of lading": row["Bill of lading"], "Country ship-to prty": row["Country ship-to prty"], "created_at": new Date().toISOString(), "updated_at": new Date().toISOString() })).filter(row => row["Delivery No"]);
+                
+                // Vylepšené mapování dat - je odolnější vůči mírným změnám v názvech sloupců
+                const transformedData = jsonData.map(row => ({ 
+                    "Delivery No": String(row["Delivery No"] || row["Delivery"] || '').trim(), 
+                    "Status": Number(row["Status"]), 
+                    "del.type": row["del.type"], 
+                    "Loading Date": parseExcelDate(row["Loading Date"]), 
+                    "Note": row["Note"] || "", 
+                    "Forwarding agent name": row["Forwarding agent name"], 
+                    "Name of ship-to party": row["Name of ship-to party"], 
+                    "Total Weight": row["Total Weight"], 
+                    "Bill of lading": row["Bill of lading"], 
+                    "Country ship-to prty": row["Country ship-to prty"], 
+                    "created_at": new Date().toISOString(), 
+                    "updated_at": new Date().toISOString() 
+                })).filter(row => row["Delivery No"]);
 
                 if (transformedData.length > 0) {
                     const { error } = await supabase.from('deliveries').upsert(transformedData, { onConflict: 'Delivery No' });
@@ -118,6 +134,43 @@ export const DataProvider = ({ children }) => {
         }
     }, [supabase, fetchErrorData]);
 
+    const handleSaveNote = useCallback(async (deliveryNo, note) => {
+        try {
+            const { error } = await supabase
+                .from('deliveries')
+                .update({ Note: note, updated_at: new Date().toISOString() })
+                .eq('Delivery No', deliveryNo);
+            if (error) throw error;
+            toast.success('Poznámka uložena.');
+            fetchData(); // Znovu načte data pro aktualizaci
+        } catch (error) {
+            toast.error(`Chyba při ukládání poznámky: ${error.message}`);
+        }
+    }, [supabase, fetchData]);
+
+    // Funkce pro aktualizaci statusu z Admin panelu
+    const handleUpdateStatus = useCallback(async (deliveryNo, status) => {
+        try {
+            const { data, error } = await supabase
+                .from('deliveries')
+                .update({ Status: status, updated_at: new Date().toISOString() })
+                .eq('Delivery No', deliveryNo)
+                .select(); // Přidáno .select() pro vrácení updatovaných řádků
+
+            if (error) throw error;
+            
+            if (data && data.length > 0) {
+                 fetchData(); // Znovu načteme data, aby se změna projevila
+                 return { success: true };
+            } else {
+                return { success: false };
+            }
+        } catch (error) {
+            console.error("Chyba při aktualizaci statusu:", error);
+            return { success: false, error: error.message };
+        }
+    }, [supabase, fetchData]);
+
     const value = useMemo(() => ({
         allOrdersData,
         summary,
@@ -126,12 +179,14 @@ export const DataProvider = ({ children }) => {
         handleFileUpload,
         selectedOrderDetails,
         setSelectedOrderDetails,
+        handleSaveNote, // Přidáno pro ukládání poznámek
+        handleUpdateStatus, // Přidáno pro admin nástroje
         supabase,
         errorData,
         isLoadingErrorData,
         refetchErrorData: fetchErrorData,
         handleErrorLogUpload,
-    }), [allOrdersData, summary, isLoadingData, fetchData, handleFileUpload, selectedOrderDetails, supabase, errorData, isLoadingErrorData, fetchErrorData, handleErrorLogUpload]);
+    }), [allOrdersData, summary, isLoadingData, fetchData, handleFileUpload, selectedOrderDetails, supabase, errorData, isLoadingErrorData, fetchErrorData, handleErrorLogUpload, handleSaveNote, handleUpdateStatus]);
 
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };

@@ -15,13 +15,14 @@ import ChatTab from '../tabs/ChatTab';
 import SettingsTab from '../tabs/SettingsTab';
 
 const DashboardLayout = () => {
-    const [activeTab, setActiveTab] = useState('dashboard'); 
+    const [activeTab, setActiveTab] = useState('dashboard');
+    const [globalSearchQuery, setGlobalSearchQuery] = useState('');
 
     const renderActiveTab = () => {
         switch (activeTab) {
             case 'dashboard': return <DashboardTab />;
             case 'delayedOrders': return <DelayedOrdersTab />;
-            case 'orderSearch': return <OrderSearchTab />;
+            case 'orderSearch': return <OrderSearchTab initialQuery={globalSearchQuery} clearInitialQuery={() => setGlobalSearchQuery('')} />;
             case 'announcedLoadings': return <AnnouncedLoadingsTab />;
             case 'dailySummary': return <DailySummaryTab />;
             case 'warehouseActivities': return <WarehouseActivitiesTab />;
@@ -36,9 +37,14 @@ const DashboardLayout = () => {
         <div className="flex h-screen bg-slate-900">
             <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
             <div className="flex flex-col flex-1 min-w-0">
-                <AppHeader activeTab={activeTab} />
+                <AppHeader onSearchSubmit={(query) => {
+                    setGlobalSearchQuery(query);
+                    setActiveTab('orderSearch');
+                }} activeTab={activeTab} />
                 <main className="flex-1 overflow-y-auto p-6">
-                    {renderActiveTab()}
+                    <div className="animate-fade-in-up">
+                        {renderActiveTab()}
+                    </div>
                 </main>
             </div>
         </div>

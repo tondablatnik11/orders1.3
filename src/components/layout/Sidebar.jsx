@@ -1,12 +1,12 @@
+'use client';
 import { forwardRef } from 'react';
 import { Home, Search, Bell, CalendarDays, Truck, Warehouse, AlertTriangle, LogOut, MessageSquare, Settings } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Image from 'next/image';
 
 const Sidebar = forwardRef(({ activeTab, onTabChange }, ref) => {
-    const { user, signOut } = useAuth();
+    const { user, userProfile, logout } = useAuth();
 
-    // Změna zde: Opraveno a sjednoceno pořadí položek menu
     const menuItems = [
         { id: 'dashboard', label: 'Přehled', icon: Home },
         { id: 'delayedOrders', label: 'Zpožděné zakázky', icon: CalendarDays },
@@ -23,20 +23,25 @@ const Sidebar = forwardRef(({ activeTab, onTabChange }, ref) => {
     ];
 
     const NavLink = ({ item }) => (
-        <li onClick={() => onTabChange(item.id)} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${activeTab === item.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-700 hover:text-white'}`}>
+        <li 
+            onClick={() => onTabChange(item.id)} 
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-300 transform hover:-translate-y-px 
+                       ${activeTab === item.id 
+                         ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                         : 'text-slate-400 hover:bg-slate-700 hover:text-white'}`}
+        >
             <item.icon className="w-5 h-5" />
             <span className="font-medium">{item.label}</span>
         </li>
     );
 
-    const userName = user?.user_metadata?.full_name || user?.email || 'Neznámý uživatel';
-    const avatarUrl = user?.user_metadata?.avatar_url || '/profile-avatar.png';
+    const userName = userProfile?.displayName || user?.email || 'Neznámý uživatel';
+    const avatarUrl = userProfile?.avatar_url || user?.photoURL || '/profile-avatar.png';
 
     return (
         <aside ref={ref} className="fixed lg:static inset-y-0 left-0 z-30 w-64 bg-slate-800 text-white flex flex-col p-4 shadow-2xl">
-            {/* Změna zde: Zvětšené logo */}
-            <div className="flex items-center justify-center h-20 mb-4">
-                <Image src="/logo.png" alt="Logo" width={64} height={64} />
+            <div className="flex items-center justify-center h-24 mb-4">
+                <Image src="/logo.png" alt="Logo" width={80} height={80} />
             </div>
 
             <nav className="flex-1">
@@ -47,7 +52,7 @@ const Sidebar = forwardRef(({ activeTab, onTabChange }, ref) => {
 
             <div className="border-t border-slate-700 pt-4 mt-4 space-y-2">
                  {bottomMenuItems.map(item => <NavLink key={item.id} item={item} />)}
-                 <li onClick={signOut} className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors text-slate-400 hover:bg-slate-700 hover:text-white">
+                 <li onClick={logout} className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors text-slate-400 hover:bg-slate-700 hover:text-white transition-all duration-300 transform hover:-translate-y-px">
                     <LogOut className="w-5 h-5" />
                     <span className="font-medium">Odhlásit se</span>
                  </li>
