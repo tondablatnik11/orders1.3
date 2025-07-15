@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { getSupabase } from '@/lib/supabaseClient'; // <-- Vráceno na getSupabase
+import { getSupabase } from '@/lib/supabaseClient';
 import * as XLSX from 'xlsx';
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -25,7 +25,7 @@ const ErrorMonitorTab = () => {
 
     const fetchErrors = useCallback(async () => {
         setLoading(true);
-        const supabase = getSupabase(); // <-- Zpět na volání funkce
+        const supabase = getSupabase();
         const { data, error } = await supabase.from('errors').select('*').order('timestamp', { ascending: false });
         if (error) {
             console.error('Chyba při načítání dat ze Supabase:', error);
@@ -47,20 +47,26 @@ const ErrorMonitorTab = () => {
         setUploading(true);
         setUploadMessage('');
         try {
-            const supabase = getSupabase(); // <-- Zpět na volání funkce
+            const supabase = getSupabase();
+            
             setUploadMessage('Krok 1/5: Čtu soubor...');
-            await sleep(500);
+            await sleep(200);
             const fileData = await file.arrayBuffer();
 
             setUploadMessage('Krok 2/5: Zpracovávám XLSX data...');
-            await sleep(500);
+            await sleep(200);
             const workbook = XLSX.read(fileData, { type: 'array' });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
+            // --- PŘIDÁNA FINÁLNÍ KONTROLA ZDE ---
+            if (!Array.isArray(jsonData)) {
+                throw new Error("Nepodařilo se zpracovat soubor. Ujistěte se, že je to platný XLSX soubor a není poškozený.");
+            }
+
             setUploadMessage(`Krok 3/5: Nalezeno ${jsonData.length} řádků. Validuji data...`);
-            await sleep(500);
+            await sleep(200);
             let invalidRows = 0;
             const processedData = jsonData.map((row, index) => {
                 const dateStr = row['Created On'];
@@ -68,14 +74,14 @@ const ErrorMonitorTab = () => {
                 if (!dateStr || !timeStr) {
                     invalidRows++; return null;
                 }
-                const dateParts = dateStr.split('/');
+                const dateParts = String(dateStr).split('/');
                 if (dateParts.length !== 3) {
                     invalidRows++; return null;
                 }
                 const month = parseInt(dateParts[0], 10) - 1;
                 const day = parseInt(dateParts[1], 10);
                 const year = parseInt(dateParts[2], 10);
-                const timeParts = timeStr.split(':');
+                const timeParts = String(timeStr).split(':');
                 const hours = parseInt(timeParts[0], 10);
                 const minutes = parseInt(timeParts[1], 10);
                 const seconds = parseInt(timeParts[2], 10);
@@ -84,7 +90,7 @@ const ErrorMonitorTab = () => {
                 if (isNaN(date.getTime())) {
                     invalidRows++; return null;
                 }
-
+                
                 const text1 = row['Text']?.trim() || '';
                 const text2 = row['Text.1']?.trim() || '';
                 return {
@@ -101,10 +107,11 @@ const ErrorMonitorTab = () => {
             }).filter(Boolean);
 
             if (processedData.length === 0) {
-                throw new Error("V souboru nebyla nalezena žádná platná data k importu.");
+                throw new Error(`Soubor byl zpracován, ale neobsahoval žádné řádky s platným datem ve formátu mm/dd/yyyy. Celkem zkontrolováno: ${jsonData.length} řádků.`);
             }
+
             setUploadMessage(`Krok 4/5: Nahrávám ${processedData.length} platných záznamů...`);
-            await sleep(500);
+            await sleep(200);
             const CHUNK_SIZE = 100;
             for (let i = 0; i < processedData.length; i += CHUNK_SIZE) {
                 const chunk = processedData.slice(i, i + CHUNK_SIZE);
@@ -114,7 +121,7 @@ const ErrorMonitorTab = () => {
                 }
             }
             setUploadMessage('Krok 5/5: Import dokončen! Aktualizuji zobrazení...');
-            await sleep(500);
+            await sleep(200);
             await fetchErrors();
             setUploadMessage('Hotovo!');
 
@@ -123,7 +130,7 @@ const ErrorMonitorTab = () => {
             setUploadMessage(`CHYBA: ${error.message}`);
         } finally {
             setUploading(false);
-            setTimeout(() => setUploadMessage(''), 10000);
+            setTimeout(() => setUploadMessage(''), 12000);
         }
     };
     
