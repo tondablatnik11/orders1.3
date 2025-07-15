@@ -5,6 +5,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { getSupabase } from '@/lib/supabaseClient';
 import * as XLSX from 'xlsx';
 
+// Pomocná funkce pro sleep, aby bylo vidět hlášky
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 // Pomocná funkce pro agregaci dat pro grafy
 const getTopN = (data, key, n = 10) => {
     if (!data) return [];
@@ -44,16 +47,23 @@ const ErrorMonitorTab = () => {
         if (!file) return;
 
         setUploading(true);
-        setUploadMessage('Zpracovávám soubor...');
+        setUploadMessage('');
         try {
             const supabase = getSupabase();
+            
+            setUploadMessage('Krok 1/5: Čtu soubor...');
+            await sleep(500);
             const fileData = await file.arrayBuffer();
+
+            setUploadMessage('Krok 2/5: Zpracovávám XLSX data...');
+            await sleep(500);
             const workbook = XLSX.read(fileData, { type: 'array' });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-            setUploadMessage('Validuji a transformuji data...');
+            setUploadMessage(`Krok 3/5: Nalezeno ${jsonData.length} řádků. Validuji data...`);
+            await sleep(500);
             let invalidRows = 0;
             const processedData = jsonData.map((row, index) => {
                 const date = new Date(`${row['Created On']} ${row['Time']}`);
@@ -81,33 +91,32 @@ const ErrorMonitorTab = () => {
                 throw new Error("V souboru nebyla nalezena žádná platná data k importu.");
             }
 
-            let message = `Nahrávám ${processedData.length} platných záznamů...`;
-            if (invalidRows > 0) {
-                message += ` (${invalidRows} řádků bylo přeskočeno).`;
-            }
-            setUploadMessage(message);
-
+            setUploadMessage(`Krok 4/5: Nahrávám ${processedData.length} platných záznamů do databáze...`);
+            await sleep(500);
             const CHUNK_SIZE = 100;
             for (let i = 0; i < processedData.length; i += CHUNK_SIZE) {
                 const chunk = processedData.slice(i, i + CHUNK_SIZE);
                 const { error } = await supabase.from('errors').insert(chunk);
                 if (error) {
-                    // Pokud Supabase vrátí chybu, zobrazíme ji
-                    throw new Error(`Chyba databáze: ${error.message}`);
+                    throw new Error(`Chyba databáze při nahrávání: ${error.message}`);
                 }
             }
-            setUploadMessage('Import dokončen! Aktualizuji zobrazení...');
+            setUploadMessage('Krok 5/5: Import dokončen! Aktualizuji zobrazení...');
+            await sleep(500);
             await fetchErrors();
+            setUploadMessage('Hotovo!');
+
         } catch (error) {
-            console.error('Selhal import souboru:', error);
-            setUploadMessage(`Chyba při importu: ${error.message}`);
+            console.error('Import selhal:', error);
+            // Zobrazíme finální chybu velkým písmem a červeně
+            setUploadMessage(`CHYBA: ${error.message}`);
         } finally {
             setUploading(false);
-            // Necháme zprávu viditelnou déle v případě chyby
-            setTimeout(() => setUploadMessage(''), 8000);
+            setTimeout(() => setUploadMessage(''), 10000); // Necháme zprávu viditelnou déle
         }
     };
-
+    
+    // Zbytek kódu (KPIs, Charts, JSX) zůstává stejný...
     const kpis = useMemo(() => {
         if (!errorData || errorData.length === 0) return { total: 0, mostCommon: 'N/A' };
         const descriptions = getTopN(errorData, 'description', 1);
@@ -130,7 +139,8 @@ const ErrorMonitorTab = () => {
                                 {uploading ? 'Pracuji...' : 'Vybrat soubor'}
                             </label>
                             <input id="file-upload" type="file" accept=".xlsx, .xls" className="hidden" onChange={handleFileImport} disabled={uploading} />
-                            {uploadMessage && <p className="text-sm font-semibold text-gray-300">{uploadMessage}</p>}
+                            {/* Zvětšíme a zvýrazníme stavovou zprávu */}
+                            {uploadMessage && <p className={`text-md font-semibold ${uploadMessage.startsWith('CHYBA') ? 'text-red-500' : 'text-gray-300'}`}>{uploadMessage}</p>}
                         </div>
                     </div>
                 </CardContent>
@@ -139,7 +149,7 @@ const ErrorMonitorTab = () => {
             {loading && <p className="text-center text-gray-300">Načítám data z databáze...</p>}
             
             {!loading && errorData && (
-                <div className="flex flex-col gap-6">
+                 <div className="flex flex-col gap-6">
                     <Card>
                         <CardHeader><CardTitle>Detailní přehled chyb</CardTitle></CardHeader>
                         <CardContent>
