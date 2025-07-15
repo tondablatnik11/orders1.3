@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useData } from '@/hooks/useData';
+import { useData } from '@/hooks/useData'; // Nepoužívá se, ale ponechávám pro kontext
 import { useUI } from '@/hooks/useUI';
 import { Card, CardContent } from '../ui/Card';
 import { User, Shield, Save, Users, Edit } from 'lucide-react';
@@ -162,15 +162,18 @@ const AdminToolsPanel = ({ t }) => {
     );
 };
 
-export default function SettingsTab({ initialProfile }) { // <-- Přijímá profil jako prop
-    const { user, loading, allUsers, updateUserProfile } = useAuth();
+
+export default function SettingsTab() {
+    // Načítáme data přímo zde pomocí hooku
+    const { user, userProfile, loading, allUsers, updateUserProfile } = useAuth();
     const { t } = useUI();
 
     if (loading) {
         return <Card><CardContent className="text-center p-8"><p>Načítání...</p></CardContent></Card>;
     }
     
-    if (!user || !initialProfile) {
+    // Používáme userProfile přímo z kontextu
+    if (!user || !userProfile) {
          return <Card><CardContent className="text-center p-8"><p className="text-red-400">Uživatelský profil se nepodařilo načíst. Zkuste prosím obnovit stránku.</p></CardContent></Card>;
     }
 
@@ -178,8 +181,8 @@ export default function SettingsTab({ initialProfile }) { // <-- Přijímá prof
         <Card>
             <CardContent>
                 <div className="max-w-4xl mx-auto">
-                    <ProfileEditor user={user} initialProfile={initialProfile} updateUserProfile={updateUserProfile} t={t} />
-                    {initialProfile?.isAdmin && (
+                    <ProfileEditor user={user} initialProfile={userProfile} updateUserProfile={updateUserProfile} t={t} />
+                    {userProfile?.isAdmin && (
                         <>
                             <UserManagementPanel allUsers={allUsers} currentUser={user} updateUserProfile={updateUserProfile} t={t} />
                             <AdminToolsPanel t={t} />
