@@ -1,36 +1,40 @@
 import React from 'react';
-import { useUI } from '@/hooks/useUI';
+import { Button } from '@/components/ui/button';
 
-// ODSTRANĚNO: { id: 5, labelKey: 'settingsTab' }
-const TABS = [
-    { id: 0, labelKey: 'dashboardTab' },
-    { id: 1, labelKey: 'delayedOrdersTab' },
-    { id: 2, labelKey: 'orderSearchTab' },
-    { id: 3, labelKey: 'announcedLoadingsTab' },
-    { id: 4, labelKey: 'ticketsTab' },
-    { id: 6, labelKey: 'chatTab' },
-];
+// Komponenta pro jedno tlačítko v navigaci
+const TabButton = ({ name, activeTab, onClick, children }) => {
+  const isActive = name === activeTab;
+  return (
+    <Button
+      variant={isActive ? 'default' : 'ghost'}
+      onClick={() => onClick(name)}
+      className="transition-all duration-200"
+    >
+      {children}
+    </Button>
+  );
+};
 
-export default function TabNavigation({ activeTab, setActiveTab }) {
-    const { t } = useUI();
-    
-    return (
-        <div className="border-b border-gray-700">
-            <nav className="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
-                {TABS.map(tab => (
-                    <button 
-                        key={tab.id} 
-                        onClick={() => setActiveTab(tab.id)} 
-                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm focus:outline-none ${
-                            activeTab === tab.id 
-                                ? 'border-blue-500 text-blue-400' 
-                                : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'
-                        }`}
-                    >
-                        {t[tab.labelKey]}
-                    </button>
-                ))}
-            </nav>
-        </div>
-    );
-}
+// Hlavní navigační komponenta
+const TabNavigation = ({ activeTab, setActiveTab }) => {
+  return (
+    <div className="px-4 py-2 border-b">
+      <nav className="flex items-center space-x-2 sm:space-x-4">
+        <TabButton name="dashboard" activeTab={activeTab} onClick={setActiveTab}>
+          Přehled
+        </TabButton>
+        <TabButton name="tickets" activeTab={activeTab} onClick={setActiveTab}>
+          Tickety
+        </TabButton>
+        <TabButton name="search" activeTab={activeTab} onClick={setActiveTab}>
+          Vyhledávání
+        </TabButton>
+        <TabButton name="error-monitor" activeTab={activeTab} onClick={setActiveTab}>
+          Error Monitor
+        </TabButton>
+      </nav>
+    </div>
+  );
+};
+
+export default TabNavigation;

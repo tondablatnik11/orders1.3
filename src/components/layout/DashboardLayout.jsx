@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import Sidebar from './Sidebar';
 import AppHeader from './AppHeader';
 
+// Importy všech záložek
 import DashboardTab from '@/components/tabs/DashboardTab';
 import DelayedOrdersTab from '@/components/tabs/DelayedOrdersTab';
 import OrderSearchTab from '@/components/tabs/OrderSearchTab';
@@ -16,7 +17,6 @@ import ChatTab from '@/components/tabs/ChatTab';
 import WarehouseActivitiesTab from '@/components/tabs/WarehouseActivitiesTab';
 import ErrorMonitorTab from '@/components/tabs/ErrorMonitorTab';
 
-
 export default function DashboardLayout() {
     const { t } = useUI();
     const { summary, isLoadingData } = useData();
@@ -24,6 +24,7 @@ export default function DashboardLayout() {
     const [activeTab, setActiveTab] = useState(0); 
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
+    // Načtení XLSX skriptu pro práci se soubory
     useEffect(() => {
         const loadXLSXScript = () => {
             if (typeof window.XLSX === 'undefined') {
@@ -36,21 +37,25 @@ export default function DashboardLayout() {
         loadXLSXScript();
     }, []);
 
+    // Zobrazení načítací obrazovky, dokud není ověřen uživatel
     if (authLoading || !userProfile) {
         return <div className="flex items-center justify-center min-h-screen bg-gray-950 text-white">Načítání profilu...</div>;
     }
 
+    // Funkce pro zobrazení správného obsahu záložky
     const renderActiveTab = () => {
+        // Tyto záložky nezávisí na načtení dat objednávek
         if (activeTab === 5) return <SettingsTab initialProfile={userProfile} />;
         if (activeTab === 6) return <ChatTab />;
         if (activeTab === 7) return <WarehouseActivitiesTab />;
-        if (activeTab === 8) return <ErrorMonitorTab />;
+        if (activeTab === 8) return <ErrorMonitorTab />; // <-- Vaše nová záložka
 
-
+        // Zobrazit načítání, pokud se stahují data pro ostatní záložky
         if (isLoadingData) {
             return <div className="text-center p-8 text-lg">Načítám data objednávek...</div>;
         }
-
+        
+        // Zobrazit výzvu k nahrání souboru, pokud nejsou žádná data
         if (!summary) {
             return (
                 <div className="text-center mt-12">
@@ -59,7 +64,8 @@ export default function DashboardLayout() {
                 </div>
             );
         }
-
+        
+        // Zobrazení záložek, které potřebují data
         switch (activeTab) {
             case 0: return <DashboardTab />;
             case 1: return <DelayedOrdersTab />;
