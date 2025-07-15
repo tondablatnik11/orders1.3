@@ -32,23 +32,19 @@ const ErrorMonitorTab = () => {
     }
   }, []);
 
-  // Komponenta pro "skleněnou" kartu
   const GlassCard = ({ children, className = '' }) => (
     <div className={`bg-slate-900/40 backdrop-blur-lg border border-cyan-400/10 rounded-xl p-4 sm:p-6 shadow-2xl shadow-black/20 ${className}`}>
         {children}
     </div>
   );
   
-  // Komponenta pro KPI kartu
-  const KpiCard = ({ title, value, icon, accentColor = 'text-cyan-400' }) => (
+  const KpiCard = ({ title, value, icon }) => (
     <GlassCard>
       <div className="flex items-center gap-4">
-        <div className={`p-3 bg-slate-900/50 rounded-lg border border-slate-700`}>
-          {icon}
-        </div>
+        <div className="p-3 bg-slate-900/50 rounded-lg border border-slate-700">{icon}</div>
         <div>
           <Text className="text-slate-400">{title}</Text>
-          <p className={`text-2xl font-bold text-white truncate`} title={value}>{value}</p>
+          <p className="text-2xl font-bold text-white truncate" title={value}>{value}</p>
         </div>
       </div>
     </GlassCard>
@@ -61,7 +57,6 @@ const ErrorMonitorTab = () => {
   ) || [];
 
   return (
-    // Jemné gradientní pozadí
     <div className="p-4 sm:p-6 bg-gradient-to-br from-slate-950 to-slate-900 min-h-full text-slate-300">
       <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
         <h1 className="text-3xl font-bold text-white tracking-tight">Analýza Chyb Skenování</h1>
@@ -88,7 +83,7 @@ const ErrorMonitorTab = () => {
           <Grid numItemsLg={3} className="gap-6">
             <KpiCard title="Celkem chyb" value={errorData.summaryMetrics.totalErrors} icon={<BarChart3 className="w-6 h-6 text-cyan-400"/>} />
             <KpiCard title="Nejčastější chyba" value={errorData.summaryMetrics.mostCommonError} icon={<AlertTriangle className="w-6 h-6 text-amber-400"/>} />
-            <KpiCard title="Nejaktivnější uživatel" value={errorData.summaryMetrics.userWithMostErrors} icon={<Users className="w-6 h-6 text-fuchsia-400"/>} />
+            <KpiCard title="Uživatel s nejvíce chybami" value={errorData.summaryMetrics.userWithMostErrors} icon={<Users className="w-6 h-6 text-fuchsia-400"/>} />
           </Grid>
           
           <Grid numItemsLg={5} className="gap-6">
