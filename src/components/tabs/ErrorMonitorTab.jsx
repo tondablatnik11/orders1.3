@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { processErrorData } from '@/lib/errorMonitorProcessor';
-// Změna zde: importujeme getSupabase místo supabase
 import { getSupabase } from '@/lib/supabaseClient'; 
 import { Card, Title, Text, Button, DonutChart, BarChart, Grid } from '@tremor/react';
 import { UploadCloud, AlertCircle, RefreshCw } from 'lucide-react';
+import toast from 'react-hot-toast';
 
-// Změna zde: Získáme klienta zavoláním funkce
 const supabase = getSupabase();
 
 const ErrorMonitorTab = () => {
@@ -17,6 +16,12 @@ const ErrorMonitorTab = () => {
   const fetchAndProcessData = useCallback(async (source) => {
     setIsLoading(true);
     setErrorMessage('');
+    
+    // Zobrazíme notifikaci pouze při manuálním nahrávání
+    if (source instanceof File) {
+        toast.loading('Zpracovávám soubor...');
+    }
+
     try {
       let dataToProcess;
       if (source instanceof File) {
@@ -35,10 +40,19 @@ const ErrorMonitorTab = () => {
       const processedData = await processErrorData(dataToProcess);
       setErrorData(processedData);
 
+      if (source instanceof File) {
+        toast.dismiss();
+        toast.success('Soubor byl úspěšně zpracován!');
+      }
+
     } catch (error) {
       console.error("Chyba při zpracování dat:", error);
-      setErrorMessage(error.message || 'Nepodařilo se načíst nebo zpracovat data o chybách.');
-      setErrorData(null);
+      const msg = error.message || 'Nepodařilo se načíst nebo zpracovat data o chybách.';
+      setErrorMessage(msg);
+      if (source instanceof File) {
+          toast.dismiss();
+          toast.error(msg);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -76,13 +90,14 @@ const ErrorMonitorTab = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 bg-gray-50/50 min-h-full">
+    <div className="p-4 sm:p-6 bg-slate-100 min-h-full">
       <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
         <Title>Monitoring Chyb Aplikace</Title>
         <div className="flex items-center gap-2">
             <input
               type="file"
-              accept=".csv"
+              // Změna zde: Přijímáme pouze .xlsx soubory
+              accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               onChange={handleFileUpload}
               ref={fileInputRef}
               className="hidden"
@@ -93,7 +108,7 @@ const ErrorMonitorTab = () => {
               icon={UploadCloud}
               disabled={isLoading}
             >
-              Nahrát log chyb
+              Nahrát log chyb (.xlsx)
             </Button>
             <Button
               onClick={handleRefreshClick}
@@ -105,7 +120,7 @@ const ErrorMonitorTab = () => {
         </div>
       </div>
 
-      {errorMessage && (
+      {errorMessage && !isLoading && (
         <Card className="mb-6 bg-red-100 border-red-500">
           <div className="flex items-center">
             <AlertCircle className="h-5 w-5 text-red-700 mr-3 shrink-0" />
@@ -117,46 +132,27 @@ const ErrorMonitorTab = () => {
       {!isLoading && errorData && errorData.detailedErrors.length > 0 ? (
         <div className="space-y-6">
           <Grid numItemsLg={3} className="gap-6">
-            <Card>
-                <Text>Celkem chyb</Text>
-                <p className="text-2xl sm:text-3xl font-semibold">{errorData.summaryMetrics.totalErrors}</p>
-            </Card>
-            <Card>
-                <Text>Unikátní typy chyb</Text>
-                <p className="text-2xl sm:text-3xl font-semibold">{errorData.summaryMetrics.uniqueErrorTypes}</p>
-            </Card>
-            <Card>
-                <Text>Vysoká priorita</Text>
-                <p className="text-2xl sm:text-3xl font-semibold text-red-600">{errorData.summaryMetrics.totalHighPriority}</p>
-            </Card>
+            <Card><Text>Celkem chyb</Text><p className="text-2xl sm:text-3xl font-semibold">{errorData.summaryMetrics.totalErrors}</p></Card>
+            <Card><Text>Unikátní typy chyb</Text><p className="text-2xl sm:text-3xl font-semibold">{errorData.summaryMetrics.uniqueErrorTypes}</p></Card>
+            <Card><Text>Vysoká priorita</Text><p className="text-2xl sm:text-3xl font-semibold text-red-600">{errorData.summaryMetrics.totalHighPriority}</p></Card>
           </Grid>
           
           <Grid numItemsLg={5} className="gap-6">
-            <div className="lg:col-span-3">
-              <Card>
-                <Title>Chyby podle Aplikační Oblasti</Title>
-                <BarChart className="mt-4 h-80" data={errorData.chartsData.errorsByArea} index="name" categories={['value']} colors={['orange']} yAxisWidth={100} layout="vertical" />
-              </Card>
-            </div>
-            <div className="lg:col-span-2">
-              <Card>
-                <Title>Chyby podle Priority</Title>
-                <DonutChart className="mt-10 h-64" data={errorData.chartsData.errorsByPriority} category="value" index="name" colors={['red', 'yellow', 'green']} />
-              </Card>
-            </div>
+            <div className="lg:col-span-3"><Card><Title>Chyby podle Aplikační Oblasti</Title><BarChart className="mt-4 h-80" data={errorData.chartsData.errorsByArea} index="name" categories={['value']} colors={['orange']} yAxisWidth={100} layout="vertical" /></Card></div>
+            <div className="lg:col-span-2"><Card><Title>Chyby podle Priority</Title><DonutChart className="mt-10 h-64" data={errorData.chartsData.errorsByPriority} category="value" index="name" colors={['red', 'yellow', 'green']} /></Card></div>
           </Grid>
 
           <Card>
             <Title>Detailní přehled chyb</Title>
             <div className="overflow-x-auto mt-4">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+                <thead className="bg-slate-200">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priorita</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Čas</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Popis chyby</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stav</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uživatel</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Priorita</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Čas</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Popis chyby</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Stav</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Uživatel</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -177,16 +173,9 @@ const ErrorMonitorTab = () => {
       ) : (
         <Card className="flex flex-col items-center justify-center h-96 border-dashed border-2">
             {isLoading ? (
-                <>
-                    <RefreshCw className="h-16 w-16 text-gray-400 mb-4 animate-spin" />
-                    <Title className="text-gray-600">Načítám data z databáze...</Title>
-                </>
+                <><RefreshCw className="h-16 w-16 text-gray-400 mb-4 animate-spin" /><Title className="text-gray-600">Načítám data...</Title></>
             ) : (
-                <>
-                    <AlertCircle className="h-16 w-16 text-gray-400 mb-4" />
-                    <Title className="text-gray-600">Žádná data k zobrazení</Title>
-                    <Text className="text-gray-500">Nebyly nalezeny žádné záznamy o chybách.</Text>
-                </>
+                <><AlertCircle className="h-16 w-16 text-gray-400 mb-4" /><Title className="text-gray-600">Žádná data k zobrazení</Title><Text className="text-gray-500">Nebyly nalezeny žádné záznamy o chybách.</Text></>
             )}
         </Card>
       )}

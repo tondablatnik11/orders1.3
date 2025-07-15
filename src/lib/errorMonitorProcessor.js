@@ -1,87 +1,76 @@
-import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 
-/**
- * Zpracuje data o chybách, ať už z pole objektů (Supabase) nebo z CSV souboru.
- * @param {File|Array<Object>} input - Vstupní data (soubor nebo pole).
- * @returns {Promise<Object>} - Promise s detailními chybami a metrikami pro grafy.
- */
+// Hlavní funkce, která rozhodne, jaký typ dat zpracovat
 export const processErrorData = (input) => {
   if (input instanceof File) {
-    return processCsvFile(input);
-  } else if (Array.isArray(input)) {
-    return Promise.resolve(processArray(input));
-  } else {
-    return Promise.reject(new Error("Neznámý typ vstupních dat."));
+    return processXlsxFile(input); // Změna na XLSX
   }
+  if (Array.isArray(input)) {
+    return Promise.resolve(processArray(input));
+  }
+  return Promise.reject(new Error("Neznámý typ vstupních dat."));
 };
 
-/**
- * Zpracuje pole objektů (např. z dotazu na Supabase).
- * @param {Array<Object>} data - Pole chyb z databáze.
- * @returns {Object} - Objekt s detailními chybami a souhrnnými metrikami.
- */
+// Zpracuje pole objektů (data ze Supabase nebo z XLSX)
 const processArray = (data) => {
-  const errors = data.map(row => ({
-    id: row.id,
-    timestamp: row.timestamp || new Date(row.created_at).toISOString(),
-    user: row.user || 'N/A',
-    errorType: row.error_type || 'Unknown',
-    priority: row.priority || 'Medium',
-    description: row.description,
-    status: row.status || 'New',
-    applicationArea: row.application_area || 'General',
-    errorCode: row.error_code || 'N/A',
-  }));
+  const errors = data.map(row => {
+    // Logika pro správné složení data a času
+    // Zkusí nejdříve 'timestamp', pak 'Date', nakonec dnešní datum
+    const datePartSource = row.timestamp || row.Date;
+    const datePart = datePartSource ? new Date(datePartSource).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    
+    const timePart = row.time || row.Time || '00:00:00';
+    const fullTimestamp = new Date(`${datePart}T${timePart}Z`); // 'Z' označuje UTC
+
+    if (isNaN(fullTimestamp.getTime())) {
+      console.warn('Neplatný formát data pro řádek:', row);
+      return null;
+    }
+    
+    return {
+      id: row.id || row.ID,
+      timestamp: fullTimestamp.toISOString(),
+      user: row.user || row.User || 'N/A',
+      errorType: row.error_type || row['Error Type'] || 'Unknown',
+      priority: row.priority || row.Priority || 'Medium',
+      description: row.description || row.Description,
+      status: row.status || row.Status || 'New',
+      applicationArea: row.application_area || row['Application Area'] || 'General',
+      errorCode: row.error_code || row['Error Code'] || 'N/A',
+    };
+  }).filter(Boolean);
 
   return aggregateData(errors);
 };
 
-/**
- * Zpracuje nahraný CSV soubor.
- * @param {File} file - Nahráný soubor.
- * @returns {Promise<Object>} - Promise s výsledky.
- */
-const processCsvFile = (file) => {
+// Zpracuje nahraný XLSX soubor
+const processXlsxFile = (file) => {
   return new Promise((resolve, reject) => {
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        try {
-          const errors = results.data.map((row, index) => {
-            if (!row.Date || !row.Time || !row.Description) return null;
-            const timestamp = new Date(`${row.Date} ${row.Time}`);
-            if (isNaN(timestamp.getTime())) return null;
-
-            return {
-              id: row.ID || `err-csv-${Date.now()}-${index}`,
-              timestamp: timestamp.toISOString(),
-              user: row.User || 'N/A',
-              errorType: row['Error Type'] || 'Unknown',
-              priority: row.Priority || 'Medium',
-              description: row.Description,
-              status: row.Status || 'New',
-              applicationArea: row['Application Area'] || 'General',
-              errorCode: row['Error Code'] || 'N/A',
-            };
-          }).filter(Boolean);
-          
-          resolve(aggregateData(errors));
-        } catch (error) {
-          reject(error);
-        }
-      },
-      error: (error) => reject(error),
-    });
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const bstr = event.target.result;
+        const workbook = XLSX.read(bstr, { type: 'binary', cellDates: true });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+        // Zpracujeme data z XLSX pomocí stejné funkce jako pro data ze Supabase
+        const processedData = processArray(jsonData);
+        resolve(processedData);
+      } catch (error) {
+        console.error('Chyba při parsování XLSX:', error);
+        reject(new Error('Nepodařilo se zpracovat XLSX soubor.'));
+      }
+    };
+    reader.onerror = (error) => {
+        reject(new Error('Chyba při čtení souboru.'));
+    };
+    reader.readAsBinaryString(file);
   });
 };
 
-
-/**
- * Agreguje zpracovaná data pro zobrazení v grafech a KPI.
- * @param {Array<Object>} errors - Pole zpracovaných chyb.
- * @returns {Object} - Agregovaná data.
- */
+// Agreguje data pro grafy a souhrn
 const aggregateData = (errors) => {
   if (!errors || errors.length === 0) {
     return {
@@ -91,38 +80,28 @@ const aggregateData = (errors) => {
     };
   }
 
-  const errorsByPriority = aggregate(errors, 'priority');
-  const errorsByStatus = aggregate(errors, 'status');
-  const errorsByArea = aggregate(errors, 'applicationArea');
-  const totalHighPriority = errors.filter(e => e.priority === 'High').length;
+  const sortedErrors = errors.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-  return {
-    detailedErrors: errors,
-    summaryMetrics: {
-      totalErrors: errors.length,
-      uniqueErrorTypes: new Set(errors.map(e => e.errorType)).size,
-      totalHighPriority,
-    },
-    chartsData: {
-      errorsByPriority,
-      errorsByStatus,
-      errorsByArea,
-    }
-  };
-}
-
-/**
- * Pomocná funkce pro agregaci dat podle daného klíče.
- * @param {Array<Object>} data - Pole objektů s chybami.
- * @param {string} key - Klíč, podle kterého se má agregovat (např. 'priority', 'status').
- * @returns {Array<Object>} - Pole objektů pro použití v grafech.
- */
-const aggregate = (data, key) => {
+  const aggregate = (data, key) => {
     const aggregation = data.reduce((acc, item) => {
-        const value = item[key];
+        const value = item[key] || 'Nezadáno';
         acc[value] = (acc[value] || 0) + 1;
         return acc;
     }, {});
-
     return Object.entries(aggregation).map(([name, value]) => ({ name, value }));
-};
+  };
+
+  return {
+    detailedErrors: sortedErrors,
+    summaryMetrics: {
+      totalErrors: sortedErrors.length,
+      uniqueErrorTypes: new Set(sortedErrors.map(e => e.errorType)).size,
+      totalHighPriority: sortedErrors.filter(e => e.priority === 'High').length,
+    },
+    chartsData: {
+      errorsByPriority: aggregate(sortedErrors, 'priority'),
+      errorsByStatus: aggregate(sortedErrors, 'status'),
+      errorsByArea: aggregate(sortedErrors, 'applicationArea'),
+    }
+  };
+}
