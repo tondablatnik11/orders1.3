@@ -51,8 +51,9 @@ export const processData = (rawData) => {
         if (isNaN(status)) return;
         
         const loadingDate = parseDataDate(row["Loading Date"]);
+        const delayDays = loadingDate ? differenceInDays(today, loadingDate) : 0;
         
-        if (loadingDate && isBefore(loadingDate, today) && remainingStatuses.includes(status)) {
+        if (loadingDate && isBefore(loadingDate, today) && delayDays > 0 && remainingStatuses.includes(status)) {
             summary.delayed++;
             const carrier = row["Forwarding agent name"] || "Neznámý";
             summary.delayedByCarrier[carrier] = (summary.delayedByCarrier[carrier] || 0) + 1;
@@ -62,7 +63,7 @@ export const processData = (rawData) => {
                 status: status,
                 delType: row["del.type"],
                 loadingDate: loadingDate.toISOString(),
-                delayDays: differenceInDays(today, loadingDate),
+                delayDays: delayDays,
             });
         }
         
