@@ -1,6 +1,14 @@
 import * as XLSX from 'xlsx';
-import { format, getDay } from 'date-fns';
-import { cs } from 'date-fns/locale';
+
+// Pomocná funkce pro bezpečné získání hodnoty ze řádku s kontrolou více možných názvů sloupců
+const getCellValue = (row, keys) => {
+    for (const key of keys) {
+        if (row[key] !== undefined && row[key] !== null) {
+            return row[key];
+        }
+    }
+    return null;
+};
 
 /**
  * Zpracuje nahraný XLSX soubor a vrátí data připravená pro vložení do Supabase.
@@ -13,17 +21,18 @@ export const processErrorDataForSupabase = (file) => {
         const bstr = event.target.result;
         const workbook = XLSX.read(bstr, { type: 'binary', cellDates: true });
         const sheetName = workbook.SheetNames[0];
-        const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: null });
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
         
         const dataForSupabase = jsonData.map(row => {
           try {
-            const dateValue = row['Created On'] || row['created on'];
+            const dateValue = getCellValue(row, ['Created On', 'created on']);
             if (!dateValue) return null;
 
             let datePart = new Date(dateValue);
             if (isNaN(datePart.getTime())) return null;
 
-            const timeValue = row['Time'] || row['time'];
+            const timeValue = getCellValue(row, ['Time', 'time']);
             if (timeValue) {
                 if (timeValue instanceof Date) {
                     datePart.setHours(timeValue.getUTCHours());
@@ -38,18 +47,21 @@ export const processErrorDataForSupabase = (file) => {
                 }
             }
 
-            const errorType = String(row['Text'] || 'Neznámá chyba').trim();
-            const sourceDiff = Number(row['Source bin differ.'] || 0);
-            const user = String(row['Created By'] || 'N/A').trim();
-            const material = String(row['Material'] || 'N/A').trim();
-            const unique_key = `${datePart.toISOString()}_${material}_${user}`;
+            const errorType = String(getCellValue(row, ['Text']) || 'Neznámá chyba').trim();
+            const storageBin = String(getCellValue(row, ['Storage Bin', 'storage bin']) || 'N/A').trim();
+            const material = String(getCellValue(row, ['Material']) || 'N/A').trim();
+            const user = String(getCellValue(row, ['Created By', 'created by']) || 'N/A').trim();
+            const sourceDiff = Number(getCellValue(row, ['Source bin differ.']) || 0);
+            
+            // Vytvoření unikátního klíče pro každý záznam
+            const unique_key = `${datePart.toISOString()}_${material}_${user}_${storageBin}`;
 
             return {
               unique_key,
-              position: String(row['Storage Bin'] || 'N/A').trim(),
+              position: storageBin,
               error_type: errorType,
               material: material,
-              order_number: String(row['Dest.Storage Bin'] || 'N/A').trim(),
+              order_number: String(getCellValue(row, ['Dest.Storage Bin']) || 'N/A').trim(),
               qty_difference: sourceDiff,
               user: user,
               timestamp: datePart.toISOString(),
@@ -61,7 +73,7 @@ export const processErrorDataForSupabase = (file) => {
         }).filter(Boolean);
 
         if (dataForSupabase.length === 0) {
-          throw new Error("V souboru nebyla nalezena žádná platná data. Zkontrolujte názvy sloupců a formát data.");
+          throw new Error("V souboru nebyla nalezena žádná platná data. Zkontrolujte, zda soubor obsahuje sloupce 'Created On', 'Storage Bin' a 'Text'.");
         }
         resolve(dataForSupabase);
       } catch (error) {
@@ -74,7 +86,7 @@ export const processErrorDataForSupabase = (file) => {
 };
 
 /**
- * Zpracuje pole dat z databáze a připraví je pro zobrazení.
+ * Zpracuje data z databáze a připraví je pro zobrazení.
  */
 export const processArrayForDisplay = (data) => {
     if (!data || data.length === 0) return null;
@@ -91,7 +103,7 @@ export const processArrayForDisplay = (data) => {
     const aggregateMetric = (data, key, metricName) => {
         const aggregation = data.reduce((acc, item) => {
             const value = String(item[key] || 'Nezadáno').trim();
-            if (value === 'Nezadáno' || value === '') return acc;
+            if (value === 'Nezadáno' || value === 'N/A' || value === '') return acc;
             acc[value] = (acc[value] || 0) + 1;
             return acc;
         }, {});
@@ -103,7 +115,7 @@ export const processArrayForDisplay = (data) => {
     const aggregateQuantityDifference = (data) => {
         const aggregation = data.filter(e => e.qtyDifference !== 0).reduce((acc, e) => {
             const material = String(e.material || 'Nezadáno').trim();
-            if (material === 'Nezadáno' || material === '') return acc;
+            if (material === 'Nezadáno' || material === 'N/A' || material === '') return acc;
             acc[material] = (acc[material] || 0) + Math.abs(e.qtyDifference);
             return acc;
         }, {});
@@ -111,22 +123,14 @@ export const processArrayForDisplay = (data) => {
             .map(([name, value]) => ({ name, 'Absolutní rozdíl': value }))
             .sort((a, b) => b['Absolutní rozdíl'] - a['Absolutní rozdíl']);
     };
-
-    const totalErrors = errors.length;
-    const userWithMostErrors = aggregateMetric(errors, 'user', 'Počet chyb')[0]?.name || 'N/A';
-    const mostCommonErrorType = aggregateMetric(errors, 'errorType', 'Počet chyb')[0]?.name || 'N/A';
     
     return {
         detailedErrors: errors.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)),
-        summaryMetrics: {
-            totalErrors,
-            userWithMostErrors,
-            mostCommonErrorType,
-        },
         chartsData: {
             errorsByPosition: aggregateMetric(errors, 'position', 'Počet chyb'),
             errorsByMaterial: aggregateMetric(errors, 'material', 'Počet chyb'),
             quantityDifferenceByMaterial: aggregateQuantityDifference(errors),
+            errorsByType: aggregateMetric(errors, 'errorType', 'Počet chyb'),
         }
     };
 };
