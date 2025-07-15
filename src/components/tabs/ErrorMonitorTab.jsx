@@ -21,19 +21,19 @@ const ErrorMonitorTab = () => {
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [uploadMessage, setUploadMessage] = useState('');
-    const supabase = getSupabase();
 
     const fetchErrors = useCallback(async () => {
         setLoading(true);
+        const supabase = getSupabase();
         const { data, error } = await supabase.from('errors').select('*').order('timestamp', { ascending: false });
         if (error) {
             console.error('Chyba při načítání dat ze Supabase:', error);
-            setUploadMessage(`Chyba: ${error.message}`);
+            setUploadMessage(`Chyba při načítání: ${error.message}`);
         } else {
-            setErrorData(data);
+            setErrorData(data || []);
         }
         setLoading(false);
-    }, [supabase]);
+    }, []);
 
     useEffect(() => {
         fetchErrors();
@@ -46,6 +46,7 @@ const ErrorMonitorTab = () => {
         setUploading(true);
         setUploadMessage('Zpracovávám soubor...');
         try {
+            const supabase = getSupabase();
             const fileData = await file.arrayBuffer();
             const workbook = XLSX.read(fileData, { type: 'array' });
             const sheetName = workbook.SheetNames[0];
@@ -57,11 +58,10 @@ const ErrorMonitorTab = () => {
             const processedData = jsonData.map((row, index) => {
                 const date = new Date(`${row['Created On']} ${row['Time']}`);
                 if (isNaN(date.getTime())) {
-                    console.warn(`Přeskakuji řádek ${index + 2} kvůli neplatnému datu:`, { createdOn: row['Created On'], time: row['Time'] });
+                    console.warn(`Přeskakuji řádek ${index + 2} kvůli neplatnému datu.`);
                     invalidRows++;
                     return null;
                 }
-
                 const text1 = row['Text']?.trim() || '';
                 const text2 = row['Text.1']?.trim() || '';
                 return {
@@ -77,17 +77,24 @@ const ErrorMonitorTab = () => {
                 };
             }).filter(Boolean);
 
-            if (invalidRows > 0) {
-                setUploadMessage(`Nahrávám ${processedData.length} záznamů. Přeskočeno ${invalidRows} neplatných.`);
-            } else {
-                 setUploadMessage(`Nahrávám ${processedData.length} platných záznamů...`);
+            if (processedData.length === 0) {
+                throw new Error("V souboru nebyla nalezena žádná platná data k importu.");
             }
-            
+
+            let message = `Nahrávám ${processedData.length} platných záznamů...`;
+            if (invalidRows > 0) {
+                message += ` (${invalidRows} řádků bylo přeskočeno).`;
+            }
+            setUploadMessage(message);
+
             const CHUNK_SIZE = 100;
             for (let i = 0; i < processedData.length; i += CHUNK_SIZE) {
                 const chunk = processedData.slice(i, i + CHUNK_SIZE);
                 const { error } = await supabase.from('errors').insert(chunk);
-                if (error) throw error;
+                if (error) {
+                    // Pokud Supabase vrátí chybu, zobrazíme ji
+                    throw new Error(`Chyba databáze: ${error.message}`);
+                }
             }
             setUploadMessage('Import dokončen! Aktualizuji zobrazení...');
             await fetchErrors();
@@ -96,7 +103,8 @@ const ErrorMonitorTab = () => {
             setUploadMessage(`Chyba při importu: ${error.message}`);
         } finally {
             setUploading(false);
-            setTimeout(() => setUploadMessage(''), 6000);
+            // Necháme zprávu viditelnou déle v případě chyby
+            setTimeout(() => setUploadMessage(''), 8000);
         }
     };
 
@@ -105,10 +113,9 @@ const ErrorMonitorTab = () => {
         const descriptions = getTopN(errorData, 'description', 1);
         return { total: errorData.length, mostCommon: descriptions.length > 0 ? descriptions[0].name : 'N/A' };
     }, [errorData]);
-
+    
     const chartData = useMemo(() => ({
         byDescription: getTopN(errorData, 'description'),
-        byMaterial: getTopN(errorData, 'material'),
     }), [errorData]);
 
     return (
@@ -117,13 +124,13 @@ const ErrorMonitorTab = () => {
                 <CardHeader><CardTitle>Importovat chyby z XLSX</CardTitle></CardHeader>
                 <CardContent>
                     <div className="flex flex-col space-y-4">
-                        <p className="text-sm text-gray-400">Vyberte .xlsx soubor. Data budou zkontrolována, zpracována a uložena do databáze.</p>
+                        <p className="text-sm text-gray-400">Vyberte .xlsx soubor. Data budou zkontrolována a uložena do databáze.</p>
                         <div className="flex items-center space-x-4">
                             <label htmlFor="file-upload" className={`inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 cursor-pointer ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                                 {uploading ? 'Pracuji...' : 'Vybrat soubor'}
                             </label>
                             <input id="file-upload" type="file" accept=".xlsx, .xls" className="hidden" onChange={handleFileImport} disabled={uploading} />
-                            {uploadMessage && <p className="text-sm text-gray-400">{uploadMessage}</p>}
+                            {uploadMessage && <p className="text-sm font-semibold text-gray-300">{uploadMessage}</p>}
                         </div>
                     </div>
                 </CardContent>
@@ -144,25 +151,16 @@ const ErrorMonitorTab = () => {
                                             <th scope="col" className="px-4 py-3">Popis chyby</th>
                                             <th scope="col" className="px-4 py-3">Materiál</th>
                                             <th scope="col" className="px-4 py-3">Pozice</th>
-                                            <th scope="col" className="px-4 py-3">Zakázka</th>
-                                            <th scope="col" className="px-4 py-3">Cíl. mn.</th>
-                                            <th scope="col" className="px-4 py-3">Skut. mn.</th>
-                                            <th scope="col" className="px-4 py-3">Rozdíl</th>
                                             <th scope="col" className="px-4 py-3">Uživatel</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-700">
                                         {errorData.map((error) => (
-                                            //  Klíčová oprava je zde: key={error.id}
                                             <tr key={error.id} className="hover:bg-gray-800">
                                                 <td className="px-4 py-2 whitespace-nowrap">{new Date(error.timestamp).toLocaleString('cs-CZ')}</td>
                                                 <td className="px-4 py-2 font-medium text-white">{error.description}</td>
                                                 <td className="px-4 py-2">{error.material}</td>
                                                 <td className="px-4 py-2">{error.error_location}</td>
-                                                <td className="px-4 py-2">{error.order_reference}</td>
-                                                <td className="px-4 py-2">{error.target_qty}</td>
-                                                <td className="px-4 py-2">{error.actual_qty}</td>
-                                                <td className={`px-4 py-2 font-bold ${error.diff_qty < 0 ? 'text-red-500' : 'text-green-500'}`}>{error.diff_qty}</td>
                                                 <td className="px-4 py-2">{error.user}</td>
                                             </tr>
                                         ))}
