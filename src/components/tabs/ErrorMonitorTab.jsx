@@ -2,13 +2,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { supabase } from '@/lib/supabaseClient'; // <-- ZMĚNA ZDE: Přímý import klienta
+import { getSupabase } from '@/lib/supabaseClient'; // <-- Vráceno na getSupabase
 import * as XLSX from 'xlsx';
 
-// Pomocná funkce pro sleep, aby bylo vidět hlášky
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Pomocná funkce pro agregaci dat pro grafy
 const getTopN = (data, key, n = 10) => {
     if (!data) return [];
     const counts = data.reduce((acc, item) => {
@@ -27,7 +25,7 @@ const ErrorMonitorTab = () => {
 
     const fetchErrors = useCallback(async () => {
         setLoading(true);
-        // Nyní používáme přímo importovaný 'supabase'
+        const supabase = getSupabase(); // <-- Zpět na volání funkce
         const { data, error } = await supabase.from('errors').select('*').order('timestamp', { ascending: false });
         if (error) {
             console.error('Chyba při načítání dat ze Supabase:', error);
@@ -36,7 +34,7 @@ const ErrorMonitorTab = () => {
             setErrorData(data || []);
         }
         setLoading(false);
-    }, []); // Závislost na supabase je nyní implicitní a stabilní
+    }, []);
 
     useEffect(() => {
         fetchErrors();
@@ -49,6 +47,7 @@ const ErrorMonitorTab = () => {
         setUploading(true);
         setUploadMessage('');
         try {
+            const supabase = getSupabase(); // <-- Zpět na volání funkce
             setUploadMessage('Krok 1/5: Čtu soubor...');
             await sleep(500);
             const fileData = await file.arrayBuffer();
@@ -104,13 +103,11 @@ const ErrorMonitorTab = () => {
             if (processedData.length === 0) {
                 throw new Error("V souboru nebyla nalezena žádná platná data k importu.");
             }
-            
             setUploadMessage(`Krok 4/5: Nahrávám ${processedData.length} platných záznamů...`);
             await sleep(500);
             const CHUNK_SIZE = 100;
             for (let i = 0; i < processedData.length; i += CHUNK_SIZE) {
                 const chunk = processedData.slice(i, i + CHUNK_SIZE);
-                // Používáme přímo 'supabase'
                 const { error } = await supabase.from('errors').insert(chunk);
                 if (error) {
                     throw new Error(`Chyba databáze při nahrávání: ${error.message}`);
