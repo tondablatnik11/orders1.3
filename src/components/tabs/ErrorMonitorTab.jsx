@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { getSupabase } from '@/lib/supabaseClient';
+import { supabase } from '@/lib/supabaseClient'; // <-- ZMĚNA ZDE: Přímý import klienta
 import * as XLSX from 'xlsx';
 
 // Pomocná funkce pro sleep, aby bylo vidět hlášky
@@ -27,7 +27,7 @@ const ErrorMonitorTab = () => {
 
     const fetchErrors = useCallback(async () => {
         setLoading(true);
-        const supabase = getSupabase();
+        // Nyní používáme přímo importovaný 'supabase'
         const { data, error } = await supabase.from('errors').select('*').order('timestamp', { ascending: false });
         if (error) {
             console.error('Chyba při načítání dat ze Supabase:', error);
@@ -36,7 +36,7 @@ const ErrorMonitorTab = () => {
             setErrorData(data || []);
         }
         setLoading(false);
-    }, []);
+    }, []); // Závislost na supabase je nyní implicitní a stabilní
 
     useEffect(() => {
         fetchErrors();
@@ -49,8 +49,6 @@ const ErrorMonitorTab = () => {
         setUploading(true);
         setUploadMessage('');
         try {
-            const supabase = getSupabase();
-            
             setUploadMessage('Krok 1/5: Čtu soubor...');
             await sleep(500);
             const fileData = await file.arrayBuffer();
@@ -66,40 +64,27 @@ const ErrorMonitorTab = () => {
             await sleep(500);
             let invalidRows = 0;
             const processedData = jsonData.map((row, index) => {
-                //  ⬇️⬇️⬇️ NOVÁ, ODOLNÁ LOGIKA PRO ZPRACOVÁNÍ DATA ⬇️⬇️⬇️
                 const dateStr = row['Created On'];
                 const timeStr = row['Time'];
                 if (!dateStr || !timeStr) {
-                    console.warn(`Přeskakuji řádek ${index + 2}: Chybí datum nebo čas.`);
-                    invalidRows++;
-                    return null;
+                    invalidRows++; return null;
                 }
-                
                 const dateParts = dateStr.split('/');
                 if (dateParts.length !== 3) {
-                    console.warn(`Přeskakuji řádek ${index + 2}: Neočekávaný formát data: ${dateStr}`);
-                    invalidRows++;
-                    return null;
+                    invalidRows++; return null;
                 }
-                
-                // Formát mm/dd/yyyy
-                const month = parseInt(dateParts[0], 10) - 1; // Měsíce jsou v JS od 0
+                const month = parseInt(dateParts[0], 10) - 1;
                 const day = parseInt(dateParts[1], 10);
                 const year = parseInt(dateParts[2], 10);
-                
                 const timeParts = timeStr.split(':');
                 const hours = parseInt(timeParts[0], 10);
                 const minutes = parseInt(timeParts[1], 10);
                 const seconds = parseInt(timeParts[2], 10);
-
                 const date = new Date(year, month, day, hours, minutes, seconds);
 
                 if (isNaN(date.getTime())) {
-                    console.warn(`Přeskakuji řádek ${index + 2} kvůli neplatnému datu po sestavení.`);
-                    invalidRows++;
-                    return null;
+                    invalidRows++; return null;
                 }
-                // ⬆️⬆️⬆️ KONEC NOVÉ LOGIKY PRO DATUM ⬆️⬆️⬆️
 
                 const text1 = row['Text']?.trim() || '';
                 const text2 = row['Text.1']?.trim() || '';
@@ -117,14 +102,15 @@ const ErrorMonitorTab = () => {
             }).filter(Boolean);
 
             if (processedData.length === 0) {
-                throw new Error("V souboru nebyla nalezena žádná platná data k importu. Zkontrolujte formát data.");
+                throw new Error("V souboru nebyla nalezena žádná platná data k importu.");
             }
-
-            setUploadMessage(`Krok 4/5: Nahrávám ${processedData.length} platných záznamů do databáze...`);
+            
+            setUploadMessage(`Krok 4/5: Nahrávám ${processedData.length} platných záznamů...`);
             await sleep(500);
             const CHUNK_SIZE = 100;
             for (let i = 0; i < processedData.length; i += CHUNK_SIZE) {
                 const chunk = processedData.slice(i, i + CHUNK_SIZE);
+                // Používáme přímo 'supabase'
                 const { error } = await supabase.from('errors').insert(chunk);
                 if (error) {
                     throw new Error(`Chyba databáze při nahrávání: ${error.message}`);
