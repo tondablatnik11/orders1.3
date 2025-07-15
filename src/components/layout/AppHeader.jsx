@@ -5,7 +5,6 @@ import { useUI } from '@/hooks/useUI';
 import Notifications from './Notifications';
 import { FiSearch, FiUploadCloud, FiGlobe, FiAlertCircle } from 'react-icons/fi';
 
-// Komponenta opět přijímá prop 'activeTab'
 export default function AppHeader({ activeTab }) {
     const { handleFileUpload, handleErrorLogUpload } = useData();
     const { t, toggleLang } = useUI();

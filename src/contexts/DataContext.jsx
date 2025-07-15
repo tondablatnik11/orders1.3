@@ -1,9 +1,9 @@
 'use client';
-import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useMemo, useContext } from 'react';
 import { getSupabase } from '../lib/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
 import { processData } from '../lib/dataProcessor';
-import { processErrorLogData } from '../lib/lvsErrorProcessor.js'; // <-- ZMĚNA IMPORTU
+import { processErrorLogData } from '../lib/errorMonitorProcessor';
 import toast from 'react-hot-toast';
 
 export const DataContext = createContext(null);

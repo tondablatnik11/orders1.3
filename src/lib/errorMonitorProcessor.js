@@ -22,7 +22,6 @@ export const processErrorLogData = (rawData) => {
     const errorTypeCounts = {};
 
     rawData.forEach(row => {
-        // Zpracování data a času
         const createdDateStr = row["Created On"];
         const createdTimeStr = row["Time"];
         const dateTimeStr = `${createdDateStr} ${createdTimeStr}`;
@@ -36,7 +35,6 @@ export const processErrorLogData = (rawData) => {
             summary.eventsOverTime.set(dateKey, (summary.eventsOverTime.get(dateKey) || 0) + 1);
         }
         
-        // Zpracování stavu (vyřešeno/nevyřešeno)
         if (row.Done) {
             summary.resolvedStatusCounts['Vyřešeno']++;
         } else {
@@ -44,7 +42,6 @@ export const processErrorLogData = (rawData) => {
             summary.resolvedStatusCounts['Nevyřešeno']++;
         }
 
-        // Zpracování chybových textů a zdrojů
         const errorText = row.Text || 'Neznámý typ';
         errorTypeCounts[errorText] = (errorTypeCounts[errorText] || 0) + 1;
 
@@ -56,12 +53,10 @@ export const processErrorLogData = (rawData) => {
 
     });
     
-    // Zjištění nejčastější chyby
     if (Object.keys(errorTypeCounts).length > 0) {
         summary.mostCommonError = Object.entries(errorTypeCounts).reduce((a, b) => a[1] > b[1] ? a : b)[0];
     }
     
-    // Převod mapy na pole pro grafy
     summary.eventsOverTime = Array.from(summary.eventsOverTime, ([name, value]) => ({ name, value }))
                                   .sort((a,b) => new Date(a.name) - new Date(b.name));
     summary.errorCountsBySource = Object.entries(summary.errorCountsBySource).map(([name, value]) => ({ name, value }));

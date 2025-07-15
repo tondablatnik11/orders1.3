@@ -13,8 +13,8 @@ import AnnouncedLoadingsTab from '@/components/tabs/AnnouncedLoadingsTab';
 import TicketsTab from '@/components/tabs/TicketsTab';
 import SettingsTab from '@/components/tabs/SettingsTab';
 import ChatTab from '@/components/tabs/ChatTab';
-import WarehouseOpsTab from '@/components/tabs/WarehouseOpsTab'; // <-- ZMĚNA IMPORTU
-import LvsErrorTab from '@/components/tabs/LvsErrorTab';       // <-- ZMĚNA IMPORTU
+import WarehouseActivitiesTab from '@/components/tabs/WarehouseActivitiesTab';
+import ErrorMonitorTab from '@/components/tabs/ErrorMonitorTab';
 
 
 export default function DashboardLayout() {
@@ -43,8 +43,8 @@ export default function DashboardLayout() {
     const renderActiveTab = () => {
         if (activeTab === 5) return <SettingsTab initialProfile={userProfile} />;
         if (activeTab === 6) return <ChatTab />;
-        if (activeTab === 7) return <WarehouseOpsTab />; // <-- POUŽITÍ NOVÉ KOMPONENTY
-        if (activeTab === 8) return <LvsErrorTab />;       // <-- POUŽITÍ NOVÉ KOMPONENTY
+        if (activeTab === 7) return <WarehouseActivitiesTab />;
+        if (activeTab === 8) return <ErrorMonitorTab />;
 
 
         if (isLoadingData) {
