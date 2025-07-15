@@ -1,40 +1,71 @@
-import React, { useState, useRef } from 'react';
-import { processErrorLog } from '@/lib/errorMonitorProcessor';
-import { Card, Title, Text, Button, DonutChart, BarChart, Grid, Col } from '@tremor/react';
-import { UploadCloud, AlertCircle } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { processErrorData } from '@/lib/errorMonitorProcessor';
+import { supabase } from '@/lib/supabaseClient'; 
+import { Card, Title, Text, Button, DonutChart, BarChart, Grid } from '@tremor/react';
+import { UploadCloud, AlertCircle, RefreshCw } from 'lucide-react';
 
 const ErrorMonitorTab = () => {
   const [errorData, setErrorData] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const fileInputRef = useRef(null);
 
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
+  const fetchAndProcessData = useCallback(async (source) => {
     setIsLoading(true);
     setErrorMessage('');
-    setErrorData(null);
-
     try {
-      const data = await processErrorLog(file);
-      setErrorData(data);
+      let dataToProcess;
+      if (source instanceof File) {
+        // Zpracování souboru
+        dataToProcess = source;
+      } else {
+        // Načtení dat ze Supabase
+        const { data: supabaseData, error } = await supabase
+          .from('errors')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(500);
+
+        if (error) throw error;
+        dataToProcess = supabaseData;
+      }
+
+      const processedData = await processErrorData(dataToProcess);
+      setErrorData(processedData);
+
     } catch (error) {
-      setErrorMessage(error.message || 'Nepodařilo se zpracovat soubor. Zkontrolujte prosím formát a obsah souboru.');
+      console.error("Chyba při zpracování dat:", error);
+      setErrorMessage(error.message || 'Nepodařilo se načíst nebo zpracovat data o chybách.');
+      setErrorData(null); // Vyčistit stará data při chybě
     } finally {
       setIsLoading(false);
-      // Reset file inputu pro možnost nahrát stejný soubor znovu
-      if(fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+    }
+  }, []);
+
+  // Prvotní načtení dat z databáze při zobrazení komponenty
+  useEffect(() => {
+    fetchAndProcessData();
+  }, [fetchAndProcessData]);
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      fetchAndProcessData(file);
+    }
+    // Reset file inputu
+    if(fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
-  const handleButtonClick = () => {
+  const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
 
+  const handleRefreshClick = () => {
+    fetchAndProcessData();
+  };
+  
   const priorityColor = (priority) => {
     switch (priority) {
       case 'High': return 'bg-red-500';
@@ -45,93 +76,79 @@ const ErrorMonitorTab = () => {
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-full">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 sm:p-6 bg-gray-50/50 min-h-full">
+      {/* Hlavička */}
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
         <Title>Monitoring Chyb Aplikace</Title>
-        <input
-          type="file"
-          accept=".csv"
-          onChange={handleFileUpload}
-          ref={fileInputRef}
-          className="hidden"
-        />
-        <Button
-          onClick={handleButtonClick}
-          loading={isLoading}
-          icon={UploadCloud}
-          color="red"
-        >
-          Nahrát log chyb
-        </Button>
+        <div className="flex items-center gap-2">
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleFileUpload}
+              ref={fileInputRef}
+              className="hidden"
+            />
+            <Button
+              onClick={handleUploadClick}
+              variant="secondary"
+              icon={UploadCloud}
+              disabled={isLoading}
+            >
+              Nahrát log chyb
+            </Button>
+            <Button
+              onClick={handleRefreshClick}
+              loading={isLoading}
+              icon={RefreshCw}
+            >
+              Aktualizovat
+            </Button>
+        </div>
       </div>
 
+      {/* Chybová zpráva */}
       {errorMessage && (
         <Card className="mb-6 bg-red-100 border-red-500">
           <div className="flex items-center">
-            <AlertCircle className="h-5 w-5 text-red-700 mr-3" />
+            <AlertCircle className="h-5 w-5 text-red-700 mr-3 shrink-0" />
             <Text className="text-red-800">{errorMessage}</Text>
           </div>
         </Card>
       )}
 
-      {errorData ? (
+      {/* Dashboard s daty */}
+      {!isLoading && errorData && errorData.detailedErrors.length > 0 ? (
         <div className="space-y-6">
-          {/* Souhrnné karty */}
           <Grid numItemsLg={3} className="gap-6">
             <Card>
                 <Text>Celkem chyb</Text>
-                <p className="text-3xl font-semibold">{errorData.summaryMetrics.totalErrors}</p>
+                <p className="text-2xl sm:text-3xl font-semibold">{errorData.summaryMetrics.totalErrors}</p>
             </Card>
             <Card>
                 <Text>Unikátní typy chyb</Text>
-                <p className="text-3xl font-semibold">{errorData.summaryMetrics.uniqueErrorTypes}</p>
+                <p className="text-2xl sm:text-3xl font-semibold">{errorData.summaryMetrics.uniqueErrorTypes}</p>
             </Card>
             <Card>
                 <Text>Vysoká priorita</Text>
-                <p className="text-3xl font-semibold">{errorData.summaryMetrics.totalHighPriority}</p>
+                <p className="text-2xl sm:text-3xl font-semibold text-red-600">{errorData.summaryMetrics.totalHighPriority}</p>
             </Card>
           </Grid>
           
-          {/* Grafy */}
-          <Grid numItemsLg={2} className="gap-6">
-            <Card>
-              <Title>Chyby podle Priority</Title>
-              <BarChart
-                className="mt-4 h-72"
-                data={errorData.chartsData.errorsByPriority}
-                index="name"
-                categories={['value']}
-                colors={['red']}
-                yAxisWidth={48}
-                showLegend={false}
-              />
-            </Card>
-            <Card>
-              <Title>Chyby podle Stavu</Title>
-               <DonutChart
-                className="mt-4 h-72"
-                data={errorData.chartsData.errorsByStatus}
-                category="value"
-                index="name"
-                colors={['cyan', 'blue', 'indigo']}
-              />
-            </Card>
+          <Grid numItemsLg={5} className="gap-6">
+            <div className="lg:col-span-3">
+              <Card>
+                <Title>Chyby podle Aplikační Oblasti</Title>
+                <BarChart className="mt-4 h-80" data={errorData.chartsData.errorsByArea} index="name" categories={['value']} colors={['orange']} yAxisWidth={100} layout="vertical" />
+              </Card>
+            </div>
+            <div className="lg:col-span-2">
+              <Card>
+                <Title>Chyby podle Priority</Title>
+                <DonutChart className="mt-10 h-64" data={errorData.chartsData.errorsByPriority} category="value" index="name" colors={['red', 'yellow', 'green']} />
+              </Card>
+            </div>
           </Grid>
 
-           <Card>
-              <Title>Chyby podle Aplikační Oblasti</Title>
-              <BarChart
-                className="mt-4 h-80"
-                data={errorData.chartsData.errorsByArea}
-                index="name"
-                categories={['value']}
-                colors={['orange']}
-                yAxisWidth={100}
-                layout="vertical"
-              />
-            </Card>
-
-          {/* Detailní tabulka chyb */}
           <Card>
             <Title>Detailní přehled chyb</Title>
             <div className="overflow-x-auto mt-4">
@@ -146,15 +163,13 @@ const ErrorMonitorTab = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {errorData.detailedErrors.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).map((error) => (
+                  {errorData.detailedErrors.map((error) => (
                     <tr key={error.id}>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <span className={`inline-block h-4 w-4 rounded-full ${priorityColor(error.priority)}`} title={error.priority}></span>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(error.timestamp).toLocaleString('cs-CZ')}</td>
-                      <td className="px-4 py-4 text-sm text-gray-900 max-w-sm truncate">{error.description}</td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{error.status}</td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{error.user}</td>
+                      <td className="px-4 py-4 whitespace-nowrap"><span className={`inline-block h-4 w-4 rounded-full ring-2 ring-white ${priorityColor(error.priority)}`} title={error.priority}></span></td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{new Date(error.timestamp).toLocaleString('cs-CZ')}</td>
+                      <td className="px-4 py-4 text-sm text-gray-900 max-w-sm truncate" title={error.description}>{error.description}</td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{error.status}</td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">{error.user}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -163,10 +178,20 @@ const ErrorMonitorTab = () => {
           </Card>
         </div>
       ) : (
+        // Stav při načítání nebo pokud nejsou žádná data
         <Card className="flex flex-col items-center justify-center h-96 border-dashed border-2">
-            <UploadCloud className="h-16 w-16 text-gray-400 mb-4" />
-            <Title className="text-gray-600">Žádná data k zobrazení</Title>
-            <Text className="text-gray-500">Nahrajte prosím soubor s logem chyb pro zobrazení analýzy.</Text>
+            {isLoading ? (
+                <>
+                    <RefreshCw className="h-16 w-16 text-gray-400 mb-4 animate-spin" />
+                    <Title className="text-gray-600">Načítám data z databáze...</Title>
+                </>
+            ) : (
+                <>
+                    <AlertCircle className="h-16 w-16 text-gray-400 mb-4" />
+                    <Title className="text-gray-600">Žádná data k zobrazení</Title>
+                    <Text className="text-gray-500">Nebyly nalezeny žádné záznamy o chybách.</Text>
+                </>
+            )}
         </Card>
       )}
     </div>
