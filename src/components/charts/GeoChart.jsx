@@ -21,7 +21,7 @@ const GeoChart = ({ data = [] }) => {
         );
     }
     
-    const topCountries = [...data].sort((a, b) => b.value - a.value).slice(0, 5);
+    const topCountries = [...data].sort((a, b) => b.value - a.value).slice(0, 20);
 
     return (
         <Card>
@@ -39,8 +39,8 @@ const GeoChart = ({ data = [] }) => {
                             label="properties.name"
                             valueFormat=".2s"
                             projectionType="mercator"
-                            projectionScale={150} // Oddálení mapy
-                            projectionTranslation={[0.5, 0.7]} // Vycentrování
+                            projectionScale={150}
+                            projectionTranslation={[0.5, 0.7]}
                             enableGraticule={true}
                             graticuleLineColor="#666666"
                             borderWidth={0.5}
@@ -69,15 +69,17 @@ const GeoChart = ({ data = [] }) => {
                         />
                     </div>
                     <div className="md:col-span-1">
-                        <h3 className="text-lg font-semibold mb-2 text-gray-300">TOP 5 Zemí</h3>
-                        <ul className="space-y-2">
-                            {topCountries.map(country => (
-                                <li key={country.id} className="flex justify-between items-center bg-gray-800 p-2 rounded-md">
-                                    <span className="font-medium text-gray-200">{country.id}</span>
-                                    <span className="font-bold text-blue-400">{country.value}</span>
-                                </li>
-                            ))}
-                        </ul>
+                        <h3 className="text-lg font-semibold mb-2 text-gray-300">TOP 20 Zemí</h3>
+                        <div className="space-y-2 h-[360px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+                            <ul className="space-y-2">
+                                {topCountries.map(country => (
+                                    <li key={country.id} className="flex justify-between items-center bg-gray-800 p-2 rounded-md list-none">
+                                        <span className="font-medium text-gray-200">{country.id}</span>
+                                        <span className="font-bold text-blue-400">{country.value}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </CardContent>

@@ -1,5 +1,5 @@
 "use client";
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, Brush } from 'recharts';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
@@ -10,19 +10,28 @@ import { format, parseISO } from 'date-fns';
 export default function StatusDistributionChart() {
     const { summary } = useData();
     const { t } = useUI();
+    const [brushDomain, setBrushDomain] = useState({ startIndex: 0, endIndex: 0 });
 
-    if (!summary || !summary.statusByLoadingDate) return <Card><CardContent><p>{t.noDataAvailable}</p></CardContent></Card>;
-    
-    const stackedData = Object.values(summary.statusByLoadingDate || {})
-        .filter(d => d.date && !isNaN(new Date(d.date).getTime())) // Odstranění neplatných dat
-        .sort((a, b) => new Date(a.date) - new Date(b.date))
-        .map(d => ({ ...d, date: format(parseISO(d.date), 'dd/MM')}));
-        
-    const uniqueStatuses = Array.from(new Set(summary.allOrdersData.map(row => Number(row.Status)).filter(s => !isNaN(s)))).sort((a, b) => a - b);
-    
-    // Nastavení výchozího zobrazení pro Brush (např. posledních 30 dní)
-    const endIndex = stackedData.length - 1;
-    const startIndex = Math.max(0, endIndex - 30);
+    const stackedData = useMemo(() => {
+        if (!summary || !summary.statusByLoadingDate) return [];
+        return Object.values(summary.statusByLoadingDate || {})
+            .filter(d => d.date && !isNaN(new Date(d.date).getTime()))
+            .sort((a, b) => new Date(a.date) - new Date(b.date))
+            .map(d => ({ ...d, date: format(parseISO(d.date), 'dd/MM') }));
+    }, [summary]);
+
+    useEffect(() => {
+        if (stackedData.length > 0) {
+            const endIndex = stackedData.length - 1;
+            const startIndex = Math.max(0, endIndex - 30);
+            setBrushDomain({ startIndex, endIndex });
+        }
+    }, [stackedData.length]);
+
+    const uniqueStatuses = useMemo(() => {
+        if (!summary) return [];
+        return Array.from(new Set(summary.allOrdersData.map(row => Number(row.Status)).filter(s => !isNaN(s)))).sort((a, b) => a - b);
+    }, [summary]);
 
     if (stackedData.length === 0) return <Card><CardContent><p>{t.noDataAvailable}</p></CardContent></Card>;
 
@@ -40,8 +49,14 @@ export default function StatusDistributionChart() {
                         {uniqueStatuses.map((status) => (
                             <Bar key={`status-bar-${status}`} dataKey={`status${status}`} name={`Status ${status}`} fill={getStatusColor(status)} stackId="statusStack" />
                         ))}
-                        {/* OPRAVA ZDE: Přidán startIndex a endIndex pro inicializaci zoomu */}
-                        <Brush dataKey="date" height={30} stroke="#8884d8" startIndex={startIndex} endIndex={endIndex} />
+                        <Brush 
+                            dataKey="date" 
+                            height={30} 
+                            stroke="#8884d8" 
+                            startIndex={brushDomain.startIndex} 
+                            endIndex={brushDomain.endIndex}
+                            onChange={(newDomain) => setBrushDomain(newDomain)}
+                        />
                     </BarChart>
                 </ResponsiveContainer>
             </CardContent>

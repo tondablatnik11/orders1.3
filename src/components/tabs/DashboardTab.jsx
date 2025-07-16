@@ -142,15 +142,14 @@ export default function DashboardTab({ setActiveTab }) {
             {/* HLAVNÍ MŘÍŽKA S GRAFY */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 
-                {/* LEVÝ BLOK - 8 sloupců */}
                 <div className="lg:col-span-8 space-y-6">
                     <StatusDistributionChart />
                     <GeoChart data={summary.ordersByCountry} />
                     <Card>
-                        <CardContent>
-                            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Truck className="w-5 h-5 text-indigo-400" /> TOP 10 Dopravců</h2>
+                        <CardContent className="pt-6">
+                            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Truck className="w-5 h-5 text-indigo-400" /> Dopravci</h2>
                             <ResponsiveContainer width="100%" height={350}>
-                                <BarChart data={summary.ordersByForwardingAgent.slice(0, 10)} layout="vertical" margin={{ left: 120 }}>
+                                <BarChart data={summary.ordersByForwardingAgent.slice(0, 10)} layout="vertical" margin={{ left: 100 }}>
                                     <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2}/>
                                     <XAxis type="number" stroke="#9CA3AF" tick={{ fill: "#D1D5DB" }} />
                                     <YAxis type="category" dataKey="name" stroke="#9CA3AF" tick={{ fill: "#D1D5DB", fontSize: 12 }} width={120} />
@@ -162,7 +161,6 @@ export default function DashboardTab({ setActiveTab }) {
                     </Card>
                 </div>
 
-                {/* PRAVÝ BLOK - 4 sloupce */}
                 <div className="lg:col-span-4 space-y-6">
                     <OrdersOverTimeChart summary={summary} />
                     <DonutChartCard title="Typy objednávek" data={summary.orderTypesOEM} />
