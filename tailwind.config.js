@@ -1,3 +1,5 @@
+const colors = require('tailwindcss/colors');
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -11,31 +13,51 @@ module.exports = {
     current: 'currentColor',
     extend: {
       colors: {
-        // ... (barevné palety)
+        // Přidání kompletní palety barev pro Tremor
+        slate: colors.slate,
+        gray: colors.gray,
+        zinc: colors.zinc,
+        neutral: colors.neutral,
+        stone: colors.stone,
+        red: colors.red,
+        orange: colors.orange,
+        amber: colors.amber,
+        yellow: colors.yellow,
+        lime: colors.lime,
+        green: colors.green,
+        emerald: colors.emerald,
+        teal: colors.teal,
+        cyan: colors.cyan,
+        sky: colors.sky,
+        blue: colors.blue,
+        indigo: colors.indigo,
+        violet: colors.violet,
+        purple: colors.purple,
+        fuchsia: colors.fuchsia,
+        pink: colors.pink,
+        rose: colors.rose,
       },
       boxShadow: {
-        // ... (stíny)
+        // Tremor's card shadows
+        'tremor-input': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+        'tremor-card': '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
+        'tremor-dropdown': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
       },
       borderRadius: {
-        // ... (zaoblení)
+        'tremor-small': '0.375rem',
+        'tremor-default': '0.5rem',
+        'tremor-full': '9999px',
       },
       fontSize: {
-        // ... (velikosti písma)
-      },
-      // Zde je nová sekce pro animace
-      animation: {
-        'fade-in-up': 'fadeIn 0.5s ease-out forwards',
-      },
-      keyframes: {
-        fadeIn: {
-          'from': { opacity: 0, transform: 'translateY(10px)' },
-          'to': { opacity: 1, transform: 'translateY(0)' },
-        },
+        'tremor-label': ['0.75rem', { lineHeight: '1rem' }],
+        'tremor-default': ['0.875rem', { lineHeight: '1.25rem' }],
+        'tremor-title': ['1.125rem', { lineHeight: '1.75rem' }],
+        'tremor-metric': ['1.875rem', { lineHeight: '2.25rem' }],
       },
     },
   },
   safelist: [
-    // ... (safelist)
+    // ... (zde může zůstat tvůj původní safelist, pokud nějaký máš)
   ],
   plugins: [require('@headlessui/tailwindcss'), require('@tailwindcss/forms')],
-}
+};
