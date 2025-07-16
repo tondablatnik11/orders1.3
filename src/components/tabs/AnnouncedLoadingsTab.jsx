@@ -28,7 +28,7 @@ export default function AnnouncedLoadingsTab() {
             setLoadings(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         });
         return () => unsubscribe();
-    }, [db, appId, t]);
+    }, [db, appId]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;

@@ -31,11 +31,6 @@ export const DataProvider = ({ children }) => {
 
             const processed = processData(data || []);
             
-            // Set current summary as previous if it's not the initial load
-            if (summary !== null) {
-                setPreviousSummary(summary);
-            }
-            
             setSummary(processed);
             setAllOrdersData(data || []);
 
@@ -46,7 +41,7 @@ export const DataProvider = ({ children }) => {
         } finally {
             setIsLoadingData(false);
         }
-    }, [supabase, summary]); // závislost na 'summary' je klíčová
+    }, [supabase]);
 
     const fetchErrorData = useCallback(async () => {
         setIsLoadingErrorData(true);
@@ -101,7 +96,6 @@ export const DataProvider = ({ children }) => {
                 })).filter(row => row["Delivery No"]);
 
                 if (transformedData.length > 0) {
-                    // Store current summary as previous before updating
                     setPreviousSummary(summary);
 
                     const { error } = await supabase.from('deliveries').upsert(transformedData, { onConflict: 'Delivery No' });
@@ -110,7 +104,6 @@ export const DataProvider = ({ children }) => {
                     toast.dismiss();
                     toast.success('Data byla úspěšně nahrána!');
                     
-                    // Fetch all data again to get a complete and consistent state
                     fetchData();
                 } else {
                     toast.dismiss();
