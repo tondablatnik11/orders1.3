@@ -1,17 +1,19 @@
 import * as XLSX from 'xlsx';
 
-// Pomocná funkce pro bezpečné získání hodnoty ze řádku s kontrolou více možných názvů sloupců
-const getCellValue = (row, keys) => {
-    for (const key of keys) {
-        if (row[key] !== undefined && row[key] !== null) {
-            return row[key];
+// Pomocná funkce pro převedení klíčů (názvů sloupců) na malá písmena a oříznutí mezer
+const normalizeKeys = (obj) => {
+    const newObj = {};
+    for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            newObj[key.trim().toLowerCase()] = obj[key];
         }
     }
-    return null;
+    return newObj;
 };
 
 /**
  * Zpracuje nahraný XLSX soubor a vrátí data připravená pro vložení do Supabase.
+ * Tato verze je odolnější vůči velikosti písmen a mezerám v názvech sloupců.
  */
 export const processErrorDataForSupabase = (file) => {
   return new Promise((resolve, reject) => {
@@ -24,15 +26,18 @@ export const processErrorDataForSupabase = (file) => {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
         
-        const dataForSupabase = jsonData.map(row => {
+        // Normalizujeme klíče pro každý řádek
+        const normalizedData = jsonData.map(normalizeKeys);
+
+        const dataForSupabase = normalizedData.map(row => {
           try {
-            const dateValue = getCellValue(row, ['Created On', 'created on']);
+            const dateValue = row['created on'];
             if (!dateValue) return null;
 
             let datePart = new Date(dateValue);
             if (isNaN(datePart.getTime())) return null;
 
-            const timeValue = getCellValue(row, ['Time', 'time']);
+            const timeValue = row['time'];
             if (timeValue) {
                 if (timeValue instanceof Date) {
                     datePart.setHours(timeValue.getUTCHours());
@@ -47,13 +52,13 @@ export const processErrorDataForSupabase = (file) => {
                 }
             }
 
-            const errorType = String(getCellValue(row, ['Text']) || 'Neznámá chyba').trim();
-            const storageBin = String(getCellValue(row, ['Storage Bin', 'storage bin']) || 'N/A').trim();
-            const material = String(getCellValue(row, ['Material']) || 'N/A').trim();
-            const user = String(getCellValue(row, ['Created By', 'created by']) || 'N/A').trim();
-            const sourceDiff = Number(getCellValue(row, ['Source bin differ.']) || 0);
-            
-            // Vytvoření unikátního klíče pro každý záznam
+            const errorType = String(row['text'] || 'Neznámá chyba').trim();
+            const storageBin = String(row['storage bin'] || 'N/A').trim();
+            const material = String(row['material'] || 'N/A').trim();
+            const user = String(row['created by'] || 'N/A').trim();
+            const sourceDiff = Number(row['source bin differ.'] || 0);
+            const destBin = String(row['dest.storage bin'] || 'N/A').trim();
+
             const unique_key = `${datePart.toISOString()}_${material}_${user}_${storageBin}`;
 
             return {
@@ -61,7 +66,7 @@ export const processErrorDataForSupabase = (file) => {
               position: storageBin,
               error_type: errorType,
               material: material,
-              order_number: String(getCellValue(row, ['Dest.Storage Bin']) || 'N/A').trim(),
+              order_number: destBin,
               qty_difference: sourceDiff,
               user: user,
               timestamp: datePart.toISOString(),
@@ -73,7 +78,7 @@ export const processErrorDataForSupabase = (file) => {
         }).filter(Boolean);
 
         if (dataForSupabase.length === 0) {
-          throw new Error("V souboru nebyla nalezena žádná platná data. Zkontrolujte, zda soubor obsahuje sloupce 'Created On', 'Storage Bin' a 'Text'.");
+          throw new Error("V souboru nebyla nalezena žádná platná data. Zkontrolujte, zda soubor obsahuje sloupec 'Created On'.");
         }
         resolve(dataForSupabase);
       } catch (error) {
@@ -87,6 +92,7 @@ export const processErrorDataForSupabase = (file) => {
 
 /**
  * Zpracuje data z databáze a připraví je pro zobrazení.
+ * Tato funkce zůstává stejná, protože problém byl v importu.
  */
 export const processArrayForDisplay = (data) => {
     if (!data || data.length === 0) return null;
