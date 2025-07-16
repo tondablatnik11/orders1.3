@@ -1,7 +1,22 @@
 "use client";
 import React, { useRef } from 'react';
 import { useData } from '@/hooks/useData';
-import { Card, Title, Button, BarChart, Grid, Text, DonutChart, Legend } from '@tremor/react';
+import { 
+    Card, 
+    Title, 
+    Button, 
+    BarChart, 
+    Grid, 
+    Text, 
+    DonutChart, 
+    Legend,
+    Table,
+    TableHead,
+    TableRow,
+    TableHeaderCell,
+    TableBody,
+    TableCell,
+} from '@tremor/react';
 import { RefreshCw, UploadCloud, PackageX } from 'lucide-react';
 
 export default function ErrorMonitorTab() {
@@ -45,7 +60,7 @@ export default function ErrorMonitorTab() {
                     <Grid numItemsLg={2} className="gap-6">
                         <Card>
                             <Title>TOP 5 Typů Chyb</Title>
-                            <DonutChart
+                             <DonutChart
                                 className="mt-8 h-64"
                                 data={errorData.chartsData.errorsByType.slice(0, 5)}
                                 category="Počet chyb"
@@ -98,6 +113,36 @@ export default function ErrorMonitorTab() {
                             />
                         </Card>
                     </Grid>
+                    
+                    {/* --- ZDE JE PŘIDANÁ NOVÁ TABULKA --- */}
+                    <Card>
+                        <Title>Detailní Seznam Chyb</Title>
+                        <Table className="mt-5">
+                            <TableHead>
+                                <TableRow>
+                                    <TableHeaderCell>Timestamp</TableHeaderCell>
+                                    <TableHeaderCell>Typ Chyby</TableHeaderCell>
+                                    <TableHeaderCell>Materiál</TableHeaderCell>
+                                    <TableHeaderCell>Pozice</TableHeaderCell>
+                                    <TableHeaderCell>Rozdíl</TableHeaderCell>
+                                    <TableHeaderCell>Uživatel</TableHeaderCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {(errorData.detailedErrors || []).map((error, index) => (
+                                    <TableRow key={index}>
+                                        <TableCell>{new Date(error.timestamp).toLocaleString()}</TableCell>
+                                        <TableCell><Text>{error.errorType}</Text></TableCell>
+                                        <TableCell>{error.material}</TableCell>
+                                        <TableCell>{error.position}</TableCell>
+                                        <TableCell>{error.qtyDifference}</TableCell>
+                                        <TableCell>{error.user}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </Card>
+
                 </>
             ) : (
                 <div className="flex items-center justify-center h-[60vh] text-center">
