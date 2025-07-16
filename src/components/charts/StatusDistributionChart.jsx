@@ -13,18 +13,22 @@ export default function StatusDistributionChart() {
 
     if (!summary || !summary.statusByLoadingDate) return <Card><CardContent><p>{t.noDataAvailable}</p></CardContent></Card>;
     
-    // Explicitně seřadíme data podle data před zobrazením
     const stackedData = Object.values(summary.statusByLoadingDate || {})
+        .filter(d => d.date && !isNaN(new Date(d.date).getTime())) // Odstranění neplatných dat
         .sort((a, b) => new Date(a.date) - new Date(b.date))
         .map(d => ({ ...d, date: format(parseISO(d.date), 'dd/MM')}));
         
     const uniqueStatuses = Array.from(new Set(summary.allOrdersData.map(row => Number(row.Status)).filter(s => !isNaN(s)))).sort((a, b) => a - b);
+    
+    // Nastavení výchozího zobrazení pro Brush (např. posledních 30 dní)
+    const endIndex = stackedData.length - 1;
+    const startIndex = Math.max(0, endIndex - 30);
 
     if (stackedData.length === 0) return <Card><CardContent><p>{t.noDataAvailable}</p></CardContent></Card>;
 
     return (
         <Card>
-            <CardContent>
+            <CardContent className="pt-6">
                 <h2 className="text-xl font-semibold mb-4">{t.statusDistribution}</h2>
                 <ResponsiveContainer width="100%" height={400}>
                     <BarChart data={stackedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -36,7 +40,8 @@ export default function StatusDistributionChart() {
                         {uniqueStatuses.map((status) => (
                             <Bar key={`status-bar-${status}`} dataKey={`status${status}`} name={`Status ${status}`} fill={getStatusColor(status)} stackId="statusStack" />
                         ))}
-                        <Brush dataKey="date" height={30} stroke="#8884d8" />
+                        {/* OPRAVA ZDE: Přidán startIndex a endIndex pro inicializaci zoomu */}
+                        <Brush dataKey="date" height={30} stroke="#8884d8" startIndex={startIndex} endIndex={endIndex} />
                     </BarChart>
                 </ResponsiveContainer>
             </CardContent>

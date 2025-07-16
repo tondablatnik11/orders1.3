@@ -8,7 +8,7 @@ import { CheckCircle, Clock, Hourglass, Info, AlertTriangle, ClipboardList, Arro
 import { OrderListModal } from '@/components/modals/OrderListModal';
 import { DailyOverviewCard } from '@/components/shared/DailyOverviewCard';
 import { SummaryCard } from '@/components/shared/SummaryCard';
-import { Card, CardContent } from '@/components/ui/Card'; // <-- CHYBĚJÍCÍ IMPORT PŘIDÁN ZDE
+import { Card, CardContent } from '@/components/ui/Card';
 import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
 import StatusDistributionChart from '@/components/charts/StatusDistributionChart';
 import GeoChart from '@/components/charts/GeoChart';
@@ -107,7 +107,8 @@ export default function DashboardTab({ setActiveTab }) {
 
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {/* HORNÍ KARTY */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 {summaryCardsData.map(card => (
                     <SummaryCard key={card.labelKey} title={t[card.labelKey]} value={card.value} icon={card.icon} colorClass={card.color} change={card.change} />
                 ))}
@@ -120,6 +121,7 @@ export default function DashboardTab({ setActiveTab }) {
                 />
             </div>
             
+            {/* DENNÍ PŘEHLED */}
             <div>
                 <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                     <ClipboardList className="w-6 h-6 text-green-400" /> Denní přehled stavu
@@ -137,39 +139,36 @@ export default function DashboardTab({ setActiveTab }) {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
+            {/* HLAVNÍ MŘÍŽKA S GRAFY */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* LEVÝ BLOK - 8 sloupců */}
+                <div className="lg:col-span-8 space-y-6">
                     <StatusDistributionChart />
-                </div>
-                <div className="lg:col-span-1">
-                    <OrdersOverTimeChart summary={summary} />
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
                     <GeoChart data={summary.ordersByCountry} />
+                    <Card>
+                        <CardContent>
+                            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Truck className="w-5 h-5 text-indigo-400" /> TOP 10 Dopravců</h2>
+                            <ResponsiveContainer width="100%" height={350}>
+                                <BarChart data={summary.ordersByForwardingAgent.slice(0, 10)} layout="vertical" margin={{ left: 120 }}>
+                                    <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2}/>
+                                    <XAxis type="number" stroke="#9CA3AF" tick={{ fill: "#D1D5DB" }} />
+                                    <YAxis type="category" dataKey="name" stroke="#9CA3AF" tick={{ fill: "#D1D5DB", fontSize: 12 }} width={120} />
+                                    <Tooltip contentStyle={{ backgroundColor: '#1F2937' }} cursor={{ fill: 'rgba(107, 114, 128, 0.2)' }}/>
+                                    <Bar dataKey="Počet zakázek" fill="#818cf8" radius={[0, 4, 4, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
                 </div>
-                <div className="lg:col-span-1 space-y-6">
+
+                {/* PRAVÝ BLOK - 4 sloupce */}
+                <div className="lg:col-span-4 space-y-6">
+                    <OrdersOverTimeChart summary={summary} />
                     <DonutChartCard title="Typy objednávek" data={summary.orderTypesOEM} />
                     <DonutChartCard title="Podíl typů dodávek" data={summary.deliveryTypes} />
                 </div>
             </div>
-
-            <Card>
-                <CardContent>
-                    <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Truck className="w-5 h-5 text-indigo-400" /> TOP 10 Dopravců</h2>
-                    <ResponsiveContainer width="100%" height={350}>
-                        <BarChart data={summary.ordersByForwardingAgent.slice(0, 10)} layout="vertical" margin={{ left: 100 }}>
-                            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2}/>
-                            <XAxis type="number" stroke="#9CA3AF" tick={{ fill: "#D1D5DB" }} />
-                            <YAxis type="category" dataKey="name" stroke="#9CA3AF" tick={{ fill: "#D1D5DB", fontSize: 12 }} width={100} />
-                            <Tooltip contentStyle={{ backgroundColor: '#1F2937' }} cursor={{ fill: 'rgba(107, 114, 128, 0.2)' }}/>
-                            <Bar dataKey="Počet zakázek" fill="#818cf8" radius={[0, 4, 4, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </CardContent>
-            </Card>
             
             <OrderListModal 
                 isOpen={modalState.isOpen}
