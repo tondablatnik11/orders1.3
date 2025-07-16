@@ -14,11 +14,11 @@ import GeoChart from '@/components/charts/GeoChart';
 import DonutChartCard from '@/components/charts/DonutChartCard';
 
 const FeaturedKPICard = ({ title, value, icon: Icon, change }) => (
-    <div className="bg-red-900/20 backdrop-blur-sm p-4 rounded-xl shadow-lg border border-red-500/30 flex flex-col items-center justify-center gap-2 transition-all duration-300 hover:bg-red-800/50 hover:shadow-red-500/10">
-        <Icon className="w-8 h-8 text-red-400" />
-        <p className="text-lg text-red-300">{title}</p>
+    <div className="bg-red-900/20 backdrop-blur-sm p-4 rounded-xl shadow-lg border border-red-500/30 flex flex-col items-center justify-center gap-1 transition-all duration-300 hover:bg-red-800/50 hover:shadow-red-500/10">
+        <Icon className="w-6 h-6 text-red-400" />
+        <p className="text-base text-red-300">{title}</p>
         <div className="flex items-baseline gap-2">
-            <p className="text-4xl font-bold text-white">{value ?? 0}</p>
+            <p className="text-3xl font-bold text-white">{value ?? 0}</p>
             {change !== undefined && change !== 0 && (
                 <span className={`flex items-center font-bold ${change > 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {change > 0 ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
@@ -102,7 +102,7 @@ export default function DashboardTab() {
 
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 {summaryCardsData.map(card => (
                     <SummaryCard key={card.labelKey} title={t[card.labelKey]} value={card.value} icon={card.icon} colorClass={card.color} change={card.change} />
                 ))}

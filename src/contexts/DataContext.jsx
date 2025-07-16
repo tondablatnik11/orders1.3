@@ -11,36 +11,31 @@ export const DataContext = createContext(null);
 export const useData = () => useContext(DataContext);
 
 export const DataProvider = ({ children }) => {
-    // Stavy pro data zakázek (původní funkčnost)
     const [allOrdersData, setAllOrdersData] = useState([]);
     const [summary, setSummary] = useState(null);
     const [previousSummary, setPreviousSummary] = useState(null);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
     
-    // Stavy pro data z Error Monitoru
     const [errorData, setErrorData] = useState(null);
     const [isLoadingErrorData, setIsLoadingErrorData] = useState(true);
 
     const { user, loading: authLoading } = useAuth();
     const supabase = getSupabase();
 
-    // Načítání dat zakázek
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (isNewUpload = false) => {
         setIsLoadingData(true);
         try {
             const { data, error } = await supabase.from("deliveries").select('*').limit(10000);
             if (error) throw error;
-            
+
             const processed = processData(data || []);
             
-            setSummary(currentSummary => {
-                // Uložíme předchozí souhrn, pouze pokud se data skutečně změnila
-                if (currentSummary && JSON.stringify(currentSummary) !== JSON.stringify(processed)) {
-                    setPreviousSummary(currentSummary);
-                }
-                return processed;
-            });
+            if (isNewUpload) {
+                setPreviousSummary(summary);
+            }
+            
+            setSummary(processed);
             setAllOrdersData(data || []);
 
         } catch (error) {
@@ -50,9 +45,8 @@ export const DataProvider = ({ children }) => {
         } finally {
             setIsLoadingData(false);
         }
-    }, [supabase]);
+    }, [supabase, summary]); // Přidána závislost na 'summary'
 
-    // Načítání dat chyb
     const fetchErrorData = useCallback(async () => {
         setIsLoadingErrorData(true);
         try {
@@ -89,7 +83,6 @@ export const DataProvider = ({ children }) => {
                 const ws = wb.Sheets[wsname];
                 const jsonData = XLSX.utils.sheet_to_json(ws);
                 
-                // Přidán "order type" do mapování
                 const transformedData = jsonData.map(row => ({ 
                     "Delivery No": String(row["Delivery No"] || row["Delivery"] || '').trim(), 
                     "Status": Number(row["Status"]), 
@@ -101,7 +94,7 @@ export const DataProvider = ({ children }) => {
                     "Total Weight": row["Total Weight"], 
                     "Bill of lading": row["Bill of lading"], 
                     "Country ship-to prty": row["Country ship-to prty"],
-                    "order type": row["order type"], // <-- TENTO ŘÁDEK BYL PŘIDÁN
+                    "order_type": row["order type"],
                     "created_at": new Date().toISOString(), 
                     "updated_at": new Date().toISOString() 
                 })).filter(row => row["Delivery No"]);
@@ -111,7 +104,7 @@ export const DataProvider = ({ children }) => {
                     if (error) throw error;
                     toast.dismiss();
                     toast.success('Data byla úspěšně nahrána!');
-                    fetchData();
+                    fetchData(true); // Zavoláme s příznakem, že jde o nový upload
                 } else {
                     toast.dismiss();
                     toast.error('Nenalezena žádná platná data.');
@@ -130,7 +123,6 @@ export const DataProvider = ({ children }) => {
         try {
             const dataForSupabase = await processErrorDataForSupabase(file);
             if (dataForSupabase && dataForSupabase.length > 0) {
-                // Použijeme 'upsert' s unikátním klíčem pro prevenci duplikátů
                 const { error } = await supabase.from('errors').upsert(dataForSupabase, { onConflict: 'unique_key' });
                 if (error) throw error;
             }
