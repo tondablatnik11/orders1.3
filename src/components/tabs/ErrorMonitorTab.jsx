@@ -18,12 +18,11 @@ export default function ErrorMonitorTab() {
         }
     };
 
-    // Paleta barev pro profesionální vzhled
     const colors = {
         positions: 'teal',
         materials: 'cyan',
         difference: 'amber',
-        types: ["#16a34a", "#0ea5e9", "#f97316", "#c026d3", "#64748b"], // zelená, modrá, oranžová, fialová, šedá
+        types: ["#16a34a", "#0ea5e9", "#f97316", "#c026d3", "#64748b"],
     };
 
     return (
@@ -46,7 +45,7 @@ export default function ErrorMonitorTab() {
                     <Grid numItemsLg={2} className="gap-6">
                         <Card>
                             <Title>TOP 5 Typů Chyb</Title>
-                             <DonutChart
+                            <DonutChart
                                 className="mt-8 h-64"
                                 data={errorData.chartsData.errorsByType.slice(0, 5)}
                                 category="Počet chyb"
