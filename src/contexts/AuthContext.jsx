@@ -35,11 +35,9 @@ export const AuthProvider = ({ children }) => {
                 }
             } catch (error) {
                 console.error("Chyba při načítání profilu uživatele:", error);
-                // I v případě chyby je potřeba ukončit načítání, aby se aplikace nezasekla
                 setCurrentUser(null);
                 setCurrentUserProfile(null);
             } finally {
-                // TOTO JE KLÍČOVÁ ZMĚNA: setLoading(false) se volá vždy až po dokončení asynchronní práce s profilem.
                 setLoading(false);
             }
         });
@@ -78,7 +76,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         currentUser,
         user: currentUser,
-        userProfile: currentUserProfile, // Přejmenováno pro konzistenci, ale ponechávám i staré jméno pro zpětnou kompatibilitu
+        userProfile: currentUserProfile,
         currentUserProfile,
         allUsers,
         updateUserProfile,
@@ -93,7 +91,7 @@ export const AuthProvider = ({ children }) => {
             return signInWithPopup(auth, provider);
         },
         logout: () => signOut(auth),
-    }), [currentUser, currentUserProfile, loading, allUsers, appId, auth, supabase]); // Zde jsem odebral updateUserProfile ze závislostí, protože je definován vně a nemění se
+    }), [currentUser, currentUserProfile, loading, allUsers, appId, auth, supabase]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
