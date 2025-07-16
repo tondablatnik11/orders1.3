@@ -28,10 +28,10 @@ export default function OrdersOverTimeChart({ summary }) {
             ...day,
             date: day.date, 
             total: day.total,
-            completed: day.done, // Používáme klíč 'done' z dat
-            remaining: day.remaining, // Nová hodnota "Zbývá"
+            completed: day.done,
+            remaining: day.remaining,
         }))
-        .sort((a, b) => new Date(a.date) - new Date(b.date));
+        .sort((a, b) => new Date(a.date) - new Date(b.date)); // <-- Zajištění správného řazení
 
     return (
         <Card>

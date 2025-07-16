@@ -4,7 +4,7 @@ import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { format, startOfDay, addDays, subDays, parseISO } from 'date-fns';
 import { cs } from 'date-fns/locale';
-import { CheckCircle, Clock, Hourglass, Info, AlertTriangle, ClipboardList } from 'lucide-react';
+import { CheckCircle, Clock, Hourglass, Info, AlertTriangle, ClipboardList, ArrowUp, ArrowDown } from 'lucide-react';
 import { OrderListModal } from '@/components/modals/OrderListModal';
 import { DailyOverviewCard } from '@/components/shared/DailyOverviewCard';
 import { SummaryCard } from '@/components/shared/SummaryCard';
@@ -13,7 +13,6 @@ import StatusDistributionChart from '@/components/charts/StatusDistributionChart
 import GeoChart from '@/components/charts/GeoChart';
 import DonutChartCard from '@/components/charts/DonutChartCard';
 
-// OPREVENÁ KOMPONENTA
 const FeaturedKPICard = ({ title, value, icon: Icon, change }) => (
     <div className="bg-red-900/20 backdrop-blur-sm p-4 rounded-xl shadow-lg border border-red-500/30 flex flex-col items-center justify-center gap-2 transition-all duration-300 hover:bg-red-800/50 hover:shadow-red-500/10">
         <Icon className="w-8 h-8 text-red-400" />
@@ -22,7 +21,7 @@ const FeaturedKPICard = ({ title, value, icon: Icon, change }) => (
             <p className="text-4xl font-bold text-white">{value ?? 0}</p>
             {change !== undefined && change !== 0 && (
                 <span className={`flex items-center font-bold ${change > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {change > 0 ? '↑' : '↓'}
+                    {change > 0 ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
                     {Math.abs(change)}
                 </span>
             )}
@@ -47,9 +46,10 @@ export default function DashboardTab() {
         }
     }, [summary]);
 
-    // Pomocná funkce pro výpočet změny
     const getChange = (currentValue, previousValue) => {
-        if (previousSummary === null || currentValue === undefined || previousValue === undefined) return undefined;
+        if (previousSummary === null || currentValue === undefined || previousValue === undefined) {
+            return undefined;
+        }
         const change = currentValue - previousValue;
         return change;
     };
@@ -77,7 +77,7 @@ export default function DashboardTab() {
             try {
                 if (format(parseISO(order["Loading Date"]), 'yyyy-MM-dd') !== format(date, 'yyyy-MM-dd')) return false;
             } catch (e) {
-                return false; // Ignorovat neplatné datum
+                return false;
             }
 
             const status = Number(order.Status);
@@ -101,7 +101,7 @@ export default function DashboardTab() {
     ];
 
     return (
-        <div className="space-y-6 p-6">
+        <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 {summaryCardsData.map(card => (
                     <SummaryCard key={card.labelKey} title={t[card.labelKey]} value={card.value} icon={card.icon} colorClass={card.color} change={card.change} />
@@ -126,7 +126,7 @@ export default function DashboardTab() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
                     <StatusDistributionChart />
                 </div>
@@ -135,11 +135,11 @@ export default function DashboardTab() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
                     <GeoChart data={summary.ordersByCountry} />
                 </div>
-                <div className="lg:col-span-1 space-y-8">
+                <div className="lg:col-span-1 space-y-6">
                     <DonutChartCard title="Podíl typů dodávek" data={summary.deliveryTypes} />
                     <DonutChartCard title="Typy objednávek" data={summary.orderTypesOEM} />
                 </div>

@@ -11,34 +11,34 @@ export const DataContext = createContext(null);
 export const useData = () => useContext(DataContext);
 
 export const DataProvider = ({ children }) => {
-    // Stavy pro data zakázek (původní funkčnost)
     const [allOrdersData, setAllOrdersData] = useState([]);
     const [summary, setSummary] = useState(null);
-    const [previousSummary, setPreviousSummary] = useState(null); // <-- PŘIDÁNO: Stav pro předchozí souhrn
+    const [previousSummary, setPreviousSummary] = useState(null);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
     
-    // Stavy pro data z Error Monitoru
     const [errorData, setErrorData] = useState(null);
     const [isLoadingErrorData, setIsLoadingErrorData] = useState(true);
 
     const { user, loading: authLoading } = useAuth();
     const supabase = getSupabase();
 
-    // Načítání dat zakázek
     const fetchData = useCallback(async () => {
         setIsLoadingData(true);
         try {
             const { data, error } = await supabase.from("deliveries").select('*').limit(10000);
             if (error) throw error;
+            
+            const processed = processData(data || []);
+            
+            setSummary(currentSummary => {
+                if (currentSummary && JSON.stringify(currentSummary) !== JSON.stringify(processed)) {
+                    setPreviousSummary(currentSummary);
+                }
+                return processed;
+            });
             setAllOrdersData(data || []);
 
-            // <-- ZMĚNA: Uložíme aktuální souhrn do předchozího a vypočítáme nový
-            setSummary(currentSummary => {
-                setPreviousSummary(currentSummary); // Uložíme starý souhrn
-                const processed = processData(data || []);
-                return processed; // Nastavíme nový
-            });
         } catch (error) {
             toast.error("Chyba při načítání dat zakázek.");
             setAllOrdersData([]);
@@ -48,7 +48,6 @@ export const DataProvider = ({ children }) => {
         }
     }, [supabase]);
 
-    // Načítání dat chyb
     const fetchErrorData = useCallback(async () => {
         setIsLoadingErrorData(true);
         try {
@@ -71,8 +70,6 @@ export const DataProvider = ({ children }) => {
         }
     }, [user, authLoading, fetchData, fetchErrorData]);
 
-    // --- ZDE JE OPRAVA ---
-    // Původní funkce pro nahrávání souboru se zakázkami
     const handleFileUpload = useCallback(async (file) => {
         if (!file) return;
         toast.loading('Zpracovávám soubor zakázek...');
@@ -87,7 +84,6 @@ export const DataProvider = ({ children }) => {
                 const ws = wb.Sheets[wsname];
                 const jsonData = XLSX.utils.sheet_to_json(ws);
                 
-                // Vylepšené mapování dat - je odolnější vůči mírným změnám v názvech sloupců
                 const transformedData = jsonData.map(row => ({ 
                     "Delivery No": String(row["Delivery No"] || row["Delivery"] || '').trim(), 
                     "Status": Number(row["Status"]), 
@@ -99,6 +95,7 @@ export const DataProvider = ({ children }) => {
                     "Total Weight": row["Total Weight"], 
                     "Bill of lading": row["Bill of lading"], 
                     "Country ship-to prty": row["Country ship-to prty"], 
+                    "order type": row["order type"],
                     "created_at": new Date().toISOString(), 
                     "updated_at": new Date().toISOString() 
                 })).filter(row => row["Delivery No"]);
@@ -121,14 +118,13 @@ export const DataProvider = ({ children }) => {
         reader.readAsBinaryString(file);
     }, [supabase, fetchData]);
     
-    // Nová funkce pro nahrání souboru s chybami
     const handleErrorLogUpload = useCallback(async (file) => {
         if (!file) return;
         toast.loading('Zpracovávám a ukládám log chyb...');
         try {
             const dataForSupabase = await processErrorDataForSupabase(file);
             if (dataForSupabase && dataForSupabase.length > 0) {
-                const { error } = await supabase.from('errors').insert(dataForSupabase);
+                const { error } = await supabase.from('errors').upsert(dataForSupabase, { onConflict: 'unique_key' });
                 if (error) throw error;
             }
             toast.dismiss();
@@ -148,25 +144,24 @@ export const DataProvider = ({ children }) => {
                 .eq('Delivery No', deliveryNo);
             if (error) throw error;
             toast.success('Poznámka uložena.');
-            fetchData(); // Znovu načte data pro aktualizaci
+            fetchData();
         } catch (error) {
             toast.error(`Chyba při ukládání poznámky: ${error.message}`);
         }
     }, [supabase, fetchData]);
 
-    // Funkce pro aktualizaci statusu z Admin panelu
     const handleUpdateStatus = useCallback(async (deliveryNo, status) => {
         try {
             const { data, error } = await supabase
                 .from('deliveries')
                 .update({ Status: status, updated_at: new Date().toISOString() })
                 .eq('Delivery No', deliveryNo)
-                .select(); // Přidáno .select() pro vrácení updatovaných řádků
+                .select(); 
 
             if (error) throw error;
             
             if (data && data.length > 0) {
-                 fetchData(); // Znovu načteme data, aby se změna projevila
+                 fetchData();
                  return { success: true };
             } else {
                 return { success: false };
@@ -180,14 +175,14 @@ export const DataProvider = ({ children }) => {
     const value = useMemo(() => ({
         allOrdersData,
         summary,
-        previousSummary, // <-- PŘIDÁNO: Zpřístupníme předchozí souhrn
+        previousSummary,
         isLoadingData,
         refetchData: fetchData,
         handleFileUpload,
         selectedOrderDetails,
         setSelectedOrderDetails,
-        handleSaveNote, // Přidáno pro ukládání poznámek
-        handleUpdateStatus, // Přidáno pro admin nástroje
+        handleSaveNote,
+        handleUpdateStatus,
         supabase,
         errorData,
         isLoadingErrorData,

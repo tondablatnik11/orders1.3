@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, Brush } from 'recharts'; // Přidán Brush
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, Brush } from 'recharts';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { getStatusColor } from '@/lib/utils';
@@ -13,7 +13,11 @@ export default function StatusDistributionChart() {
 
     if (!summary || !summary.statusByLoadingDate) return <Card><CardContent><p>{t.noDataAvailable}</p></CardContent></Card>;
     
-    const stackedData = Object.values(summary.statusByLoadingDate || {}).sort((a, b) => new Date(a.date) - new Date(b.date)).map(d => ({ ...d, date: format(parseISO(d.date), 'dd/MM')}));
+    // Explicitně seřadíme data podle data před zobrazením
+    const stackedData = Object.values(summary.statusByLoadingDate || {})
+        .sort((a, b) => new Date(a.date) - new Date(b.date))
+        .map(d => ({ ...d, date: format(parseISO(d.date), 'dd/MM')}));
+        
     const uniqueStatuses = Array.from(new Set(summary.allOrdersData.map(row => Number(row.Status)).filter(s => !isNaN(s)))).sort((a, b) => a - b);
 
     if (stackedData.length === 0) return <Card><CardContent><p>{t.noDataAvailable}</p></CardContent></Card>;
@@ -32,7 +36,6 @@ export default function StatusDistributionChart() {
                         {uniqueStatuses.map((status) => (
                             <Bar key={`status-bar-${status}`} dataKey={`status${status}`} name={`Status ${status}`} fill={getStatusColor(status)} stackId="statusStack" />
                         ))}
-                        {/* Přidání Brush pro zoom a posun */}
                         <Brush dataKey="date" height={30} stroke="#8884d8" />
                     </BarChart>
                 </ResponsiveContainer>
