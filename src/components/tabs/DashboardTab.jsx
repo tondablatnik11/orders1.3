@@ -4,7 +4,7 @@ import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { format, startOfDay, addDays, subDays, parseISO } from 'date-fns';
 import { cs } from 'date-fns/locale';
-import { CheckCircle, Clock, Hourglass, Info, AlertTriangle, ClipboardList, ArrowUp, ArrowDown } from 'lucide-react';
+import { CheckCircle, Clock, Hourglass, Info, AlertTriangle, ClipboardList, ArrowUp, ArrowDown, Truck } from 'lucide-react';
 import { OrderListModal } from '@/components/modals/OrderListModal';
 import { DailyOverviewCard } from '@/components/shared/DailyOverviewCard';
 import { SummaryCard } from '@/components/shared/SummaryCard';
@@ -12,11 +12,12 @@ import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
 import StatusDistributionChart from '@/components/charts/StatusDistributionChart';
 import GeoChart from '@/components/charts/GeoChart';
 import DonutChartCard from '@/components/charts/DonutChartCard';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const FeaturedKPICard = ({ title, value, icon: Icon, change, onClick }) => (
     <div 
         onClick={onClick}
-        className={`bg-red-900/20 backdrop-blur-sm p-4 rounded-xl shadow-lg border border-red-500/30 flex flex-col items-center justify-center gap-1 transition-all duration-300 hover:bg-red-800/50 hover:shadow-red-500/10 hover:-translate-y-1 ${onClick ? 'cursor-pointer' : ''}`}
+        className={`bg-red-900/20 backdrop-blur-sm p-4 rounded-xl shadow-lg border border-red-500/30 flex flex-col items-center justify-center gap-1 transition-all duration-300 hover:bg-red-800/50 hover:shadow-red-500/10 hover:-translate-y-px ${onClick ? 'cursor-pointer' : ''}`}
     >
         <Icon className="w-6 h-6 text-red-400" />
         <p className="text-sm text-red-300">{title}</p>
@@ -149,10 +150,25 @@ export default function DashboardTab({ setActiveTab }) {
                     <GeoChart data={summary.ordersByCountry} />
                 </div>
                 <div className="lg:col-span-1 space-y-6">
-                    <DonutChartCard title="Podíl typů dodávek" data={summary.deliveryTypes} />
                     <DonutChartCard title="Typy objednávek" data={summary.orderTypesOEM} />
+                    <DonutChartCard title="Podíl typů dodávek" data={summary.deliveryTypes} />
                 </div>
             </div>
+
+            <Card>
+                <CardContent>
+                    <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Truck className="w-5 h-5 text-indigo-400" /> TOP 10 Dopravců</h2>
+                    <ResponsiveContainer width="100%" height={350}>
+                        <BarChart data={summary.ordersByForwardingAgent.slice(0, 10)} layout="vertical" margin={{ left: 100 }}>
+                            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2}/>
+                            <XAxis type="number" stroke="#9CA3AF" tick={{ fill: "#D1D5DB" }} />
+                            <YAxis type="category" dataKey="name" stroke="#9CA3AF" tick={{ fill: "#D1D5DB", fontSize: 12 }} width={100} />
+                            <Tooltip contentStyle={{ backgroundColor: '#1F2937' }} cursor={{ fill: 'rgba(107, 114, 128, 0.2)' }}/>
+                            <Bar dataKey="Počet zakázek" fill="#818cf8" radius={[0, 4, 4, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </CardContent>
+            </Card>
             
             <OrderListModal 
                 isOpen={modalState.isOpen}

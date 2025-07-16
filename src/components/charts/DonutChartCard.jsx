@@ -3,11 +3,11 @@ import React from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardContent } from '../ui/Card';
 
-const COLORS = ['#0D8ABC', '#5B9BD5', '#82CFFD', '#B3E5FC', '#00C49F', '#FFBB28', '#FF8042'];
+const COLORS = ["#3b82f6", "#10b981", "#f97316", "#8b5cf6", "#ec4899", "#f59e0b", "#64748b"];
 
 const DonutChartCard = ({ title, data }) => {
     if (!data || Object.keys(data).length === 0) {
-        return null; // Pokud nejsou data, graf se nezobrazí
+        return null;
     }
 
     const chartData = Object.entries(data).map(([name, value]) => ({ name, value }));
