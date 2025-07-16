@@ -23,7 +23,7 @@ export const DataProvider = ({ children }) => {
     const { user, loading: authLoading } = useAuth();
     const supabase = getSupabase();
 
-    const fetchData = useCallback(async (isNewUpload = false) => {
+    const fetchData = useCallback(async () => {
         setIsLoadingData(true);
         try {
             const { data, error } = await supabase.from("deliveries").select('*').limit(10000);
@@ -31,7 +31,8 @@ export const DataProvider = ({ children }) => {
 
             const processed = processData(data || []);
             
-            if (isNewUpload) {
+            // Set current summary as previous if it's not the initial load
+            if (summary !== null) {
                 setPreviousSummary(summary);
             }
             
@@ -45,7 +46,7 @@ export const DataProvider = ({ children }) => {
         } finally {
             setIsLoadingData(false);
         }
-    }, [supabase, summary]); // Přidána závislost na 'summary'
+    }, [supabase, summary]); // závislost na 'summary' je klíčová
 
     const fetchErrorData = useCallback(async () => {
         setIsLoadingErrorData(true);
@@ -100,11 +101,17 @@ export const DataProvider = ({ children }) => {
                 })).filter(row => row["Delivery No"]);
 
                 if (transformedData.length > 0) {
+                    // Store current summary as previous before updating
+                    setPreviousSummary(summary);
+
                     const { error } = await supabase.from('deliveries').upsert(transformedData, { onConflict: 'Delivery No' });
                     if (error) throw error;
+                    
                     toast.dismiss();
                     toast.success('Data byla úspěšně nahrána!');
-                    fetchData(true); // Zavoláme s příznakem, že jde o nový upload
+                    
+                    // Fetch all data again to get a complete and consistent state
+                    fetchData();
                 } else {
                     toast.dismiss();
                     toast.error('Nenalezena žádná platná data.');
@@ -115,7 +122,7 @@ export const DataProvider = ({ children }) => {
             }
         };
         reader.readAsBinaryString(file);
-    }, [supabase, fetchData]);
+    }, [supabase, fetchData, summary]);
     
     const handleErrorLogUpload = useCallback(async (file) => {
         if (!file) return;

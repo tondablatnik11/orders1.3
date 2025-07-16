@@ -99,10 +99,10 @@ export default function DashboardTab({ setActiveTab }) {
     };
 
     const summaryCardsData = [
-        { labelKey: 'total', value: summary.total, change: getChange(summary.total, previousSummary?.total), icon: Info, color: 'bg-blue-500' },
-        { labelKey: 'done', value: summary.doneTotal, change: getChange(summary.doneTotal, previousSummary?.doneTotal), icon: CheckCircle, color: 'bg-green-500' },
-        { labelKey: 'remaining', value: summary.remainingTotal, change: getChange(summary.remainingTotal, previousSummary?.remainingTotal), icon: Clock, color: 'bg-yellow-500' },
-        { labelKey: 'inProgress', value: summary.inProgressTotal, change: getChange(summary.inProgressTotal, previousSummary?.inProgressTotal), icon: Hourglass, color: 'bg-orange-500' },
+        { labelKey: 'total', value: summary.total, change: getChange(summary.total, previousSummary?.total), icon: Info, colorClass: 'bg-blue-500' },
+        { labelKey: 'done', value: summary.doneTotal, change: getChange(summary.doneTotal, previousSummary?.doneTotal), icon: CheckCircle, colorClass: 'bg-green-500' },
+        { labelKey: 'remaining', value: summary.remainingTotal, change: getChange(summary.remainingTotal, previousSummary?.remainingTotal), icon: Clock, colorClass: 'bg-yellow-500' },
+        { labelKey: 'inProgress', value: summary.inProgressTotal, change: getChange(summary.inProgressTotal, previousSummary?.inProgressTotal), icon: Hourglass, colorClass: 'bg-orange-500' },
     ];
 
     return (
@@ -110,7 +110,7 @@ export default function DashboardTab({ setActiveTab }) {
             {/* HORNÍ KARTY */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 {summaryCardsData.map(card => (
-                    <SummaryCard key={card.labelKey} title={t[card.labelKey]} value={card.value} icon={card.icon} colorClass={card.color} change={card.change} />
+                    <SummaryCard key={card.labelKey} title={t[card.labelKey]} value={card.value} icon={card.icon} colorClass={card.colorClass} change={card.change} />
                 ))}
                 <FeaturedKPICard 
                     title={t.delayed} 
