@@ -19,6 +19,31 @@ import {
 } from '@tremor/react';
 import { RefreshCw, UploadCloud, PackageX, ListChecks, MapPin, Package, GitCommitVertical, List } from 'lucide-react';
 
+// Vlastní komponenta pro Tooltip s definovanými barvami
+const CustomTooltip = ({ payload, active, label }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      const category = payload[0].dataKey;
+      const value = data[category];
+      // Manuální mapování barev
+      let bgColor = 'bg-gray-700';
+      if (category.includes('Počet chyb')) bgColor = 'bg-blue-500';
+      if (category.includes('Absolutní rozdíl')) bgColor = 'bg-orange-500';
+
+      return (
+        <div className="rounded-tremor-default text-tremor-default bg-tremor-background p-2 shadow-tremor-dropdown border border-tremor-border">
+          <div className="flex items-center space-x-2">
+            <div className={`w-3 h-3 rounded-full ${bgColor}`} />
+            <p className="text-tremor-content-emphasis font-medium">{label}</p>
+          </div>
+          <p className="text-tremor-content mt-1">{`${category}: ${value}`}</p>
+        </div>
+      );
+    }
+    return null;
+};
+
+
 export default function ErrorMonitorTab() {
     const { errorData, isLoadingErrorData, refetchErrorData, handleErrorLogUpload } = useData();
     const fileInputRef = useRef(null);
@@ -33,13 +58,7 @@ export default function ErrorMonitorTab() {
         }
     };
 
-    // Nová paleta barev, která ladí s hlavní nástěnkou
-    const colors = {
-        positions: "blue",      // Modrá jako "Celkem zakázek"
-        materials: "green",     // Zelená jako "Hotovo"
-        difference: "orange",   // Oranžová jako "Probíhá"
-        types: ["blue", "green", "yellow", "orange", "red"], // Paleta pro typy chyb
-    };
+    const donutColors = ["blue", "green", "yellow", "orange", "red"];
 
     const formatErrorType = (description) => {
         if (description && description.toLowerCase().includes('location')) {
@@ -73,11 +92,11 @@ export default function ErrorMonitorTab() {
                                 data={errorData.chartsData.errorsByType.slice(0, 5)}
                                 category="Počet chyb"
                                 index="name"
-                                colors={colors.types}
+                                colors={donutColors}
                                 showAnimation={true}
                                 variant="pie"
                             />
-                            <Legend categories={errorData.chartsData.errorsByType.slice(0, 5).map(e => e.name)} colors={colors.types} className="mt-4" />
+                            <Legend categories={errorData.chartsData.errorsByType.slice(0, 5).map(e => e.name)} colors={donutColors} className="mt-4" />
                         </Card>
                         <Card>
                             <Title className="flex items-center gap-2"><MapPin className="w-5 h-5" />TOP 10 Pozic s nejvíce chybami</Title>
@@ -86,10 +105,11 @@ export default function ErrorMonitorTab() {
                                 data={errorData.chartsData.errorsByPosition.slice(0, 10)}
                                 index="name"
                                 categories={['Počet chyb']}
-                                colors={[colors.positions]}
+                                colors={["blue"]}
                                 yAxisWidth={100}
                                 layout="vertical"
                                 showAnimation={true}
+                                customTooltip={CustomTooltip}
                             />
                         </Card>
                     </Grid>
@@ -101,10 +121,11 @@ export default function ErrorMonitorTab() {
                                 data={errorData.chartsData.errorsByMaterial.slice(0, 10)}
                                 index="name"
                                 categories={['Počet chyb']}
-                                colors={[colors.materials]}
+                                colors={["green"]}
                                 yAxisWidth={100}
                                 layout="vertical"
                                 showAnimation={true}
+                                customTooltip={CustomTooltip}
                             />
                         </Card>
                         <Card>
@@ -114,10 +135,11 @@ export default function ErrorMonitorTab() {
                                 data={errorData.chartsData.quantityDifferenceByMaterial.slice(0, 10)}
                                 index="name"
                                 categories={['Absolutní rozdíl']}
-                                colors={[colors.difference]}
+                                colors={["orange"]}
                                 yAxisWidth={100}
                                 layout="vertical"
                                 showAnimation={true}
+                                customTooltip={CustomTooltip}
                             />
                         </Card>
                     </Grid>
