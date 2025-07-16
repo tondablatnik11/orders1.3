@@ -2,9 +2,12 @@
 import React from 'react';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 
-export const SummaryCard = ({ title, value, icon: Icon, colorClass, change }) => (
-    <div className="bg-gray-800/50 backdrop-blur-sm p-3 rounded-xl shadow-lg border border-white/10 flex items-center gap-3 transition-all duration-300 hover:bg-gray-700/80 hover:shadow-cyan-500/10 hover:-translate-y-1">
-        <div className={`p-2.5 rounded-lg ${colorClass}`}>
+export const SummaryCard = ({ title, value, icon: Icon, colorClass, change, onClick }) => (
+    <div 
+      className={`bg-gray-800/50 backdrop-blur-sm p-3 rounded-xl shadow-lg border border-white/10 flex items-center gap-3 transition-all duration-300 hover:bg-gray-700/80 hover:shadow-cyan-500/10 hover:-translate-y-1 ${onClick ? 'cursor-pointer' : ''}`}
+      onClick={onClick}
+    >
+        <div className={`p-2 rounded-lg ${colorClass}`}>
             <Icon className="w-5 h-5 text-white" />
         </div>
         <div>

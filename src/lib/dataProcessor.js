@@ -84,8 +84,8 @@ export const processData = (rawData) => {
         const delType = row["del.type"] === 'P' ? 'Palety' : 'Kartony';
         summary.deliveryTypes[delType] = (summary.deliveryTypes[delType] || 0) + 1;
 
-        // Vylepšené zpracování pro nový graf
-        const orderType = String(row["order type"] || 'Jiné').trim();
+        // OPRAVA ZDE: Čteme data ze sloupce "order_type", jak jsou v databázi
+        const orderType = String(row.order_type || 'Jiné').trim();
         if (orderType) {
             let typeName;
             switch (orderType) {

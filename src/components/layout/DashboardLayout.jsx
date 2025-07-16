@@ -20,7 +20,7 @@ const DashboardLayout = () => {
 
     const renderActiveTab = () => {
         switch (activeTab) {
-            case 'dashboard': return <DashboardTab />;
+            case 'dashboard': return <DashboardTab setActiveTab={setActiveTab} />; // <-- PŘIDÁN PROP
             case 'delayedOrders': return <DelayedOrdersTab />;
             case 'orderSearch': return <OrderSearchTab initialQuery={globalSearchQuery} clearInitialQuery={() => setGlobalSearchQuery('')} />;
             case 'announcedLoadings': return <AnnouncedLoadingsTab />;
@@ -29,7 +29,7 @@ const DashboardLayout = () => {
             case 'errorMonitor': return <ErrorMonitorTab />;
             case 'chat': return <ChatTab />;
             case 'settings': return <SettingsTab />;
-            default: return <DashboardTab />;
+            default: return <DashboardTab setActiveTab={setActiveTab} />; // <-- PŘIDÁN PROP
         }
     };
 
@@ -41,7 +41,7 @@ const DashboardLayout = () => {
                     setGlobalSearchQuery(query);
                     setActiveTab('orderSearch');
                 }} activeTab={activeTab} />
-                <main className="flex-1 overflow-y-auto p-6">
+                <main className="flex-1 overflow-y-auto p-4 md:p-6">
                     <div className="animate-fade-in-up">
                         {renderActiveTab()}
                     </div>
