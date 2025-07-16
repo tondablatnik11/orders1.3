@@ -84,12 +84,16 @@ export const processData = (rawData) => {
         const delType = row["del.type"] === 'P' ? 'Palety' : 'Kartony';
         summary.deliveryTypes[delType] = (summary.deliveryTypes[delType] || 0) + 1;
 
-        const orderType = row["order type"];
+        // Vylepšené zpracování pro nový graf
+        const orderType = String(row["order type"] || 'Jiné').trim();
         if (orderType) {
-            let typeName = 'Jiné';
-            if (orderType === 'O') typeName = 'OEM';
-            if (orderType === 'N') typeName = 'Normal';
-            if (orderType === 'E') typeName = 'Expres';
+            let typeName;
+            switch (orderType) {
+                case 'O': typeName = 'OEM'; break;
+                case 'N': typeName = 'Normal'; break;
+                case 'E': typeName = 'Expres'; break;
+                default: typeName = 'Jiné';
+            }
             summary.orderTypesOEM[typeName] = (summary.orderTypesOEM[typeName] || 0) + 1;
         }
 
