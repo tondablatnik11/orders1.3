@@ -13,7 +13,7 @@ module.exports = {
     current: 'currentColor',
     extend: {
       colors: {
-        // Přidání kompletní palety barev pro Tremor
+        // Zde je klíčová část - kompletní paleta barev
         slate: colors.slate,
         gray: colors.gray,
         zinc: colors.zinc,
@@ -38,7 +38,6 @@ module.exports = {
         rose: colors.rose,
       },
       boxShadow: {
-        // Tremor's card shadows
         'tremor-input': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
         'tremor-card': '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
         'tremor-dropdown': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
@@ -54,10 +53,17 @@ module.exports = {
         'tremor-title': ['1.125rem', { lineHeight: '1.75rem' }],
         'tremor-metric': ['1.875rem', { lineHeight: '2.25rem' }],
       },
+      // Vaše vlastní animace může zůstat
+      animation: {
+        'fade-in-up': 'fadeIn 0.5s ease-out forwards',
+      },
+      keyframes: {
+        fadeIn: {
+          'from': { opacity: 0, transform: 'translateY(10px)' },
+          'to': { opacity: 1, transform: 'translateY(0)' },
+        },
+      },
     },
   },
-  safelist: [
-    // ... (zde může zůstat tvůj původní safelist, pokud nějaký máš)
-  ],
   plugins: [require('@headlessui/tailwindcss'), require('@tailwindcss/forms')],
 };
