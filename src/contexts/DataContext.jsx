@@ -28,12 +28,8 @@ export const DataProvider = ({ children }) => {
         try {
             const { data, error } = await supabase.from("deliveries").select('*').limit(10000);
             if (error) throw error;
-
-            const processed = processData(data || []);
-            
-            setSummary(processed);
+            setSummary(processData(data || []));
             setAllOrdersData(data || []);
-
         } catch (error) {
             toast.error("Chyba při načítání dat zakázek.");
             setAllOrdersData([]);
@@ -47,11 +43,17 @@ export const DataProvider = ({ children }) => {
         setIsLoadingErrorData(true);
         try {
             const { data, error } = await supabase.from("errors").select('*').order('timestamp', { ascending: false }).limit(1000);
+            
+            // --- DIAGNOSTICKÝ LOG ---
+            console.log("Data načtená z tabulky 'errors':", data);
+
             if (error) throw error;
+            
             const processedErrors = processArrayForDisplay(data || []);
             setErrorData(processedErrors);
         } catch (error) {
-            toast.error("Chyba při načítání logu chyb.");
+            console.error("Chyba ve funkci fetchErrorData:", error);
+            toast.error("Chyba při načítání dat pro Error Monitor.");
             setErrorData(null);
         } finally {
             setIsLoadingErrorData(false);
@@ -97,13 +99,10 @@ export const DataProvider = ({ children }) => {
 
                 if (transformedData.length > 0) {
                     setPreviousSummary(summary);
-
                     const { error } = await supabase.from('deliveries').upsert(transformedData, { onConflict: 'Delivery No' });
                     if (error) throw error;
-                    
                     toast.dismiss();
                     toast.success('Data byla úspěšně nahrána!');
-                    
                     fetchData();
                 } else {
                     toast.dismiss();
@@ -163,11 +162,11 @@ export const DataProvider = ({ children }) => {
                  fetchData();
                  return { success: true };
             } else {
-                return { success: false };
+                throw new Error("Aktualizace se neprovedla. Zkontrolujte RLS politiku v Supabase nebo zda existuje zakázka s daným číslem.");
             }
         } catch (error) {
             console.error("Chyba při aktualizaci statusu:", error);
-            return { success: false, error: error.message };
+            return { success: false, error: error.message || "Došlo k neznámé chybě." };
         }
     }, [supabase, fetchData]);
 
