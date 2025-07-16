@@ -11,18 +11,21 @@ export const DataContext = createContext(null);
 export const useData = () => useContext(DataContext);
 
 export const DataProvider = ({ children }) => {
+    // Stavy pro data zakázek (původní funkčnost)
     const [allOrdersData, setAllOrdersData] = useState([]);
     const [summary, setSummary] = useState(null);
     const [previousSummary, setPreviousSummary] = useState(null);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
     
+    // Stavy pro data z Error Monitoru
     const [errorData, setErrorData] = useState(null);
     const [isLoadingErrorData, setIsLoadingErrorData] = useState(true);
 
     const { user, loading: authLoading } = useAuth();
     const supabase = getSupabase();
 
+    // Načítání dat zakázek
     const fetchData = useCallback(async () => {
         setIsLoadingData(true);
         try {
@@ -32,6 +35,7 @@ export const DataProvider = ({ children }) => {
             const processed = processData(data || []);
             
             setSummary(currentSummary => {
+                // Uložíme předchozí souhrn, pouze pokud se data skutečně změnila
                 if (currentSummary && JSON.stringify(currentSummary) !== JSON.stringify(processed)) {
                     setPreviousSummary(currentSummary);
                 }
@@ -48,6 +52,7 @@ export const DataProvider = ({ children }) => {
         }
     }, [supabase]);
 
+    // Načítání dat chyb
     const fetchErrorData = useCallback(async () => {
         setIsLoadingErrorData(true);
         try {
@@ -84,6 +89,7 @@ export const DataProvider = ({ children }) => {
                 const ws = wb.Sheets[wsname];
                 const jsonData = XLSX.utils.sheet_to_json(ws);
                 
+                // Přidán "order type" do mapování
                 const transformedData = jsonData.map(row => ({ 
                     "Delivery No": String(row["Delivery No"] || row["Delivery"] || '').trim(), 
                     "Status": Number(row["Status"]), 
@@ -94,8 +100,8 @@ export const DataProvider = ({ children }) => {
                     "Name of ship-to party": row["Name of ship-to party"], 
                     "Total Weight": row["Total Weight"], 
                     "Bill of lading": row["Bill of lading"], 
-                    "Country ship-to prty": row["Country ship-to prty"], 
-                    "order type": row["order type"],
+                    "Country ship-to prty": row["Country ship-to prty"],
+                    "order type": row["order type"], // <-- TENTO ŘÁDEK BYL PŘIDÁN
                     "created_at": new Date().toISOString(), 
                     "updated_at": new Date().toISOString() 
                 })).filter(row => row["Delivery No"]);
@@ -124,6 +130,7 @@ export const DataProvider = ({ children }) => {
         try {
             const dataForSupabase = await processErrorDataForSupabase(file);
             if (dataForSupabase && dataForSupabase.length > 0) {
+                // Použijeme 'upsert' s unikátním klíčem pro prevenci duplikátů
                 const { error } = await supabase.from('errors').upsert(dataForSupabase, { onConflict: 'unique_key' });
                 if (error) throw error;
             }
