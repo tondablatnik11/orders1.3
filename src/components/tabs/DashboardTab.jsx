@@ -11,21 +11,28 @@ import { SummaryCard } from '@/components/shared/SummaryCard';
 import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
 import StatusDistributionChart from '@/components/charts/StatusDistributionChart';
 import GeoChart from '@/components/charts/GeoChart';
-// RecentUpdates se v tomto souboru nepoužívalo, takže jsem import odstranil
 import DonutChartCard from '@/components/charts/DonutChartCard';
 
 // OPREVENÁ KOMPONENTA
-const FeaturedKPICard = ({ title, value, icon: Icon }) => (
+const FeaturedKPICard = ({ title, value, icon: Icon, change }) => (
     <div className="bg-red-900/20 backdrop-blur-sm p-4 rounded-xl shadow-lg border border-red-500/30 flex flex-col items-center justify-center gap-2 transition-all duration-300 hover:bg-red-800/50 hover:shadow-red-500/10">
         <Icon className="w-8 h-8 text-red-400" />
         <p className="text-lg text-red-300">{title}</p>
-        <p className="text-4xl font-bold text-white">{value || 0}</p>
+        <div className="flex items-baseline gap-2">
+            <p className="text-4xl font-bold text-white">{value ?? 0}</p>
+            {change !== undefined && change !== 0 && (
+                <span className={`flex items-center font-bold ${change > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {change > 0 ? '↑' : '↓'}
+                    {Math.abs(change)}
+                </span>
+            )}
+        </div>
     </div>
 );
 
 
 export default function DashboardTab() {
-    const { summary, allOrdersData, setSelectedOrderDetails } = useData();
+    const { summary, previousSummary, allOrdersData, setSelectedOrderDetails } = useData();
     const { t } = useUI();
     const [modalState, setModalState] = useState({ isOpen: false, title: '', orders: [] });
     const scrollContainerRef = useRef(null);
@@ -39,6 +46,13 @@ export default function DashboardTab() {
             container.scrollTo({ left: scrollAmount, behavior: 'smooth' });
         }
     }, [summary]);
+
+    // Pomocná funkce pro výpočet změny
+    const getChange = (currentValue, previousValue) => {
+        if (previousSummary === null || currentValue === undefined || previousValue === undefined) return undefined;
+        const change = currentValue - previousValue;
+        return change;
+    };
 
     if (!summary) {
         return <div className="text-center p-8 text-lg">Zpracovávám data...</div>;
@@ -80,19 +94,19 @@ export default function DashboardTab() {
     };
 
     const summaryCardsData = [
-        { labelKey: 'total', value: summary.total, icon: Info, color: 'bg-blue-500' },
-        { labelKey: 'done', value: summary.doneTotal, icon: CheckCircle, color: 'bg-green-500' },
-        { labelKey: 'remaining', value: summary.remainingTotal, icon: Clock, color: 'bg-yellow-500' },
-        { labelKey: 'inProgress', value: summary.inProgressTotal, icon: Hourglass, color: 'bg-orange-500' },
+        { labelKey: 'total', value: summary.total, change: getChange(summary.total, previousSummary?.total), icon: Info, color: 'bg-blue-500' },
+        { labelKey: 'done', value: summary.doneTotal, change: getChange(summary.doneTotal, previousSummary?.doneTotal), icon: CheckCircle, color: 'bg-green-500' },
+        { labelKey: 'remaining', value: summary.remainingTotal, change: getChange(summary.remainingTotal, previousSummary?.remainingTotal), icon: Clock, color: 'bg-yellow-500' },
+        { labelKey: 'inProgress', value: summary.inProgressTotal, change: getChange(summary.inProgressTotal, previousSummary?.inProgressTotal), icon: Hourglass, color: 'bg-orange-500' },
     ];
 
     return (
         <div className="space-y-6 p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 {summaryCardsData.map(card => (
-                    <SummaryCard key={card.labelKey} title={t[card.labelKey]} value={card.value} icon={card.icon} colorClass={card.color} />
+                    <SummaryCard key={card.labelKey} title={t[card.labelKey]} value={card.value} icon={card.icon} colorClass={card.color} change={card.change} />
                 ))}
-                <FeaturedKPICard title={t.delayed} value={summary.delayed} icon={AlertTriangle} />
+                <FeaturedKPICard title={t.delayed} value={summary.delayed} icon={AlertTriangle} change={getChange(summary.delayed, previousSummary?.delayed)} />
             </div>
             
             <div>

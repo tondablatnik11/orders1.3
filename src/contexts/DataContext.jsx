@@ -14,6 +14,7 @@ export const DataProvider = ({ children }) => {
     // Stavy pro data zakázek (původní funkčnost)
     const [allOrdersData, setAllOrdersData] = useState([]);
     const [summary, setSummary] = useState(null);
+    const [previousSummary, setPreviousSummary] = useState(null); // <-- PŘIDÁNO: Stav pro předchozí souhrn
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
     
@@ -31,8 +32,13 @@ export const DataProvider = ({ children }) => {
             const { data, error } = await supabase.from("deliveries").select('*').limit(10000);
             if (error) throw error;
             setAllOrdersData(data || []);
-            const processed = processData(data || []);
-            setSummary(processed);
+
+            // <-- ZMĚNA: Uložíme aktuální souhrn do předchozího a vypočítáme nový
+            setSummary(currentSummary => {
+                setPreviousSummary(currentSummary); // Uložíme starý souhrn
+                const processed = processData(data || []);
+                return processed; // Nastavíme nový
+            });
         } catch (error) {
             toast.error("Chyba při načítání dat zakázek.");
             setAllOrdersData([]);
@@ -174,6 +180,7 @@ export const DataProvider = ({ children }) => {
     const value = useMemo(() => ({
         allOrdersData,
         summary,
+        previousSummary, // <-- PŘIDÁNO: Zpřístupníme předchozí souhrn
         isLoadingData,
         refetchData: fetchData,
         handleFileUpload,
@@ -186,7 +193,7 @@ export const DataProvider = ({ children }) => {
         isLoadingErrorData,
         refetchErrorData: fetchErrorData,
         handleErrorLogUpload,
-    }), [allOrdersData, summary, isLoadingData, fetchData, handleFileUpload, selectedOrderDetails, supabase, errorData, isLoadingErrorData, fetchErrorData, handleErrorLogUpload, handleSaveNote, handleUpdateStatus]);
+    }), [allOrdersData, summary, previousSummary, isLoadingData, fetchData, handleFileUpload, selectedOrderDetails, supabase, errorData, isLoadingErrorData, fetchErrorData, handleErrorLogUpload, handleSaveNote, handleUpdateStatus]);
 
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };
