@@ -1,5 +1,5 @@
 'use client';
-import React, { createContext, useState, useEffect, useContext, useMemo } from 'react'; // <-- OPRAVENO ZDE
+import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, onSnapshot, updateDoc } from 'firebase/firestore';
 import { auth, db, appId } from '../lib/firebase';
