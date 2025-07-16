@@ -17,7 +17,7 @@ import {
     TableBody,
     TableCell,
 } from '@tremor/react';
-import { RefreshCw, UploadCloud, PackageX } from 'lucide-react';
+import { RefreshCw, UploadCloud, PackageX, ListChecks, MapPin, Package, GitCommitVertical, List } from 'lucide-react';
 
 export default function ErrorMonitorTab() {
     const { errorData, isLoadingErrorData, refetchErrorData, handleErrorLogUpload } = useData();
@@ -33,11 +33,12 @@ export default function ErrorMonitorTab() {
         }
     };
 
+    // Nová paleta barev, která ladí s hlavní nástěnkou
     const colors = {
-        positions: 'teal',
-        materials: 'cyan',
-        difference: 'amber',
-        types: ["#16a34a", "#0ea5e9", "#f97316", "#c026d3", "#64748b"],
+        positions: "blue",      // Modrá jako "Celkem zakázek"
+        materials: "green",     // Zelená jako "Hotovo"
+        difference: "orange",   // Oranžová jako "Probíhá"
+        types: ["blue", "green", "yellow", "orange", "red"], // Paleta pro typy chyb
     };
 
     const formatErrorType = (description) => {
@@ -64,10 +65,9 @@ export default function ErrorMonitorTab() {
                 </div>
             ) : errorData && errorData.chartsData ? (
                 <>
-                    {/* Sekce s grafy zůstává beze změny */}
                     <Grid numItemsLg={2} className="gap-6">
                         <Card>
-                            <Title>TOP 5 Typů Chyb</Title>
+                            <Title className="flex items-center gap-2"><ListChecks className="w-5 h-5" />TOP 5 Typů Chyb</Title>
                              <DonutChart
                                 className="mt-8 h-64"
                                 data={errorData.chartsData.errorsByType.slice(0, 5)}
@@ -80,7 +80,7 @@ export default function ErrorMonitorTab() {
                             <Legend categories={errorData.chartsData.errorsByType.slice(0, 5).map(e => e.name)} colors={colors.types} className="mt-4" />
                         </Card>
                         <Card>
-                            <Title>TOP 10 Pozic s nejvíce chybami</Title>
+                            <Title className="flex items-center gap-2"><MapPin className="w-5 h-5" />TOP 10 Pozic s nejvíce chybami</Title>
                             <BarChart
                                 className="mt-6 h-[22rem]"
                                 data={errorData.chartsData.errorsByPosition.slice(0, 10)}
@@ -95,7 +95,7 @@ export default function ErrorMonitorTab() {
                     </Grid>
                     <Grid numItemsLg={2} className="gap-6">
                         <Card>
-                            <Title>TOP 10 Materiálů s nejvíce chybami</Title>
+                            <Title className="flex items-center gap-2"><Package className="w-5 h-5" />TOP 10 Materiálů s nejvíce chybami</Title>
                             <BarChart
                                 className="mt-6 h-96"
                                 data={errorData.chartsData.errorsByMaterial.slice(0, 10)}
@@ -108,7 +108,7 @@ export default function ErrorMonitorTab() {
                             />
                         </Card>
                         <Card>
-                            <Title>TOP 10 Materiálů s největším rozdílem v množství</Title>
+                            <Title className="flex items-center gap-2"><GitCommitVertical className="w-5 h-5" />TOP 10 Materiálů s největším rozdílem</Title>
                             <BarChart
                                 className="mt-6 h-96"
                                 data={errorData.chartsData.quantityDifferenceByMaterial.slice(0, 10)}
@@ -122,9 +122,8 @@ export default function ErrorMonitorTab() {
                         </Card>
                     </Grid>
                     
-                    {/* --- ZDE JE UPRAVENÁ TABULKA --- */}
                     <Card>
-                        <Title>Detailní Seznam Chyb</Title>
+                        <Title className="flex items-center gap-2"><List className="w-5 h-5" />Detailní Seznam Chyb</Title>
                         <Table className="mt-5">
                             <TableHead>
                                 <TableRow>
