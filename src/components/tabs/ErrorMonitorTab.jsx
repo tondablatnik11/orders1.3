@@ -40,6 +40,13 @@ export default function ErrorMonitorTab() {
         types: ["#16a34a", "#0ea5e9", "#f97316", "#c026d3", "#64748b"],
     };
 
+    const formatErrorType = (description) => {
+        if (description && description.toLowerCase().includes('location')) {
+            return 'Location empty';
+        }
+        return description;
+    };
+
     return (
         <div className="p-0 md:p-4 space-y-6">
             <div className="flex flex-wrap justify-between items-center gap-4">
@@ -57,6 +64,7 @@ export default function ErrorMonitorTab() {
                 </div>
             ) : errorData && errorData.chartsData ? (
                 <>
+                    {/* Sekce s grafy zůstává beze změny */}
                     <Grid numItemsLg={2} className="gap-6">
                         <Card>
                             <Title>TOP 5 Typů Chyb</Title>
@@ -114,16 +122,16 @@ export default function ErrorMonitorTab() {
                         </Card>
                     </Grid>
                     
-                    {/* --- ZDE JE PŘIDANÁ NOVÁ TABULKA --- */}
+                    {/* --- ZDE JE UPRAVENÁ TABULKA --- */}
                     <Card>
                         <Title>Detailní Seznam Chyb</Title>
                         <Table className="mt-5">
                             <TableHead>
                                 <TableRow>
                                     <TableHeaderCell>Timestamp</TableHeaderCell>
-                                    <TableHeaderCell>Typ Chyby</TableHeaderCell>
-                                    <TableHeaderCell>Materiál</TableHeaderCell>
+                                    <TableHeaderCell>Typ chyby</TableHeaderCell>
                                     <TableHeaderCell>Pozice</TableHeaderCell>
+                                    <TableHeaderCell>Zakázka</TableHeaderCell>
                                     <TableHeaderCell>Rozdíl</TableHeaderCell>
                                     <TableHeaderCell>Uživatel</TableHeaderCell>
                                 </TableRow>
@@ -132,10 +140,12 @@ export default function ErrorMonitorTab() {
                                 {(errorData.detailedErrors || []).map((error, index) => (
                                     <TableRow key={index}>
                                         <TableCell>{new Date(error.timestamp).toLocaleString()}</TableCell>
-                                        <TableCell><Text>{error.errorType}</Text></TableCell>
-                                        <TableCell>{error.material}</TableCell>
-                                        <TableCell>{error.position}</TableCell>
-                                        <TableCell>{error.qtyDifference}</TableCell>
+                                        <TableCell>
+                                            <Text>{formatErrorType(error.description)}</Text>
+                                        </TableCell>
+                                        <TableCell>{error.error_location}</TableCell>
+                                        <TableCell>{error.order_refence}</TableCell>
+                                        <TableCell>{error.diff_qty}</TableCell>
                                         <TableCell>{error.user}</TableCell>
                                     </TableRow>
                                 ))}

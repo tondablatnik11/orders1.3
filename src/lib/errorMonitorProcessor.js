@@ -1,20 +1,15 @@
 import * as XLSX from 'xlsx';
 
-// Pomocná funkce pro převedení klíčů (názvů sloupců) na malá písmena a oříznutí mezer
-const normalizeKeys = (obj) => {
-    const newObj = {};
-    for (const key in obj) {
-        if (Object.prototype.hasOwnProperty.call(obj, key)) {
-            newObj[key.trim().toLowerCase()] = obj[key];
+// ... (zde zůstává beze změny funkce processErrorDataForSupabase) ...
+const getCellValue = (row, keys) => {
+    for (const key of keys) {
+        if (row[key] !== undefined && row[key] !== null) {
+            return row[key];
         }
     }
-    return newObj;
+    return null;
 };
 
-/**
- * Zpracuje nahraný XLSX soubor a vrátí data připravená pro vložení do Supabase.
- * Tato verze je odolnější vůči velikosti písmen a mezerám v názvech sloupců.
- */
 export const processErrorDataForSupabase = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -26,18 +21,15 @@ export const processErrorDataForSupabase = (file) => {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
         
-        // Normalizujeme klíče pro každý řádek
-        const normalizedData = jsonData.map(normalizeKeys);
-
-        const dataForSupabase = normalizedData.map(row => {
+        const dataForSupabase = jsonData.map(row => {
           try {
-            const dateValue = row['created on'];
+            const dateValue = getCellValue(row, ['Created On', 'created on']);
             if (!dateValue) return null;
 
             let datePart = new Date(dateValue);
             if (isNaN(datePart.getTime())) return null;
 
-            const timeValue = row['time'];
+            const timeValue = getCellValue(row, ['Time', 'time']);
             if (timeValue) {
                 if (timeValue instanceof Date) {
                     datePart.setHours(timeValue.getUTCHours());
@@ -51,25 +43,24 @@ export const processErrorDataForSupabase = (file) => {
                     datePart.setSeconds(totalSeconds % 60);
                 }
             }
-
-            const errorType = String(row['text'] || 'Neznámá chyba').trim();
-            const storageBin = String(row['storage bin'] || 'N/A').trim();
-            const material = String(row['material'] || 'N/A').trim();
-            const user = String(row['created by'] || 'N/A').trim();
-            const sourceDiff = Number(row['source bin differ.'] || 0);
-            const destBin = String(row['dest.storage bin'] || 'N/A').trim();
-
-            const unique_key = `${datePart.toISOString()}_${material}_${user}_${storageBin}`;
+            
+            // Mapování pro vložení do DB - toto je pro import
+            const storageBin = String(getCellValue(row, ['Storage Bin', 'storage bin']) || 'N/A').trim();
 
             return {
-              unique_key,
+              unique_key: `${datePart.toISOString()}_${getCellValue(row, ['Material'])}_${getCellValue(row, ['Created By', 'created by'])}_${storageBin}`,
               position: storageBin,
-              error_type: errorType,
-              material: material,
-              order_number: destBin,
-              qty_difference: sourceDiff,
-              user: user,
+              error_type: String(getCellValue(row, ['Text']) || 'Neznámá chyba').trim(),
+              material: String(getCellValue(row, ['Material']) || 'N/A').trim(),
+              order_number: String(getCellValue(row, ['Dest.Storage Bin']) || 'N/A').trim(),
+              qty_difference: Number(getCellValue(row, ['Source bin differ.']) || 0),
+              user: String(getCellValue(row, ['Created By', 'created by']) || 'N/A').trim(),
               timestamp: datePart.toISOString(),
+              // Mapování pro nové sloupce, pokud jsou v excelu
+              description: String(getCellValue(row, ['Text', 'Description']) || 'Neznámá chyba').trim(),
+              error_location: storageBin,
+              order_refence: String(getCellValue(row, ['Dest.Storage Bin']) || 'N/A').trim(),
+              diff_qty: Number(getCellValue(row, ['Source bin differ.']) || 0)
             };
           } catch (e) {
             console.error("Chyba při zpracování řádku:", row, e);
@@ -90,20 +81,19 @@ export const processErrorDataForSupabase = (file) => {
   });
 };
 
+
 /**
  * Zpracuje data z databáze a připraví je pro zobrazení.
- * Tato funkce zůstává stejná, protože problém byl v importu.
  */
 export const processArrayForDisplay = (data) => {
     if (!data || data.length === 0) return null;
 
-    const errors = data.map(row => ({
-        position: row.position,
-        errorType: row.error_type,
+    // Vracíme původní detailní data a zároveň agregujeme data pro grafy
+    const errorsForCharts = data.map(row => ({
+        position: row.error_location || row.position,
+        errorType: row.description || row.error_type,
         material: row.material,
-        qtyDifference: Number(row.qty_difference) || 0,
-        user: row.user,
-        timestamp: row.timestamp,
+        qtyDifference: Number(row.diff_qty || row.qty_difference) || 0,
     }));
 
     const aggregateMetric = (data, key, metricName) => {
@@ -131,12 +121,14 @@ export const processArrayForDisplay = (data) => {
     };
     
     return {
-        detailedErrors: errors.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)),
+        // Posíláme původní, nezměněná data pro tabulku
+        detailedErrors: data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)),
         chartsData: {
-            errorsByPosition: aggregateMetric(errors, 'position', 'Počet chyb'),
-            errorsByMaterial: aggregateMetric(errors, 'material', 'Počet chyb'),
-            quantityDifferenceByMaterial: aggregateQuantityDifference(errors),
-            errorsByType: aggregateMetric(errors, 'errorType', 'Počet chyb'),
+            // Používáme transformovaná data pro zachování grafů
+            errorsByPosition: aggregateMetric(errorsForCharts, 'position', 'Počet chyb'),
+            errorsByMaterial: aggregateMetric(errorsForCharts, 'material', 'Počet chyb'),
+            quantityDifferenceByMaterial: aggregateQuantityDifference(errorsForCharts),
+            errorsByType: aggregateMetric(errorsForCharts, 'errorType', 'Počet chyb'),
         }
     };
 };
