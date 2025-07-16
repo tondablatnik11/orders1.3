@@ -8,6 +8,7 @@ import { CheckCircle, Clock, Hourglass, Info, AlertTriangle, ClipboardList, Arro
 import { OrderListModal } from '@/components/modals/OrderListModal';
 import { DailyOverviewCard } from '@/components/shared/DailyOverviewCard';
 import { SummaryCard } from '@/components/shared/SummaryCard';
+import { Card, CardContent } from '@/components/ui/Card'; // <-- CHYBĚJÍCÍ IMPORT PŘIDÁN ZDE
 import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
 import StatusDistributionChart from '@/components/charts/StatusDistributionChart';
 import GeoChart from '@/components/charts/GeoChart';
