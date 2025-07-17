@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import { ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, Minus } from 'lucide-react'; // Přidán import ikony Minus
 
 export const SummaryCard = ({ title, value, icon: Icon, colorClass, change, onClick }) => (
     <div 
@@ -13,9 +13,13 @@ export const SummaryCard = ({ title, value, icon: Icon, colorClass, change, onCl
         <div>
             <div className="flex items-center gap-1.5">
                 <p className="text-xs text-gray-400">{title}</p>
-                {change !== undefined && change !== 0 && (
-                    <span className={`flex items-center text-xs font-semibold ${change > 0 ? 'text-green-400' : 'text-red-500'}`}>
-                        {change > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                {change !== undefined && (
+                    <span className={`flex items-center text-xs font-semibold ${
+                        change > 0 ? 'text-green-400' : change < 0 ? 'text-red-500' : 'text-gray-400'
+                    }`}>
+                        {change > 0 && <ArrowUp className="w-3 h-3" />}
+                        {change < 0 && <ArrowDown className="w-3 h-3" />}
+                        {change === 0 && <Minus className="w-3 h-3" />}
                         {Math.abs(change)}
                     </span>
                 )}

@@ -1,13 +1,21 @@
 "use client";
 import React from 'react';
-import { ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, Minus } from 'lucide-react'; // Přidán import ikony Minus
 
 const ChangeIndicator = ({ change }) => {
-    if (change === undefined || change === 0) return null;
+    // Zobrazí se, pokud je hodnota 0 nebo jakákoli jiná, kromě undefined
+    if (change === undefined) return null;
+    
     const isPositive = change > 0;
+    const isNegative = change < 0;
+
     return (
-        <span className={`flex items-center text-xs font-bold ${isPositive ? 'text-green-400' : 'text-red-500'}`}>
-            {isPositive ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+        <span className={`flex items-center text-xs font-bold ${
+            isPositive ? 'text-green-400' : isNegative ? 'text-red-500' : 'text-gray-400'
+        }`}>
+            {isPositive && <ArrowUp className="w-3 h-3" />}
+            {isNegative && <ArrowDown className="w-3 h-3" />}
+            {change === 0 && <Minus className="w-3 h-3" />}
             {Math.abs(change)}
         </span>
     );

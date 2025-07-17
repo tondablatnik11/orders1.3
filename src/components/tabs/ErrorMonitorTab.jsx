@@ -49,7 +49,8 @@ export default function ErrorMonitorTab() {
         }
     };
 
-    const donutColors = ["blue", "green", "yellow", "orange", "red", "purple"];
+    // Použití HEX kódů místo názvů barev
+    const donutColors = ["#3b82f6", "#16a34a", "#facc15", "#f97316", "#ef4444", "#9333ea"];
 
     const formatErrorTypeForDisplay = (description) => {
         if (!description) return "Neznámý typ";
@@ -106,7 +107,7 @@ export default function ErrorMonitorTab() {
                                 data={errorData.chartsData.errorsByPosition.slice(0, 10)}
                                 index="name"
                                 categories={['Počet chyb']}
-                                colors={["blue"]}
+                                colors={["#3b82f6"]} // HEX kód pro modrou
                                 yAxisWidth={160}
                                 layout="vertical"
                                 showAnimation={true}
@@ -122,7 +123,7 @@ export default function ErrorMonitorTab() {
                                 data={errorData.chartsData.errorsByMaterial.slice(0, 10)}
                                 index="name"
                                 categories={['Počet chyb']}
-                                colors={["green"]}
+                                colors={["#16a34a"]} // HEX kód pro zelenou
                                 yAxisWidth={160}
                                 layout="vertical"
                                 showAnimation={true}
@@ -136,7 +137,7 @@ export default function ErrorMonitorTab() {
                                 data={errorData.chartsData.quantityDifferenceByMaterial.slice(0, 10)}
                                 index="name"
                                 categories={['Absolutní rozdíl']}
-                                colors={["orange"]}
+                                colors={["#f97316"]} // HEX kód pro oranžovou
                                 yAxisWidth={160}
                                 layout="vertical"
                                 showAnimation={true}
