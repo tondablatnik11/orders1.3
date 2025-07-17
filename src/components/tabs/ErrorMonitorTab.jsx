@@ -1,7 +1,7 @@
 // src/components/tabs/ErrorMonitorTab.jsx
 "use client";
 import React, { useRef } from 'react';
-import dynamic from 'next/dynamic';
+import dynamic from 'next/dynamic'; // <-- Důležitý import
 import { useData } from '@/hooks/useData';
 import { 
     Card, 
