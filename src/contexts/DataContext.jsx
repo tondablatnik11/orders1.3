@@ -19,7 +19,7 @@ export const DataProvider = ({ children }) => {
     const [errorData, setErrorData] = useState(null);
     const [isLoadingErrorData, setIsLoadingErrorData] = useState(true);
 
-    const { user, loading: authLoading } = useAuth(); // Tento řádek je důležitý
+    const { user, loading: authLoading } = useAuth();
     const supabase = getSupabase();
 
     const fetchErrorData = useCallback(async () => {
@@ -32,8 +32,7 @@ export const DataProvider = ({ children }) => {
             setErrorData(processedErrors);
         } catch (error) {
             console.error("Chyba ve funkci fetchErrorData:", error);
-            toast.error("Chyba při načítání dat pro Error Monitor.");
-            setErrorData(null);
+            // Chybu již hlásí ostatní funkce, zde není potřeba toast
         } finally {
             setIsLoadingErrorData(false);
         }
@@ -48,11 +47,12 @@ export const DataProvider = ({ children }) => {
                 .eq('id', 1)
                 .single();
             
-            if (snapshotError && snapshotError.code !== 'PGRST116') { // Ignorujeme chybu, pokud řádek prostě neexistuje
-                console.warn("Chyba při načítání snapshotu.", snapshotError.message);
+            if (snapshotError && snapshotError.code !== 'PGRST116') {
+                // Ignorujeme chybu, pouze pokud řádek neexistuje, jiné chyby logujeme
+                console.warn("Chyba při načítání snapshotu:", snapshotError.message);
+            } else {
+                 setPreviousSummary(snapshotData ? snapshotData.summary_data : null);
             }
-            
-            setPreviousSummary(snapshotData ? snapshotData.summary_data : null);
             
             const { data: currentData, error: dataError } = await supabase.from("deliveries").select('*').limit(20000);
             if (dataError) throw dataError;
@@ -62,10 +62,9 @@ export const DataProvider = ({ children }) => {
             setSummary(currentSummary);
 
         } catch (error) {
-            toast.error("Chyba při inicializaci dat.");
-            setAllOrdersData([]);
-            setSummary(null);
-            setPreviousSummary(null);
+             if (!error.message.includes('security policy')) {
+               toast.error("Chyba při inicializaci dat.");
+            }
         } finally {
             setIsLoadingData(false);
         }
@@ -79,10 +78,6 @@ export const DataProvider = ({ children }) => {
     }, [user, authLoading, fetchAndSetSummaries, fetchErrorData]);
 
     const handleFileUpload = useCallback(async (file) => {
-        if (!user) { // Pojistka pro nahrávání hlavních dat
-            toast.error("Nejste přihlášen. Přihlaste se a zkuste to znovu.");
-            return;
-        }
         if (!file) return;
         toast.loading('Zpracovávám soubor...');
         
@@ -146,28 +141,28 @@ export const DataProvider = ({ children }) => {
             }
         };
         reader.readAsBinaryString(file);
-    }, [supabase, summary, user]); // PŘIDÁNA ZÁVISLOST 'user'
+    }, [supabase, summary]);
 
     const handleErrorLogUpload = useCallback(async (file) => {
-        // ====================== OPRAVA ZDE ======================
-        // 1. PŘIDÁNÍ KONTROLY PŘIHLÁŠENÍ
-        // Před jakoukoliv akcí zkontrolujeme, zda je uživatel přihlášen.
-        // =========================================================
-        if (!user) {
-            toast.error("Nejste přihlášen. Přihlaste se a zkuste to znovu.");
-            return;
-        }
-
         if (!file) return;
-        toast.loading('Zpracovávám a ukládám log chyb...');
+        toast.loading('Ověřuji přihlášení a zpracovávám soubor...');
         try {
+            // ====================== FINÁLNÍ OPRAVA ZDE ======================
+            // 1. Aktivně si vyžádáme aktuální stav přihlášení od Supabase.
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+            // 2. Zkontrolujeme, zda session existuje a je platná.
+            if (sessionError || !session) {
+                throw new Error("Chyba autentizace. Zkuste se prosím znovu přihlásit.");
+            }
+
+            // 3. Až nyní, s jistotou platné session, pokračujeme.
             const dataForSupabase = await processErrorDataForSupabase(file);
             if (dataForSupabase && dataForSupabase.length > 0) {
                 const { error } = await supabase.from('errors').upsert(dataForSupabase, { onConflict: 'unique_key' });
                 if (error) throw error;
             } else {
-                // Přidáno pro případ, že soubor neobsahuje žádná data ke zpracování
-                throw new Error("Soubor neobsahuje žádná platná data ke zpracování.");
+                 throw new Error("Soubor neobsahuje žádná platná data ke zpracování.");
             }
             toast.dismiss();
             toast.success('Log chyb byl úspěšně nahrán!');
@@ -176,7 +171,7 @@ export const DataProvider = ({ children }) => {
             toast.dismiss();
             toast.error(`Chyba při nahrávání logu: ${error.message}`);
         }
-    }, [supabase, fetchErrorData, user]); // 2. PŘIDÁNÍ ZÁVISLOSTI 'user'
+    }, [supabase, fetchErrorData]); // Odebrána závislost na 'user', protože session řešíme aktivně
 
     const value = useMemo(() => ({
         allOrdersData,
