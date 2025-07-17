@@ -105,9 +105,14 @@ export const DataProvider = ({ children }) => {
     
     const handleErrorLogUpload = useCallback(async (file) => {
         if (!file) return;
+        if (!user) { // <-- OPRAVA: Kontrola přihlášení
+            toast.error("Pro nahrání souboru musíte být přihlášen.");
+            return;
+        }
         toast.loading('Zpracovávám soubor...');
         try {
-            const dataForSupabase = await processErrorDataForSupabase(file);
+            // <-- OPRAVA: Předání user.uid
+            const dataForSupabase = await processErrorDataForSupabase(file, user.uid);
             if (dataForSupabase && dataForSupabase.length > 0) {
                 const { error } = await supabase.from('errors').upsert(dataForSupabase, { onConflict: 'unique_key' });
                 if (error) throw new Error(error.message);
@@ -122,7 +127,7 @@ export const DataProvider = ({ children }) => {
             toast.error(`Chyba při nahrávání logu: ${error.message}`);
             console.error("Detail chyby při nahrávání logu:", error);
         }
-    }, [supabase, fetchErrorData]);
+    }, [supabase, fetchErrorData, user]); // <-- OPRAVA: Přidána závislost `user`
 
     const value = useMemo(() => ({
         allOrdersData, summary, previousSummary, isLoadingData, refetchData: fetchAndSetSummaries, handleFileUpload, handleErrorLogUpload, errorData, isLoadingErrorData, refetchErrorData: fetchErrorData,

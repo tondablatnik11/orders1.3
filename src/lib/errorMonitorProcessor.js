@@ -8,7 +8,7 @@ const getCellValue = (row, keys) => {
     return null;
 };
 
-export const processErrorDataForSupabase = (file) => {
+export const processErrorDataForSupabase = (file, userId) => { // Přidán argument userId
   return new Promise(async (resolve, reject) => {
     const XLSX = await import('xlsx');
 
@@ -60,8 +60,10 @@ export const processErrorDataForSupabase = (file) => {
             // v databázi Supabase, jak je vidět na vašem screenshotu.
             // Například 'order_number' bylo změněno na 'order_refence'.
             // Přidány byly i chybějící kvantitativní sloupce.
+            // Přidáno user_id pro splnění RLS politiky.
             // ================================================================
             return {
+              user_id: userId, // <-- PŘIDÁNO
               unique_key: uniqueKey,
               description: String(getCellValue(row, ['Text', 'Description']) || 'Neznámá chyba').trim(),
               material: String(getCellValue(row, ['Material']) || 'N/A').trim(),
