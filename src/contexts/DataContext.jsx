@@ -142,20 +142,25 @@ export const DataProvider = ({ children }) => {
         };
         reader.readAsBinaryString(file);
     }, [supabase, summary]);
-    
+
     const handleErrorLogUpload = useCallback(async (file) => {
         if (!file) return;
         toast.loading('Ověřuji přihlášení a zpracovávám soubor...');
         try {
-            // 1. Aktivně si vyžádáme aktuální stav přihlášení od Supabase.
-            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            // 1. Vynutíme si obnovení session, abychom měli jistotu platného tokenu.
+            const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
 
-            // 2. Zkontrolujeme, zda session existuje a je platná.
-            if (sessionError || !session) {
+            if (sessionError) {
+              throw new Error(`Chyba obnovení session: ${sessionError.message}`);
+            }
+            if (!session) {
                 throw new Error("Chyba autentizace. Zkuste se prosím znovu přihlásit.");
             }
 
-            // 3. Až nyní, s jistotou platné session, pokračujeme.
+            // 2. Explicitně nastavíme novou session pro klienta.
+            supabase.auth.setSession(session);
+
+            // 3. Pokračujeme v nahrávání souboru.
             const dataForSupabase = await processErrorDataForSupabase(file);
             if (dataForSupabase && dataForSupabase.length > 0) {
                 const { error } = await supabase.from('errors').upsert(dataForSupabase, { onConflict: 'unique_key' });
