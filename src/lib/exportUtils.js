@@ -1,14 +1,20 @@
 import { format, parseISO } from 'date-fns';
-import toast from 'react-hot-toast'; // <-- PŘIDÁN IMPORT
+import toast from 'react-hot-toast';
 
-// Obecná funkce pro vytvoření a stažení XLSX souboru
 const exportToXLSX = (data, fileName = 'export', t) => {
+    // KROK 1: Zjistíme, zda se kód spouští v prohlížeči.
+    // 'window' existuje pouze v prohlížeči, ne na serveru.
+    if (typeof window === 'undefined') {
+        console.error("Export function called on the server.");
+        return;
+    }
+
     if (typeof window.XLSX === 'undefined') {
-        toast.error(t.xlsxLibNotLoaded || "Knihovna pro export (XLSX) není načtena."); // <-- ZMĚNA
+        toast.error(t.xlsxLibNotLoaded || "Knihovna pro export (XLSX) není načtena.");
         return;
     }
      if (!data || data.length === 0) {
-        toast.error(t.noDataAvailable || "Nejsou k dispozici žádná data pro export."); // <-- ZMĚNA
+        toast.error(t.noDataAvailable || "Nejsou k dispozici žádná data pro export.");
         return;
     }
 
@@ -41,7 +47,7 @@ export const exportCustomOrdersToXLSX = (orders, title, t) => {
 // --- Export pro zpožděné zakázky ---
 export const exportDelayedOrdersXLSX = (delayedOrders, t) => {
     if (!delayedOrders || delayedOrders.length === 0) {
-        toast.error(t.noDataAvailable || "Nejsou žádné zpožděné zakázky k exportu."); // <-- ZMĚNA
+        toast.error(t.noDataAvailable || "Nejsou žádné zpožděné zakázky k exportu.");
         return;
     }
     const formattedData = delayedOrders.map(item => ({

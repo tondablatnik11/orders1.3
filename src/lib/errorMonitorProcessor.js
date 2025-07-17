@@ -1,6 +1,5 @@
 import * as XLSX from 'xlsx';
 
-// ... (zde zůstává beze změny funkce processErrorDataForSupabase) ...
 const getCellValue = (row, keys) => {
     for (const key of keys) {
         if (row[key] !== undefined && row[key] !== null) {
@@ -30,25 +29,35 @@ export const processErrorDataForSupabase = (file) => {
             if (isNaN(datePart.getTime())) return null;
 
             const timeValue = getCellValue(row, ['Time', 'time']);
+            
             if (timeValue) {
-                if (timeValue instanceof Date) {
-                    datePart.setHours(timeValue.getUTCHours());
-                    datePart.setMinutes(timeValue.getUTCMinutes());
-                    datePart.setSeconds(timeValue.getUTCSeconds());
+                let hours = 0, minutes = 0, seconds = 0;
+                if (timeValue instanceof Date && !isNaN(timeValue.getTime())) {
+                    hours = timeValue.getUTCHours();
+                    minutes = timeValue.getUTCMinutes();
+                    seconds = timeValue.getUTCSeconds();
                 } else if (typeof timeValue === 'number') {
-                    const fraction = timeValue - Math.floor(timeValue);
+                    const fraction = timeValue > 1 ? timeValue - Math.floor(timeValue) : timeValue;
                     const totalSeconds = Math.round(fraction * 86400);
-                    datePart.setHours(Math.floor(totalSeconds / 3600));
-                    datePart.setMinutes(Math.floor((totalSeconds % 3600) / 60));
-                    datePart.setSeconds(totalSeconds % 60);
+                    hours = Math.floor(totalSeconds / 3600);
+                    minutes = Math.floor((totalSeconds % 3600) / 60);
+                    seconds = totalSeconds % 60;
+                } else if (typeof timeValue === 'string') {
+                    const timeParts = timeValue.split(':');
+                    hours = parseInt(timeParts[0], 10) || 0;
+                    minutes = parseInt(timeParts[1], 10) || 0;
+                    seconds = parseInt(timeParts[2], 10) || 0;
                 }
+                datePart.setHours(hours);
+                datePart.setMinutes(minutes);
+                datePart.setSeconds(seconds);
             }
             
-            // Mapování pro vložení do DB - toto je pro import
             const storageBin = String(getCellValue(row, ['Storage Bin', 'storage bin']) || 'N/A').trim();
+            const uniqueKey = `${datePart.toISOString()}_${getCellValue(row, ['Material'])}_${getCellValue(row, ['Created By', 'created by'])}_${storageBin}`;
 
             return {
-              unique_key: `${datePart.toISOString()}_${getCellValue(row, ['Material'])}_${getCellValue(row, ['Created By', 'created by'])}_${storageBin}`,
+              unique_key: uniqueKey,
               position: storageBin,
               error_type: String(getCellValue(row, ['Text']) || 'Neznámá chyba').trim(),
               material: String(getCellValue(row, ['Material']) || 'N/A').trim(),
@@ -56,7 +65,6 @@ export const processErrorDataForSupabase = (file) => {
               qty_difference: Number(getCellValue(row, ['Source bin differ.']) || 0),
               user: String(getCellValue(row, ['Created By', 'created by']) || 'N/A').trim(),
               timestamp: datePart.toISOString(),
-              // Mapování pro nové sloupce, pokud jsou v excelu
               description: String(getCellValue(row, ['Text', 'Description']) || 'Neznámá chyba').trim(),
               error_location: storageBin,
               order_refence: String(getCellValue(row, ['Dest.Storage Bin']) || 'N/A').trim(),
@@ -81,14 +89,9 @@ export const processErrorDataForSupabase = (file) => {
   });
 };
 
-
-/**
- * Zpracuje data z databáze a připraví je pro zobrazení.
- */
 export const processArrayForDisplay = (data) => {
     if (!data || data.length === 0) return null;
 
-    // Vracíme původní detailní data a zároveň agregujeme data pro grafy
     const errorsForCharts = data.map(row => ({
         position: row.error_location || row.position,
         errorType: row.description || row.error_type,
@@ -121,10 +124,8 @@ export const processArrayForDisplay = (data) => {
     };
     
     return {
-        // Posíláme původní, nezměněná data pro tabulku
         detailedErrors: data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)),
         chartsData: {
-            // Používáme transformovaná data pro zachování grafů
             errorsByPosition: aggregateMetric(errorsForCharts, 'position', 'Počet chyb'),
             errorsByMaterial: aggregateMetric(errorsForCharts, 'material', 'Počet chyb'),
             quantityDifferenceByMaterial: aggregateQuantityDifference(errorsForCharts),

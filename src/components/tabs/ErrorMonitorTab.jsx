@@ -19,13 +19,11 @@ import {
 } from '@tremor/react';
 import { RefreshCw, UploadCloud, PackageX, ListChecks, MapPin, Package, GitCommitVertical, List } from 'lucide-react';
 
-// Vlastní komponenta pro Tooltip s definovanými barvami
 const CustomTooltip = ({ payload, active, label }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       const category = payload[0].dataKey;
       const value = data[category];
-      // Manuální mapování barev
       let bgColor = 'bg-gray-700';
       if (category.includes('Počet chyb')) bgColor = 'bg-blue-500';
       if (category.includes('Absolutní rozdíl')) bgColor = 'bg-orange-500';
@@ -60,12 +58,22 @@ export default function ErrorMonitorTab() {
 
     const donutColors = ["blue", "green", "yellow", "orange", "red"];
 
-    const formatErrorType = (description) => {
-        if (description && description.toLowerCase().includes('location')) {
-            return 'Location empty';
-        }
+    const formatErrorTypeForDisplay = (description) => {
+        if(!description) return "Neznámá";
+        const desc = description.toLowerCase();
+        if (desc.includes('location empty')) return 'Prázdná lokace';
+        if (desc.includes('skip position')) return 'Přeskočená pozice';
+        if (desc.includes('serial number')) return 'Sériové číslo';
+        if (desc.includes('location short')) return 'Neúplná lokace';
+        if (desc.includes('empty skid')) return 'Prázdná paleta';
         return description;
     };
+    
+    const errorsByTypeData = errorData?.chartsData?.errorsByType.map(e => ({
+        ...e,
+        name: formatErrorTypeForDisplay(e.name)
+    })).slice(0, 5) || [];
+
 
     return (
         <div className="p-0 md:p-4 space-y-6">
@@ -89,14 +97,14 @@ export default function ErrorMonitorTab() {
                             <Title className="flex items-center gap-2"><ListChecks className="w-5 h-5" />TOP 5 Typů Chyb</Title>
                              <DonutChart
                                 className="mt-8 h-64"
-                                data={errorData.chartsData.errorsByType.slice(0, 5)}
+                                data={errorsByTypeData}
                                 category="Počet chyb"
                                 index="name"
                                 colors={donutColors}
                                 showAnimation={true}
                                 variant="pie"
                             />
-                            <Legend categories={errorData.chartsData.errorsByType.slice(0, 5).map(e => e.name)} colors={donutColors} className="mt-4" />
+                            <Legend categories={errorsByTypeData.map(e => e.name)} colors={donutColors} className="mt-4" />
                         </Card>
                         <Card>
                             <Title className="flex items-center gap-2"><MapPin className="w-5 h-5" />TOP 10 Pozic s nejvíce chybami</Title>
@@ -106,7 +114,7 @@ export default function ErrorMonitorTab() {
                                 index="name"
                                 categories={['Počet chyb']}
                                 colors={["blue"]}
-                                yAxisWidth={100}
+                                yAxisWidth={150}
                                 layout="vertical"
                                 showAnimation={true}
                                 customTooltip={CustomTooltip}
@@ -122,7 +130,7 @@ export default function ErrorMonitorTab() {
                                 index="name"
                                 categories={['Počet chyb']}
                                 colors={["green"]}
-                                yAxisWidth={100}
+                                yAxisWidth={150}
                                 layout="vertical"
                                 showAnimation={true}
                                 customTooltip={CustomTooltip}
@@ -136,7 +144,7 @@ export default function ErrorMonitorTab() {
                                 index="name"
                                 categories={['Absolutní rozdíl']}
                                 colors={["orange"]}
-                                yAxisWidth={100}
+                                yAxisWidth={150}
                                 layout="vertical"
                                 showAnimation={true}
                                 customTooltip={CustomTooltip}
@@ -160,9 +168,9 @@ export default function ErrorMonitorTab() {
                             <TableBody>
                                 {(errorData.detailedErrors || []).map((error, index) => (
                                     <TableRow key={index}>
-                                        <TableCell>{new Date(error.timestamp).toLocaleString()}</TableCell>
+                                        <TableCell>{new Date(error.timestamp).toLocaleString('cs-CZ')}</TableCell>
                                         <TableCell>
-                                            <Text>{formatErrorType(error.description)}</Text>
+                                            <Text>{formatErrorTypeForDisplay(error.description)}</Text>
                                         </TableCell>
                                         <TableCell>{error.error_location}</TableCell>
                                         <TableCell>{error.order_refence}</TableCell>
