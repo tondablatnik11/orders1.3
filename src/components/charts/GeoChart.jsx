@@ -1,3 +1,4 @@
+// src/components/charts/GeoChart.jsx
 'use client';
 import React from 'react';
 import { ResponsiveChoropleth } from '@nivo/geo';
@@ -25,10 +26,11 @@ const GeoChart = ({ data = [] }) => {
 
     return (
         <Card>
-            <CardContent>
+            <CardContent className="pt-6">
                 <h2 className="text-xl font-semibold mb-4">Geografické rozložení zakázek</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="md:col-span-2" style={{ height: '400px' }}>
+                    {/* Změna výšky na responzivní */}
+                    <div className="md:col-span-2 h-[300px] md:h-[400px]">
                         <ResponsiveChoropleth
                             data={data}
                             features={worldCountries.features}
@@ -39,37 +41,23 @@ const GeoChart = ({ data = [] }) => {
                             label="properties.name"
                             valueFormat=".2s"
                             projectionType="mercator"
-                            projectionScale={150}
-                            projectionTranslation={[0.5, 0.7]}
+                            projectionScale={120} // Mírně menší měřítko pro lepší zobrazení
+                            projectionTranslation={[0.5, 0.6]} // Posunuto mírně nahoru
                             enableGraticule={true}
-                            graticuleLineColor="#666666"
+                            graticuleLineColor="rgba(255, 255, 255, 0.1)"
                             borderWidth={0.5}
                             borderColor="#1F2937"
                             theme={{
                                 tooltip: { container: { background: '#1F2937', color: '#FFF' } },
                                 labels: { text: { fill: '#FFF' } },
-                                legends: { text: { fill: '#FFF' } },
+                                legends: { text: { fill: '#DDD' } },
                             }}
-                            legends={[
-                                {
-                                    anchor: 'bottom-left',
-                                    direction: 'column',
-                                    justify: true,
-                                    translateX: 20,
-                                    translateY: -60,
-                                    itemsSpacing: 0,
-                                    itemWidth: 94,
-                                    itemHeight: 18,
-                                    itemDirection: 'left-to-right',
-                                    itemTextColor: '#DDD',
-                                    itemOpacity: 0.85,
-                                    symbolSize: 18,
-                                },
-                            ]}
+                            legends={[]} // Legenda je nyní zobrazena samostatně
                         />
                     </div>
                     <div className="md:col-span-1">
                         <h3 className="text-lg font-semibold mb-2 text-gray-300">TOP 20 Zemí</h3>
+                        {/* Kontejner s pevnou výškou a scrollováním pro seznam */}
                         <div className="space-y-2 h-[360px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
                             <ul className="space-y-2">
                                 {topCountries.map(country => (

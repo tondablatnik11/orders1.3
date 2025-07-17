@@ -8,39 +8,57 @@ body {
   background-size: 2rem 2rem;
 }
 
-/* Custom scrollbar pro profesionální vzhled */
+/* Vylepšený custom scrollbar */
 .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #4B5563 #1F2937;
+    scrollbar-color: #374151 #111827; /* Jemnější barvy */
 }
 
 .scrollbar-thin::-webkit-scrollbar {
-    height: 8px;
+    width: 6px;
+    height: 6px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
-    background: #1F2937;
-    border-radius: 10px;
+    background: transparent;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: #4B5563;
+    background-color: #374151;
     border-radius: 10px;
-    border: 2px solid #1F2937;
+    border: 1px solid #111827;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background-color: #6B7280;
+    background-color: #4B5563;
 }
 
-/* Definice pro animaci */
-@keyframes fadeIn {
+/* --- NOVÉ ANIMAČNÍ TŘÍDY --- */
+
+/* Vylepšená fade-in animace */
+@keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.5s ease-out forwards;
+}
+
+
+/* Skeleton loader animace */
+@keyframes skeleton-breathing {
+  0% { background-color: hsl(220, 13%, 18%); } /* slate-800 */
+  50% { background-color: hsl(220, 13%, 25%); } /* Tmavší slate-700 */
+  100% { background-color: hsl(220, 13%, 18%); } /* slate-800 */
+}
+
+.skeleton {
+  @apply animate-[skeleton-breathing_1.5s_ease-in-out_infinite] rounded-lg;
 }

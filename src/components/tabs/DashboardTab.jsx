@@ -1,3 +1,4 @@
+// src/components/tabs/DashboardTab.jsx
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { useData } from '@/hooks/useData';
@@ -15,28 +16,50 @@ import GeoChart from '@/components/charts/GeoChart';
 import DonutChartCard from '@/components/charts/DonutChartCard';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
+// --- Skeleton komponenty pro načítání ---
+const SummaryCardSkeleton = () => (
+    <div className="col-span-1 bg-slate-800 rounded-xl border border-slate-700 p-4 skeleton h-[88px]"></div>
+);
+
+const DailyOverviewSkeleton = () => (
+    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 min-w-64 flex-shrink-0 skeleton h-[216px]"></div>
+);
+
+const ChartSkeleton = ({ height = 400 }) => (
+    <Card>
+        <CardContent className="pt-6">
+            <div className={`skeleton w-full rounded-lg`} style={{ height: `${height}px` }}></div>
+        </CardContent>
+    </Card>
+);
+
+
 const FeaturedKPICard = ({ title, value, icon: Icon, change, onClick }) => (
     <div 
         onClick={onClick}
-        className={`bg-red-900/20 backdrop-blur-sm p-4 rounded-xl shadow-lg border border-red-500/30 flex flex-col items-center justify-center gap-1 transition-all duration-300 hover:bg-red-800/50 hover:shadow-red-500/10 hover:-translate-y-px ${onClick ? 'cursor-pointer' : ''}`}
+        className="relative col-span-2 sm:col-span-1 lg:col-span-1 group rounded-xl border border-red-500/30 bg-red-900/20 p-4 transition-all duration-300 hover:bg-red-900/50 hover:shadow-2xl hover:shadow-red-500/20 backdrop-blur-sm cursor-pointer"
     >
-        <Icon className="w-6 h-6 text-red-400" />
-        <p className="text-sm text-red-300">{title}</p>
-        <div className="flex items-center gap-2">
-            <p className="text-2xl font-bold text-white">{value ?? 0}</p>
-            {change !== undefined && change !== 0 && (
-                <span className={`flex items-center text-sm font-bold ${change > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {change > 0 ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-                    {Math.abs(change)}
-                </span>
-            )}
+        <div className="flex flex-col items-center justify-center text-center h-full">
+            <div className="p-3 bg-red-500/20 rounded-full mb-2 border border-red-500/50 group-hover:scale-110 transition-transform">
+                <Icon className="w-6 h-6 text-red-300" />
+            </div>
+            <p className="text-sm font-medium text-red-300">{title}</p>
+            <div className="flex items-baseline gap-2">
+                <p className="text-3xl font-bold text-white">{value ?? 0}</p>
+                {change !== undefined && change !== 0 && (
+                    <span className={`flex items-center text-sm font-bold ${change > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {change > 0 ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
+                        {Math.abs(change)}
+                    </span>
+                )}
+            </div>
         </div>
     </div>
 );
 
 
 export default function DashboardTab({ setActiveTab }) {
-    const { summary, previousSummary, allOrdersData, setSelectedOrderDetails } = useData();
+    const { summary, previousSummary, allOrdersData, setSelectedOrderDetails, isLoadingData } = useData();
     const { t } = useUI();
     const [modalState, setModalState] = useState({ isOpen: false, title: '', orders: [] });
     const scrollContainerRef = useRef(null);
@@ -59,8 +82,34 @@ export default function DashboardTab({ setActiveTab }) {
         return change;
     };
 
+    if (isLoadingData) {
+        return (
+            <div className="space-y-8">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    {Array.from({ length: 5 }).map((_, i) => <SummaryCardSkeleton key={i} />)}
+                </div>
+                <div>
+                    <div className="h-8 w-72 mb-4 skeleton"></div>
+                    <div className="flex space-x-4 overflow-x-auto pb-4">
+                        {Array.from({ length: 7 }).map((_, i) => <DailyOverviewSkeleton key={i} />)}
+                    </div>
+                </div>
+                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div className="lg:col-span-8 space-y-6">
+                        <ChartSkeleton height={400} />
+                        <ChartSkeleton height={400} />
+                    </div>
+                    <div className="lg:col-span-4 space-y-6">
+                        <ChartSkeleton height={320} />
+                        <ChartSkeleton height={250} />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     if (!summary) {
-        return <div className="text-center p-8 text-lg">Zpracovávám data...</div>;
+        return <div className="text-center p-8 text-lg">Žádná data k zobrazení.</div>;
     }
 
     const today = startOfDay(new Date());
@@ -99,10 +148,10 @@ export default function DashboardTab({ setActiveTab }) {
     };
 
     const summaryCardsData = [
-        { labelKey: 'total', value: summary.total, change: getChange(summary.total, previousSummary?.total), icon: Info, colorClass: 'bg-blue-500' },
-        { labelKey: 'done', value: summary.doneTotal, change: getChange(summary.doneTotal, previousSummary?.doneTotal), icon: CheckCircle, colorClass: 'bg-green-500' },
-        { labelKey: 'remaining', value: summary.remainingTotal, change: getChange(summary.remainingTotal, previousSummary?.remainingTotal), icon: Clock, colorClass: 'bg-yellow-500' },
-        { labelKey: 'inProgress', value: summary.inProgressTotal, change: getChange(summary.inProgressTotal, previousSummary?.inProgressTotal), icon: Hourglass, colorClass: 'bg-orange-500' },
+        { labelKey: 'total', value: summary.total, change: getChange(summary.total, previousSummary?.total), icon: Info, color: 'blue' },
+        { labelKey: 'done', value: summary.doneTotal, change: getChange(summary.doneTotal, previousSummary?.doneTotal), icon: CheckCircle, color: 'green' },
+        { labelKey: 'remaining', value: summary.remainingTotal, change: getChange(summary.remainingTotal, previousSummary?.remainingTotal), icon: Clock, color: 'yellow' },
+        { labelKey: 'inProgress', value: summary.inProgressTotal, change: getChange(summary.inProgressTotal, previousSummary?.inProgressTotal), icon: Hourglass, color: 'orange' },
     ];
 
     const getDailyChange = (date, metric) => {
@@ -120,11 +169,11 @@ export default function DashboardTab({ setActiveTab }) {
 
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
             {/* HORNÍ KARTY */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 {summaryCardsData.map(card => (
-                    <SummaryCard key={card.labelKey} title={t[card.labelKey]} value={card.value} icon={card.icon} colorClass={card.colorClass} change={card.change} />
+                    <SummaryCard key={card.labelKey} title={t[card.labelKey]} value={card.value} icon={card.icon} color={card.color} change={card.change} />
                 ))}
                 <FeaturedKPICard 
                     title={t.delayed} 
@@ -137,24 +186,28 @@ export default function DashboardTab({ setActiveTab }) {
             
             {/* DENNÍ PŘEHLED */}
             <div>
-                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-slate-200">
                     <ClipboardList className="w-6 h-6 text-green-400" /> Denní přehled stavu
                 </h2>
-                <div ref={scrollContainerRef} className="flex space-x-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+                <div className="lg:hidden space-y-4">
+                     {datesForOverview.map((d) => {
+                        const dateStr = format(d.date, 'yyyy-MM-dd');
+                        const isToday = format(d.date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
+                        const dailyStats = summary.dailySummaries.find(s => s.date === dateStr);
+                        if (!dailyStats) return null;
+                        const displayLabel = `${d.label} (${format(d.date, 'dd.MM.')})`;
+                        const dailyChanges = { total: getDailyChange(d.date, 'total'), done: getDailyChange(d.date, 'done'), remaining: getDailyChange(d.date, 'remaining'), inProgress: getDailyChange(d.date, 'inProgress'), new: getDailyChange(d.date, 'new')};
+
+                        return (<DailyOverviewCard key={dateStr} title={displayLabel} stats={dailyStats} t={t} onStatClick={handleStatClick} date={d.date} changes={dailyChanges} isToday={isToday} />);
+                    })}
+                </div>
+                <div ref={scrollContainerRef} className="hidden lg:flex space-x-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
                     {datesForOverview.map((d) => {
                         const dateStr = format(d.date, 'yyyy-MM-dd');
                         const isToday = format(d.date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
                         const dailyStats = summary.dailySummaries.find(s => s.date === dateStr);
                         const displayLabel = `${d.label} (${format(d.date, 'dd.MM.')})`;
-                        
-                        // Zde připravíme data o změnách pro každou kartu
-                        const dailyChanges = {
-                            total: getDailyChange(d.date, 'total'),
-                            done: getDailyChange(d.date, 'done'),
-                            remaining: getDailyChange(d.date, 'remaining'),
-                            inProgress: getDailyChange(d.date, 'inProgress'),
-                            new: getDailyChange(d.date, 'new'),
-                        };
+                        const dailyChanges = { total: getDailyChange(d.date, 'total'), done: getDailyChange(d.date, 'done'), remaining: getDailyChange(d.date, 'remaining'), inProgress: getDailyChange(d.date, 'inProgress'), new: getDailyChange(d.date, 'new') };
 
                         return (
                             <DailyOverviewCard 
@@ -165,7 +218,8 @@ export default function DashboardTab({ setActiveTab }) {
                                 t={t} 
                                 onStatClick={handleStatClick} 
                                 date={d.date}
-                                changes={dailyChanges} // <-- Předání změn do komponenty
+                                changes={dailyChanges}
+                                isToday={isToday}
                             />
                         );
                     })}

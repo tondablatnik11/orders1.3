@@ -1,3 +1,4 @@
+// src/components/layout/Sidebar.jsx
 'use client';
 import { forwardRef } from 'react';
 import { Home, Search, Bell, CalendarDays, Truck, Warehouse, AlertTriangle, LogOut, MessageSquare, Settings } from 'lucide-react';
@@ -22,47 +23,73 @@ const Sidebar = forwardRef(({ activeTab, onTabChange }, ref) => {
         { id: 'settings', label: 'Nastavení', icon: Settings },
     ];
 
-    const NavLink = ({ item }) => (
-        <li 
-            onClick={() => onTabChange(item.id)} 
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-300 transform hover:-translate-y-px 
-                       ${activeTab === item.id 
-                         ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
-                         : 'text-slate-400 hover:bg-slate-700 hover:text-white'}`}
-        >
-            <item.icon className="w-5 h-5" />
-            <span className="font-medium">{item.label}</span>
-        </li>
-    );
+    const NavLink = ({ item }) => {
+        const isActive = activeTab === item.id;
+        return (
+            <li>
+                <a
+                    href="#"
+                    onClick={(e) => {
+                        e.preventDefault();
+                        onTabChange(item.id);
+                    }}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-all duration-200 group relative ${
+                        isActive 
+                        ? 'bg-blue-600 text-white font-semibold shadow-lg shadow-blue-600/20' 
+                        : 'text-slate-400 hover:bg-slate-700 hover:text-white'
+                    }`}
+                >
+                    {/* Indikátor aktivní položky */}
+                    <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-blue-400 rounded-r-full transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-0 scale-y-0 group-hover:opacity-50'}`}></span>
+                    <item.icon className="w-5 h-5 ml-1" />
+                    <span>{item.label}</span>
+                </a>
+            </li>
+        );
+    };
 
     const userName = userProfile?.displayName || user?.email || 'Neznámý uživatel';
-    const avatarUrl = userProfile?.avatar_url || user?.photoURL || '/profile-avatar.png';
+    const userRole = userProfile?.isAdmin ? 'Administrátor' : 'Uživatel';
+    const avatarUrl = userProfile?.avatar_url || user?.photoURL || '/profile-avatar.png'; // záložní avatar
 
     return (
-        <aside ref={ref} className="fixed lg:static inset-y-0 left-0 z-30 w-64 bg-slate-800 text-white flex flex-col p-4 shadow-2xl">
-            <div className="flex items-center justify-center h-24 mb-4">
-                <Image src="/logo.png" alt="Logo" width={80} height={80} />
+        // Šířka, pozadí a flexbox kontejner
+        <aside ref={ref} className="w-64 bg-slate-800 text-slate-200 flex-shrink-0 flex flex-col justify-between p-4 border-r border-slate-700/50">
+            <div>
+                {/* Horní část - Logo */}
+                <div className="flex items-center justify-center h-20 mb-6">
+                    <Image src="/logo.png" alt="Firemní Logo" width={80} height={80} className="rounded-full shadow-lg" />
+                </div>
+
+                {/* Navigace */}
+                <nav>
+                    <ul className="space-y-2">
+                        {menuItems.map(item => <NavLink key={item.id} item={item} />)}
+                    </ul>
+                </nav>
             </div>
 
-            <nav className="flex-1">
-                <ul className="space-y-2">
-                    {menuItems.map(item => <NavLink key={item.id} item={item} />)}
+            {/* Spodní část - Nastavení, Chat a Profil */}
+            <div>
+                <ul className="space-y-2 border-t border-slate-700 pt-4">
+                    {bottomMenuItems.map(item => <NavLink key={item.id} item={item} />)}
+                    <li>
+                        <a href="#" onClick={logout} className="flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors text-slate-400 hover:bg-slate-700 hover:text-white group relative">
+                            <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-blue-400 rounded-r-full opacity-0 scale-y-0 group-hover:opacity-50 transition-all duration-300"></span>
+                            <LogOut className="w-5 h-5 ml-1" />
+                            <span className="font-medium">Odhlásit se</span>
+                        </a>
+                    </li>
                 </ul>
-            </nav>
 
-            <div className="border-t border-slate-700 pt-4 mt-4 space-y-2">
-                 {bottomMenuItems.map(item => <NavLink key={item.id} item={item} />)}
-                 <li onClick={logout} className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors text-slate-400 hover:bg-slate-700 hover:text-white transition-all duration-300 transform hover:-translate-y-px">
-                    <LogOut className="w-5 h-5" />
-                    <span className="font-medium">Odhlásit se</span>
-                 </li>
-            </div>
-
-            <div className="border-t border-slate-700 pt-4 mt-4">
-                <div className="flex items-center gap-3 px-2 py-2.5 rounded-lg">
-                    <Image src={avatarUrl} alt="Profilový obrázek" width={40} height={40} className="rounded-full" />
-                    <div className="flex-1 min-w-0">
-                        <p className="font-semibold truncate">{userName}</p>
+                {/* Profil uživatele */}
+                <div className="border-t border-slate-700 mt-4 pt-4">
+                    <div className="flex items-center gap-3">
+                        <Image src={avatarUrl} alt="Profilový obrázek" width={40} height={40} className="rounded-full border-2 border-slate-600" />
+                        <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-white truncate">{userName}</p>
+                            <p className="text-xs text-slate-400">{userRole}</p>
+                        </div>
                     </div>
                 </div>
             </div>

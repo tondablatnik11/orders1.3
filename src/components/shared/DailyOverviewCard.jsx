@@ -1,9 +1,9 @@
+// src/components/shared/DailyOverviewCard.jsx
 "use client";
 import React from 'react';
-import { ArrowUp, ArrowDown, Minus } from 'lucide-react'; // Přidán import ikony Minus
+import { ArrowUp, ArrowDown, Minus } from 'lucide-react';
 
 const ChangeIndicator = ({ change }) => {
-    // Zobrazí se, pokud je hodnota 0 nebo jakákoli jiná, kromě undefined
     if (change === undefined) return null;
     
     const isPositive = change > 0;
@@ -21,33 +21,33 @@ const ChangeIndicator = ({ change }) => {
     );
 };
 
+const StatRow = ({ label, value, colorClass, change, onClick }) => (
+    <div 
+      className="flex justify-between items-center py-1.5 px-2 rounded-md transition-colors hover:bg-slate-700/50 cursor-pointer"
+      onClick={onClick}
+    >
+        <span className="text-sm text-slate-300">{label}:</span>
+        <div className="flex items-center gap-2">
+          <span className={`font-bold text-lg ${colorClass}`}>{value}</span>
+          <div className="w-8 text-right">
+              <ChangeIndicator change={change} />
+          </div>
+        </div>
+    </div>
+);
+
 export const DailyOverviewCard = React.forwardRef(({ title, stats, t, onStatClick, date, changes }, ref) => (
-    <div ref={ref} className="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700 min-w-48 flex-shrink-0">
-        <p className="text-gray-400 text-center font-semibold mb-3">{title}</p>
+    <div ref={ref} className="bg-slate-800 p-4 rounded-xl shadow-lg border border-slate-700 min-w-64 flex-shrink-0">
+        <p className="text-slate-300 text-center font-bold mb-3 text-md">{title}</p>
         {stats ? (
-            <div className="text-sm space-y-2">
-                <p className="cursor-pointer hover:text-blue-400 transition-colors flex justify-between items-center" onClick={() => onStatClick(date, 'total', t.total)}>
-                    <span>{t.total}: <strong>{stats.total}</strong></span>
-                    <ChangeIndicator change={changes?.total} />
-                </p>
-                <p className="cursor-pointer hover:text-green-400 transition-colors flex justify-between items-center" onClick={() => onStatClick(date, 'done', t.done)}>
-                    <span>{t.done}: <strong className="text-green-300">{stats.done}</strong></span>
-                    <ChangeIndicator change={changes?.done} />
-                </p>
-                <p className="cursor-pointer hover:text-yellow-400 transition-colors flex justify-between items-center" onClick={() => onStatClick(date, 'remaining', t.remaining)}>
-                    <span>{t.remaining}: <strong className="text-yellow-300">{stats.remaining}</strong></span>
-                    <ChangeIndicator change={changes?.remaining} />
-                </p>
-                <p className="cursor-pointer hover:text-orange-400 transition-colors flex justify-between items-center" onClick={() => onStatClick(date, 'inProgress', t.inProgress)}>
-                    <span>{t.inProgress}: <strong className="text-orange-300">{stats.inProgress}</strong></span>
-                    <ChangeIndicator change={changes?.inProgress} />
-                </p>
-                <p className="cursor-pointer hover:text-purple-400 transition-colors flex justify-between items-center" onClick={() => onStatClick(date, 'new', t.newOrders)}>
-                    <span>{t.newOrders}: <strong className="text-purple-300">{stats.new}</strong></span>
-                    <ChangeIndicator change={changes?.new} />
-                </p>
+            <div className="space-y-1">
+                <StatRow label={t.total} value={stats.total} colorClass="text-blue-400" change={changes?.total} onClick={() => onStatClick(date, 'total', t.total)} />
+                <StatRow label={t.done} value={stats.done} colorClass="text-green-400" change={changes?.done} onClick={() => onStatClick(date, 'done', t.done)} />
+                <StatRow label={t.remaining} value={stats.remaining} colorClass="text-yellow-400" change={changes?.remaining} onClick={() => onStatClick(date, 'remaining', t.remaining)} />
+                <StatRow label={t.inProgress} value={stats.inProgress} colorClass="text-orange-400" change={changes?.inProgress} onClick={() => onStatClick(date, 'inProgress', t.inProgress)} />
+                <StatRow label={t.newOrders} value={stats.new} colorClass="text-purple-400" change={changes?.new} onClick={() => onStatClick(date, 'new', t.newOrders)} />
             </div>
-        ) : <div className="text-center text-gray-500 text-sm flex items-center justify-center h-24">{t.noDataAvailable}</div>}
+        ) : <div className="text-center text-slate-500 text-sm flex items-center justify-center h-40">{t.noDataAvailable}</div>}
     </div>
 ));
 DailyOverviewCard.displayName = 'DailyOverviewCard';

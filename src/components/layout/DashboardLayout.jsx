@@ -1,3 +1,4 @@
+// src/components/layout/DashboardLayout.jsx
 'use client';
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
@@ -20,7 +21,7 @@ const DashboardLayout = () => {
 
     const renderActiveTab = () => {
         switch (activeTab) {
-            case 'dashboard': return <DashboardTab setActiveTab={setActiveTab} />; // <-- PŘIDÁN PROP
+            case 'dashboard': return <DashboardTab setActiveTab={setActiveTab} />;
             case 'delayedOrders': return <DelayedOrdersTab />;
             case 'orderSearch': return <OrderSearchTab initialQuery={globalSearchQuery} clearInitialQuery={() => setGlobalSearchQuery('')} />;
             case 'announcedLoadings': return <AnnouncedLoadingsTab />;
@@ -29,7 +30,7 @@ const DashboardLayout = () => {
             case 'errorMonitor': return <ErrorMonitorTab />;
             case 'chat': return <ChatTab />;
             case 'settings': return <SettingsTab />;
-            default: return <DashboardTab setActiveTab={setActiveTab} />; // <-- PŘIDÁN PROP
+            default: return <DashboardTab setActiveTab={setActiveTab} />;
         }
     };
 
@@ -42,7 +43,8 @@ const DashboardLayout = () => {
                     setActiveTab('orderSearch');
                 }} activeTab={activeTab} />
                 <main className="flex-1 overflow-y-auto p-4 md:p-6">
-                    <div className="animate-fade-in-up">
+                    {/* KLÍČOVÁ ZMĚNA: Přidán obalující div pro animaci */}
+                    <div className="animate-fadeInUp">
                         {renderActiveTab()}
                     </div>
                 </main>
