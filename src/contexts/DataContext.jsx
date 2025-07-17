@@ -2,10 +2,13 @@
 'use client';
 import React, { createContext, useState, useEffect, useCallback, useMemo, useContext } from 'react';
 import { getSupabase } from '../lib/supabaseClient';
-import { useAuth } from '@/hooks/useAuth'; // Ujistěte se, že je tento import přítomen
+import { useAuth } from '@/hooks/useAuth';
 import { processData } from '../lib/dataProcessor';
 import { processArrayForDisplay, processErrorDataForSupabase } from '../lib/errorMonitorProcessor';
 import toast from 'react-hot-toast';
+
+// DŮLEŽITÝ NOVÝ IMPORT: Nástroj pro vytvoření nového spojení
+import { createClient } from '@supabase/supabase-js';
 
 export const DataContext = createContext(null);
 export const useData = () => useContext(DataContext);
@@ -18,10 +21,10 @@ export const DataProvider = ({ children }) => {
     const [errorData, setErrorData] = useState(null);
     const [isLoadingErrorData, setIsLoadingErrorData] = useState(true);
 
-    // Získáme si přihlášeného uživatele přímo z AuthContextu
     const { user, loading: authLoading } = useAuth();
-    const supabase = getSupabase();
+    const supabase = getSupabase(); // Toto je sdílené spojení pro celou aplikaci
 
+    // Ostatní funkce zůstávají beze změny...
     const fetchErrorData = useCallback(async () => {
         setIsLoadingErrorData(true);
         try {
@@ -44,10 +47,8 @@ export const DataProvider = ({ children }) => {
             } else {
                 setPreviousSummary(snapshotData ? snapshotData.summary_data : null);
             }
-            
             const { data: currentData, error: dataError } = await supabase.from("deliveries").select('*').limit(20000);
             if (dataError) throw dataError;
-            
             const currentSummary = processData(currentData || []);
             setAllOrdersData(currentData || []);
             setSummary(currentSummary);
@@ -68,7 +69,7 @@ export const DataProvider = ({ children }) => {
     }, [user, authLoading, fetchAndSetSummaries, fetchErrorData]);
 
     const handleFileUpload = useCallback(async (file) => {
-        // ... tato funkce pro Přehled již funguje, není třeba ji měnit ...
+        // Tato funkce pro Přehled již funguje, není třeba ji měnit
         if (!file) return;
         toast.loading('Zpracovávám soubor...');
         const XLSX = await import('xlsx');
@@ -108,13 +109,12 @@ export const DataProvider = ({ children }) => {
     }, [supabase, summary]);
     
     // ====================================================================
-    // ZDE JE FINÁLNÍ OPRAVA
+    // ZDE JE DEFINITIVNÍ OPRAVA PRO ERROR MONITOR
     // ====================================================================
     const handleErrorLogUpload = useCallback(async (file) => {
         if (!file) return;
         toast.loading('Ověřuji oprávnění a zpracovávám soubor...');
 
-        // KROK 1: Zkontrolujeme, zda je uživatel k dispozici z AuthContextu.
         if (!user) {
             toast.dismiss();
             toast.error("Chyba oprávnění: Zdá se, že nejste přihlášen. Zkuste prosím obnovit stránku.");
@@ -122,21 +122,28 @@ export const DataProvider = ({ children }) => {
         }
 
         try {
-            // KROK 2: Aktivně si od Firebase vyžádáme čerstvý ověřovací token.
+            // KROK 1: Získáme čerstvý ověřovací token přímo od Firebase.
             const token = await user.getIdToken(true);
 
-            // KROK 3: Tento token nastavíme pro klienta Supabase. Tím zajistíme,
-            // že následující dotaz bude 100% ověřený.
-            await supabase.auth.setSession({
-                access_token: token,
-                refresh_token: user.refreshToken,
+            // KROK 2: Vytvoříme ZCELA NOVÉ, dočasné spojení se Supabase.
+            // Toto spojení je nezávislé na zbytku aplikace a má zaručeně platný token.
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+            const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+            
+            const tempSupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+                global: {
+                    headers: {
+                        // Tímto hlavičkou se prokážeme databázi jménem přihlášeného uživatele.
+                        Authorization: `Bearer ${token}`
+                    }
+                }
             });
 
-            // KROK 4: Nyní, s jistotou platného přihlášení, pokračujeme v nahrávání.
+            // KROK 3: Nyní použijeme toto nové, zaručeně ověřené spojení k nahrání dat.
             const dataForSupabase = await processErrorDataForSupabase(file);
             if (dataForSupabase && dataForSupabase.length > 0) {
-                const { error } = await supabase.from('errors').upsert(dataForSupabase, { onConflict: 'unique_key' });
-                // Pokud databáze vrátí chybu, zobrazíme ji.
+                // Používáme `tempSupabaseClient` místo `supabase`
+                const { error } = await tempSupabaseClient.from('errors').upsert(dataForSupabase, { onConflict: 'unique_key' });
                 if (error) throw new Error(error.message);
             } else {
                  throw new Error("Soubor neobsahuje žádná platná data ke zpracování.");
@@ -144,13 +151,14 @@ export const DataProvider = ({ children }) => {
             
             toast.dismiss();
             toast.success('Log chyb byl úspěšně nahrán!');
+            // Znovu načteme data pomocí původního, sdíleného spojení
             await fetchErrorData();
         } catch (error) {
             toast.dismiss();
             toast.error(`Chyba při nahrávání logu: ${error.message}`);
             console.error("Detail chyby při nahrávání logu:", error);
         }
-    }, [supabase, user, fetchErrorData]); // Přidali jsme závislost na 'user'
+    }, [user, fetchErrorData]); // `supabase` už zde není potřeba, ale `user` ano
 
     const value = useMemo(() => ({
         allOrdersData,
