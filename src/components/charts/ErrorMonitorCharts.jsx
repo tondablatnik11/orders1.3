@@ -1,13 +1,10 @@
+// src/components/charts/ErrorMonitorCharts.jsx
 "use client";
 import React from 'react';
-import { 
-    Card, 
-    Title, 
-    BarChart, 
-    Grid, 
-    DonutChart, 
-    Legend,
-} from '@tremor/react';
+// Importujeme pouze komponenty grafů z Tremor, ne layout
+import { BarChart, DonutChart, Legend } from '@tremor/react';
+// Importujeme vaši vlastní UI komponentu Card, která prokazatelně funguje jinde v aplikaci
+import { Card, CardContent } from '../ui/Card';
 import { ListChecks, MapPin, Package, GitCommitVertical } from 'lucide-react';
 
 const CustomTooltip = ({ payload, active, label }) => {
@@ -46,65 +43,75 @@ const ErrorMonitorCharts = ({ chartsData }) => {
 
     return (
         <>
-            <Grid numItemsLg={2} className="gap-6 mt-6">
+            {/* Používáme standardní div s Tailwind gridem místo <Grid> od Tremor */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                {/* Používáme vaši vlastní komponentu <Card> */}
                 <Card>
-                    <Title className="flex items-center gap-2"><ListChecks className="w-5 h-5" />TOP 6 Typů Chyb</Title>
-                    <DonutChart
-                        className="mt-8 h-64"
-                        data={errorsByTypeData}
-                        category="Počet chyb"
-                        index="name"
-                        colors={donutColors}
-                        showAnimation={true}
-                        variant="pie"
-                    />
-                    <Legend categories={errorsByTypeData.map(e => e.name)} colors={donutColors} className="mt-4" />
+                    <CardContent className="pt-6">
+                        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><ListChecks className="w-5 h-5" />TOP 6 Typů Chyb</h3>
+                        <DonutChart
+                            className="mt-8 h-64"
+                            data={errorsByTypeData}
+                            category="Počet chyb"
+                            index="name"
+                            colors={donutColors}
+                            showAnimation={true}
+                            variant="pie"
+                        />
+                        <Legend categories={errorsByTypeData.map(e => e.name)} colors={donutColors} className="mt-4 flex-wrap" />
+                    </CardContent>
                 </Card>
                 <Card>
-                    <Title className="flex items-center gap-2"><MapPin className="w-5 h-5" />TOP 10 Pozic s nejvíce chybami</Title>
-                    <BarChart
-                        className="mt-6 h-[22rem]"
-                        data={chartsData.errorsByPosition.slice(0, 10)}
-                        index="name"
-                        categories={['Počet chyb']}
-                        colors={["#3b82f6"]}
-                        yAxisWidth={160}
-                        layout="vertical"
-                        showAnimation={true}
-                        customTooltip={CustomTooltip}
-                    />
+                    <CardContent className="pt-6">
+                       <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><MapPin className="w-5 h-5" />TOP 10 Pozic s nejvíce chybami</h3>
+                        <BarChart
+                            className="mt-6 h-[22rem]"
+                            data={chartsData.errorsByPosition.slice(0, 10)}
+                            index="name"
+                            categories={['Počet chyb']}
+                            colors={["#3b82f6"]}
+                            yAxisWidth={160}
+                            layout="vertical"
+                            showAnimation={true}
+                            customTooltip={CustomTooltip}
+                        />
+                    </CardContent>
                 </Card>
-            </Grid>
-            <Grid numItemsLg={2} className="gap-6 mt-6">
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                 <Card>
-                    <Title className="flex items-center gap-2"><Package className="w-5 h-5" />TOP 10 Materiálů s nejvíce chybami</Title>
-                    <BarChart
-                        className="mt-6 h-96"
-                        data={chartsData.errorsByMaterial.slice(0, 10)}
-                        index="name"
-                        categories={['Počet chyb']}
-                        colors={["#16a34a"]}
-                        yAxisWidth={160}
-                        layout="vertical"
-                        showAnimation={true}
-                        customTooltip={CustomTooltip}
-                    />
+                    <CardContent className="pt-6">
+                        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><Package className="w-5 h-5" />TOP 10 Materiálů s nejvíce chybami</h3>
+                        <BarChart
+                            className="mt-6 h-96"
+                            data={chartsData.errorsByMaterial.slice(0, 10)}
+                            index="name"
+                            categories={['Počet chyb']}
+                            colors={["#16a34a"]}
+                            yAxisWidth={160}
+                            layout="vertical"
+                            showAnimation={true}
+                            customTooltip={CustomTooltip}
+                        />
+                    </CardContent>
                 </Card>
                 <Card>
-                    <Title className="flex items-center gap-2"><GitCommitVertical className="w-5 h-5" />TOP 10 Materiálů s největším rozdílem</Title>
-                    <BarChart
-                        className="mt-6 h-96"
-                        data={chartsData.quantityDifferenceByMaterial.slice(0, 10)}
-                        index="name"
-                        categories={['Absolutní rozdíl']}
-                        colors={["#f97316"]}
-                        yAxisWidth={160}
-                        layout="vertical"
-                        showAnimation={true}
-                        customTooltip={CustomTooltip}
-                    />
+                    <CardContent className="pt-6">
+                        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><GitCommitVertical className="w-5 h-5" />TOP 10 Materiálů s největším rozdílem</h3>
+                        <BarChart
+                            className="mt-6 h-96"
+                            data={chartsData.quantityDifferenceByMaterial.slice(0, 10)}
+                            index="name"
+                            categories={['Absolutní rozdíl']}
+                            colors={["#f97316"]}
+                            yAxisWidth={160}
+                            layout="vertical"
+                            showAnimation={true}
+                            customTooltip={CustomTooltip}
+                        />
+                    </CardContent>
                 </Card>
-            </Grid>
+            </div>
         </>
     );
 };
