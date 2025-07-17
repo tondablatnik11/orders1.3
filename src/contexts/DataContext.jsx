@@ -103,14 +103,12 @@ export const DataProvider = ({ children }) => {
         reader.readAsBinaryString(file);
     }, [supabase, summary]);
     
-    // Čistá a jednoduchá verze, která spoléhá na globální AuthContext
     const handleErrorLogUpload = useCallback(async (file) => {
         if (!file) return;
         toast.loading('Zpracovávám soubor...');
         try {
             const dataForSupabase = await processErrorDataForSupabase(file);
             if (dataForSupabase && dataForSupabase.length > 0) {
-                // Používáme standardní `supabase` klient, který je nyní správně ověřený
                 const { error } = await supabase.from('errors').upsert(dataForSupabase, { onConflict: 'unique_key' });
                 if (error) throw new Error(error.message);
             } else {
@@ -127,16 +125,7 @@ export const DataProvider = ({ children }) => {
     }, [supabase, fetchErrorData]);
 
     const value = useMemo(() => ({
-        allOrdersData,
-        summary,
-        previousSummary,
-        isLoadingData,
-        refetchData: fetchAndSetSummaries,
-        handleFileUpload,
-        handleErrorLogUpload,
-        errorData,
-        isLoadingErrorData,
-        refetchErrorData: fetchErrorData,
+        allOrdersData, summary, previousSummary, isLoadingData, refetchData: fetchAndSetSummaries, handleFileUpload, handleErrorLogUpload, errorData, isLoadingErrorData, refetchErrorData: fetchErrorData,
     }), [allOrdersData, summary, previousSummary, isLoadingData, fetchAndSetSummaries, handleFileUpload, handleErrorLogUpload, errorData, isLoadingErrorData, fetchErrorData]);
 
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

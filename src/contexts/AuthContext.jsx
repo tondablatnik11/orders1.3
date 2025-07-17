@@ -19,19 +19,13 @@ export const AuthProvider = ({ children }) => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             try {
                 if (user) {
-                    // Získáme čerstvý Firebase token
                     const token = await user.getIdToken();
-                    
-                    // Nastavíme session pro Supabase klienta s tímto tokenem.
-                    // Protože jsme v kroku 1 nastavili důvěru, Supabase teď tento token přijme.
                     await supabase.auth.setSession({
                         access_token: token,
                         refresh_token: user.refreshToken,
                     });
-
                     const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, user.uid);
                     const userProfileSnap = await getDoc(userProfileRef);
-                    
                     if (userProfileSnap.exists()) {
                         setCurrentUserProfile({ uid: user.uid, ...userProfileSnap.data() });
                     } else {
@@ -41,7 +35,6 @@ export const AuthProvider = ({ children }) => {
                     }
                     setCurrentUser(user);
                 } else {
-                    // Při odhlášení vyčistíme session i v Supabase
                     await supabase.auth.signOut();
                     setCurrentUser(null);
                     setCurrentUserProfile(null);
@@ -55,11 +48,9 @@ export const AuthProvider = ({ children }) => {
                 setLoading(false);
             }
         });
-
         return () => unsubscribe();
     }, [appId, supabase]);
 
-    // Zbytek souboru zůstává stejný...
     useEffect(() => {
         if (currentUserProfile?.isAdmin || currentUser) {
             const usersColRef = collection(db, `artifacts/${appId}/public/data/user_profiles`);
@@ -82,23 +73,10 @@ export const AuthProvider = ({ children }) => {
     };
     
     const value = useMemo(() => ({
-        loading,
-        currentUser,
-        user: currentUser,
-        userProfile: currentUserProfile,
-        currentUserProfile,
-        allUsers,
-        updateUserProfile,
-        db,
-        auth,
-        appId,
-        supabase,
+        loading, currentUser, user: currentUser, userProfile: currentUserProfile, currentUserProfile, allUsers, updateUserProfile, db, auth, appId, supabase,
         login: (email, password) => signInWithEmailAndPassword(auth, email, password),
         register: (email, password) => createUserWithEmailAndPassword(auth, email, password),
-        googleSignIn: () => {
-            const provider = new GoogleAuthProvider();
-            return signInWithPopup(auth, provider);
-        },
+        googleSignIn: () => { const provider = new GoogleAuthProvider(); return signInWithPopup(auth, provider); },
         logout: () => signOut(auth),
     }), [currentUser, currentUserProfile, loading, allUsers, appId, auth, supabase]);
 
