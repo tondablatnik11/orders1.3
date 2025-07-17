@@ -6,7 +6,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { processData } from '../lib/dataProcessor';
 import { processArrayForDisplay, processErrorDataForSupabase } from '../lib/errorMonitorProcessor';
 import toast from 'react-hot-toast';
-import { createClient } from '@supabase/supabase-js';
 
 export const DataContext = createContext(null);
 export const useData = () => useContext(DataContext);
@@ -20,7 +19,7 @@ export const DataProvider = ({ children }) => {
     const [isLoadingErrorData, setIsLoadingErrorData] = useState(true);
 
     const { user, loading: authLoading } = useAuth();
-    const supabase = getSupabase();
+    const supabase = getSupabase(); // Získá jedinou existující instanci
 
     const fetchErrorData = useCallback(async () => {
         setIsLoadingErrorData(true);
@@ -104,42 +103,17 @@ export const DataProvider = ({ children }) => {
         reader.readAsBinaryString(file);
     }, [supabase, summary]);
     
-    // ZDE JE FINÁLNÍ OPRAVA
     const handleErrorLogUpload = useCallback(async (file) => {
         if (!file) return;
         toast.loading('Zpracovávám soubor...');
-
-        if (!user) {
-            toast.dismiss();
-            toast.error("Chyba: Uživatel není přihlášen. Obnovte prosím stránku.");
-            return;
-        }
-
         try {
-            const token = await user.getIdToken(true);
-            
-            // Dočasný Supabase klient, který má zaručeně správný token
-            const tempSupabaseClient = createClient(
-                process.env.NEXT_PUBLIC_SUPABASE_URL,
-                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-                {
-                    global: {
-                        headers: {
-                            Authorization: `Bearer ${token}`
-                        }
-                    }
-                }
-            );
-
             const dataForSupabase = await processErrorDataForSupabase(file);
             if (dataForSupabase && dataForSupabase.length > 0) {
-                // Použijeme dočasného klienta pro nahrání dat
-                const { error } = await tempSupabaseClient.from('errors').upsert(dataForSupabase, { onConflict: 'unique_key' });
+                const { error } = await supabase.from('errors').upsert(dataForSupabase, { onConflict: 'unique_key' });
                 if (error) throw new Error(error.message);
             } else {
                  throw new Error("Soubor neobsahuje žádná platná data ke zpracování.");
             }
-            
             toast.dismiss();
             toast.success('Log chyb byl úspěšně nahrán!');
             await fetchErrorData();
@@ -148,7 +122,7 @@ export const DataProvider = ({ children }) => {
             toast.error(`Chyba při nahrávání logu: ${error.message}`);
             console.error("Detail chyby při nahrávání logu:", error);
         }
-    }, [user, fetchErrorData]); // `user` je zde klíčová závislost
+    }, [supabase, fetchErrorData]);
 
     const value = useMemo(() => ({
         allOrdersData, summary, previousSummary, isLoadingData, refetchData: fetchAndSetSummaries, handleFileUpload, handleErrorLogUpload, errorData, isLoadingErrorData, refetchErrorData: fetchErrorData,

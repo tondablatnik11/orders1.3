@@ -13,19 +13,21 @@ export const AuthProvider = ({ children }) => {
     const [currentUserProfile, setCurrentUserProfile] = useState(null);
     const [allUsers, setAllUsers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const supabase = getSupabase();
+    const supabase = getSupabase(); // Získá jedinou existující instanci
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             try {
                 if (user) {
-                    const token = await user.getIdToken();
+                    const token = await user.getIdToken(true);
                     await supabase.auth.setSession({
                         access_token: token,
                         refresh_token: user.refreshToken,
                     });
+
                     const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, user.uid);
                     const userProfileSnap = await getDoc(userProfileRef);
+                    
                     if (userProfileSnap.exists()) {
                         setCurrentUserProfile({ uid: user.uid, ...userProfileSnap.data() });
                     } else {
@@ -51,6 +53,7 @@ export const AuthProvider = ({ children }) => {
         return () => unsubscribe();
     }, [appId, supabase]);
 
+    // Zbytek souboru je v pořádku a zůstává...
     useEffect(() => {
         if (currentUserProfile?.isAdmin || currentUser) {
             const usersColRef = collection(db, `artifacts/${appId}/public/data/user_profiles`);
