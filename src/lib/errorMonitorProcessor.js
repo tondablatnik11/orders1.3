@@ -1,3 +1,4 @@
+// src/lib/errorMonitorProcessor.js
 const getCellValue = (row, keys) => {
     for (const key of keys) {
         if (row[key] !== undefined && row[key] !== null) {
@@ -55,24 +56,22 @@ export const processErrorDataForSupabase = (file) => {
             const uniqueKey = `${datePart.toISOString()}_${getCellValue(row, ['Material'])}_${getCellValue(row, ['Created By', 'created by'])}_${storageBin}`;
 
             // ====================== KLÍČOVÁ OPRAVA ZDE ======================
-            // Kód se pokoušel vytvořit objekt s klíčem 'error_type'.
-            // Správný název sloupce v databázi je 'description'.
-            // Nahrazením 'error_type' za 'description' zajistíme správný import.
+            // Názvy klíčů byly upraveny tak, aby odpovídaly názvům sloupců
+            // v databázi Supabase, jak je vidět na vašem screenshotu.
+            // Například 'order_number' bylo změněno na 'order_refence'.
             // ================================================================
             return {
               unique_key: uniqueKey,
-              position: storageBin,
               description: String(getCellValue(row, ['Text', 'Description']) || 'Neznámá chyba').trim(),
               material: String(getCellValue(row, ['Material']) || 'N/A').trim(),
-              order_number: String(getCellValue(row, ['Dest.Storage Bin']) || 'N/A').trim(),
-              qty_difference: Number(getCellValue(row, ['Source bin differ.']) || 0),
+              order_refence: String(getCellValue(row, ['Dest.Storage Bin']) || 'N/A').trim(),
               user: String(getCellValue(row, ['Created By', 'created by']) || 'N/A').trim(),
               timestamp: datePart.toISOString(),
               error_location: storageBin,
-              order_refence: String(getCellValue(row, ['Dest.Storage Bin']) || 'N/A').trim(),
               diff_qty: Number(getCellValue(row, ['Source bin differ.']) || 0)
             };
           } catch (e) {
+            console.error('Chyba při zpracování řádku:', row, e);
             return null;
           }
         }).filter(Boolean);
@@ -82,6 +81,7 @@ export const processErrorDataForSupabase = (file) => {
         }
         resolve(dataForSupabase);
       } catch (error) {
+        console.error('Chyba při zpracování souboru:', error);
         reject(new Error(error.message || 'Nepodařilo se zpracovat soubor.'));
       }
     };
