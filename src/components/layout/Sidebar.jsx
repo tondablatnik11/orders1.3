@@ -39,7 +39,6 @@ const Sidebar = forwardRef(({ activeTab, onTabChange }, ref) => {
                         : 'text-slate-400 hover:bg-slate-700 hover:text-white'
                     }`}
                 >
-                    {/* Indikátor aktivní položky */}
                     <span className={`absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-blue-400 rounded-r-full transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-0 scale-y-0 group-hover:opacity-50'}`}></span>
                     <item.icon className="w-5 h-5 ml-1" />
                     <span>{item.label}</span>
@@ -50,15 +49,15 @@ const Sidebar = forwardRef(({ activeTab, onTabChange }, ref) => {
 
     const userName = userProfile?.displayName || user?.email || 'Neznámý uživatel';
     const userRole = userProfile?.isAdmin ? 'Administrátor' : 'Uživatel';
-    const avatarUrl = userProfile?.avatar_url || user?.photoURL || '/profile-avatar.png'; // záložní avatar
+    const avatarUrl = userProfile?.avatar_url || user?.photoURL || '/profile-avatar.png';
 
     return (
-        // Šířka, pozadí a flexbox kontejner
         <aside ref={ref} className="w-64 bg-slate-800 text-slate-200 flex-shrink-0 flex flex-col justify-between p-4 border-r border-slate-700/50">
             <div>
                 {/* Horní část - Logo */}
-                <div className="flex items-center justify-center h-20 mb-6">
-                    <Image src="/logo.png" alt="Firemní Logo" width={80} height={80} className="rounded-full shadow-lg" />
+                <div className="flex items-center justify-center h-20 mb-6 px-4">
+                    {/* KLÍČOVÁ ZMĚNA: Větší logo bez oříznutí */}
+                    <Image src="/logo.png" alt="Firemní Logo" width={180} height={50} style={{ objectFit: 'contain' }} />
                 </div>
 
                 {/* Navigace */}

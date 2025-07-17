@@ -35,24 +35,22 @@ const ChartSkeleton = ({ height = 400 }) => (
 
 
 const FeaturedKPICard = ({ title, value, icon: Icon, change, onClick }) => (
-    <div 
+    <div
         onClick={onClick}
-        className="relative col-span-2 sm:col-span-1 lg:col-span-1 group rounded-xl border border-red-500/30 bg-red-900/20 p-4 transition-all duration-300 hover:bg-red-900/50 hover:shadow-2xl hover:shadow-red-500/20 backdrop-blur-sm cursor-pointer"
+        className="col-span-2 sm:col-span-1 lg:col-span-1 group rounded-lg border border-red-500/50 bg-red-900/30 p-3 transition-all duration-300 hover:shadow-lg hover:border-red-500/70 hover:-translate-y-0.5 backdrop-blur-sm cursor-pointer"
     >
-        <div className="flex flex-col items-center justify-center text-center h-full">
-            <div className="p-3 bg-red-500/20 rounded-full mb-2 border border-red-500/50 group-hover:scale-110 transition-transform">
-                <Icon className="w-6 h-6 text-red-300" />
-            </div>
-            <p className="text-sm font-medium text-red-300">{title}</p>
-            <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-bold text-white">{value ?? 0}</p>
-                {change !== undefined && change !== 0 && (
-                    <span className={`flex items-center text-sm font-bold ${change > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {change > 0 ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-                        {Math.abs(change)}
-                    </span>
-                )}
-            </div>
+        <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-medium text-red-300 uppercase tracking-wider">{title}</p>
+            <Icon className="w-5 h-5 text-red-300" />
+        </div>
+        <div className="flex items-baseline gap-2">
+            <p className="text-2xl font-bold text-white">{value ?? 0}</p>
+            {change !== undefined && change !== 0 && (
+                <span className={`flex items-center text-xs font-bold ${change > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {change > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                    {Math.abs(change)}
+                </span>
+            )}
         </div>
     </div>
 );
