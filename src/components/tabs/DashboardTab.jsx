@@ -105,6 +105,20 @@ export default function DashboardTab({ setActiveTab }) {
         { labelKey: 'inProgress', value: summary.inProgressTotal, change: getChange(summary.inProgressTotal, previousSummary?.inProgressTotal), icon: Hourglass, colorClass: 'bg-orange-500' },
     ];
 
+    const getDailyChange = (date, metric) => {
+        if (!previousSummary?.dailySummaries) return undefined;
+
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const prevDayStats = previousSummary.dailySummaries.find(d => d.date === dateStr);
+        const currentDayStats = summary.dailySummaries.find(d => d.date === dateStr);
+
+        if (prevDayStats && currentDayStats) {
+            return currentDayStats[metric] - prevDayStats[metric];
+        }
+        return undefined;
+    };
+
+
     return (
         <div className="space-y-6">
             {/* HORNÍ KARTY */}
@@ -132,8 +146,27 @@ export default function DashboardTab({ setActiveTab }) {
                         const isToday = format(d.date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
                         const dailyStats = summary.dailySummaries.find(s => s.date === dateStr);
                         const displayLabel = `${d.label} (${format(d.date, 'dd.MM.')})`;
+                        
+                        // Zde připravíme data o změnách pro každou kartu
+                        const dailyChanges = {
+                            total: getDailyChange(d.date, 'total'),
+                            done: getDailyChange(d.date, 'done'),
+                            remaining: getDailyChange(d.date, 'remaining'),
+                            inProgress: getDailyChange(d.date, 'inProgress'),
+                            new: getDailyChange(d.date, 'new'),
+                        };
+
                         return (
-                            <DailyOverviewCard ref={isToday ? todayCardRef : null} key={dateStr} title={displayLabel} stats={dailyStats} t={t} onStatClick={handleStatClick} date={d.date} />
+                            <DailyOverviewCard 
+                                ref={isToday ? todayCardRef : null} 
+                                key={dateStr} 
+                                title={displayLabel} 
+                                stats={dailyStats} 
+                                t={t} 
+                                onStatClick={handleStatClick} 
+                                date={d.date}
+                                changes={dailyChanges} // <-- Předání změn do komponenty
+                            />
                         );
                     })}
                 </div>

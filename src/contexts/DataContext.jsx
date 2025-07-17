@@ -13,7 +13,7 @@ export const useData = () => useContext(DataContext);
 export const DataProvider = ({ children }) => {
     const [allOrdersData, setAllOrdersData] = useState([]);
     const [summary, setSummary] = useState(null);
-    const [previousSummary, setPreviousSummary] = useState(null);
+    const [previousSummary, setPreviousSummary] = useState(null); // Bude uchovávat stav před posledním importem
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
     
@@ -26,8 +26,11 @@ export const DataProvider = ({ children }) => {
     const fetchData = useCallback(async () => {
         setIsLoadingData(true);
         try {
-            const { data, error } = await supabase.from("deliveries").select('*').limit(10000);
+            // Načítáme všechny zakázky pro správné fungování logiky "Smazané"
+            const { data, error } = await supabase.from("deliveries").select('*').limit(20000); // Zvýšený limit pro jistotu
             if (error) throw error;
+            
+            // Zpracujeme data pro zobrazení (tato funkce nyní odfiltruje smazané)
             setSummary(processData(data || []));
             setAllOrdersData(data || []);
         } catch (error) {
@@ -43,10 +46,6 @@ export const DataProvider = ({ children }) => {
         setIsLoadingErrorData(true);
         try {
             const { data, error } = await supabase.from("errors").select('*').order('timestamp', { ascending: false }).limit(1000);
-            
-            // --- DIAGNOSTICKÝ LOG ---
-            console.log("Data načtená z tabulky 'errors':", data);
-
             if (error) throw error;
             
             const processedErrors = processArrayForDisplay(data || []);
@@ -69,7 +68,7 @@ export const DataProvider = ({ children }) => {
 
     const handleFileUpload = useCallback(async (file) => {
         if (!file) return;
-        toast.loading('Zpracovávám soubor zakázek...');
+        toast.loading('Zpracovávám soubor a porovnávám data...');
         const parseExcelDate = (excelDate) => excelDate ? new Date((excelDate - 25569) * 86400 * 1000).toISOString() : null;
 
         const reader = new FileReader();
@@ -98,15 +97,38 @@ export const DataProvider = ({ children }) => {
                 })).filter(row => row["Delivery No"]);
 
                 if (transformedData.length > 0) {
+                    // **KROK 1: Uložíme aktuální souhrn jako "předchozí"**
                     setPreviousSummary(summary);
+
+                    // **KROK 2: Najdeme zakázky, které mají být označeny jako "Smazané"**
+                    const newDeliveryNos = new Set(transformedData.map(o => o["Delivery No"]));
+                    const ordersToMarkAsDeleted = allOrdersData.filter(
+                        order => !newDeliveryNos.has(order["Delivery No"]) && order.Status !== 'Smazané' && order.Status === 10
+                    );
+                    
+                    if (ordersToMarkAsDeleted.length > 0) {
+                        toast.loading(`Označuji ${ordersToMarkAsDeleted.length} zakázek jako smazané...`);
+                        const updates = ordersToMarkAsDeleted.map(order =>
+                            supabase.from('deliveries')
+                                .update({ Status: 'Smazané', updated_at: new Date().toISOString() })
+                                .eq('Delivery No', order["Delivery No"])
+                        );
+                        await Promise.all(updates);
+                    }
+
+                    // **KROK 3: Nahrajeme nová a aktualizovaná data**
+                    toast.loading('Nahrávám nová data do databáze...');
                     const { error } = await supabase.from('deliveries').upsert(transformedData, { onConflict: 'Delivery No' });
                     if (error) throw error;
+                    
                     toast.dismiss();
-                    toast.success('Data byla úspěšně nahrána!');
+                    toast.success('Data byla úspěšně nahrána a synchronizována!');
+                    
+                    // **KROK 4: Znovu načteme všechna data pro aktualizaci UI**
                     fetchData();
                 } else {
                     toast.dismiss();
-                    toast.error('Nenalezena žádná platná data.');
+                    toast.error('Nenalezena žádná platná data v souboru.');
                 }
             } catch (error) {
                 toast.dismiss();
@@ -114,7 +136,7 @@ export const DataProvider = ({ children }) => {
             }
         };
         reader.readAsBinaryString(file);
-    }, [supabase, fetchData, summary]);
+    }, [supabase, fetchData, summary, allOrdersData]);
     
     const handleErrorLogUpload = useCallback(async (file) => {
         if (!file) return;
@@ -173,7 +195,7 @@ export const DataProvider = ({ children }) => {
     const value = useMemo(() => ({
         allOrdersData,
         summary,
-        previousSummary,
+        previousSummary, // <-- Zpřístupníme previousSummary
         isLoadingData,
         refetchData: fetchData,
         handleFileUpload,

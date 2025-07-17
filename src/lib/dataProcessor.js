@@ -27,10 +27,13 @@ const parseDataDate = (dateInput) => {
     return null;
 };
 
-export const processData = (rawData) => {
-    if (!rawData || rawData.length === 0) {
+export const processData = (allData) => {
+    if (!allData || allData.length === 0) {
         return null;
     }
+
+    // **Filtr pro odstranění "Smazaných" zakázek ze všech výpočtů**
+    const rawData = allData.filter(order => order.Status !== 'Smazané');
 
     const summary = {
         total: rawData.length,
@@ -45,7 +48,7 @@ export const processData = (rawData) => {
         ordersByCountry: {},
         delayedByCarrier: {},
         recentUpdates: [],
-        allOrdersData: rawData,
+        allOrdersData: allData, // Uchováváme všechna data pro filtrování v UI (včetně smazaných)
         dailySummaries: new Map(),
         statusByLoadingDate: {},
         delayedOrdersList: [],
@@ -117,10 +120,12 @@ export const processData = (rawData) => {
             const dateKey = format(startOfDay(loadingDate), 'yyyy-MM-dd');
 
             if (!summary.dailySummaries.has(dateKey)) {
-                summary.dailySummaries.set(dateKey, { date: dateKey, total: 0, done: 0, inProgress: 0, new: 0, remaining: 0 });
+                summary.dailySummaries.set(dateKey, { date: dateKey, total: 0, done: 0, inProgress: 0, new: 0, remaining: 0, statusCounts: {} });
             }
             const day = summary.dailySummaries.get(dateKey);
             day.total++;
+            day.statusCounts[status] = (day.statusCounts[status] || 0) + 1;
+
             if (doneStatuses.includes(status)) {
                 day.done++;
             } else if (inProgressStatuses.includes(status)) {
@@ -141,7 +146,7 @@ export const processData = (rawData) => {
         day.remaining = day.total - day.done;
     });
     summary.dailySummaries = Array.from(summary.dailySummaries.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
-    summary.recentUpdates = rawData.filter(o => o.updated_at).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).slice(0, 5);
+    summary.recentUpdates = allData.filter(o => o.updated_at).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).slice(0, 5);
     
     summary.ordersByCountry = Object.entries(summary.ordersByCountry).map(([country, count]) => ({
         id: country,
