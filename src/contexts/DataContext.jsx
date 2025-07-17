@@ -19,7 +19,7 @@ export const DataProvider = ({ children }) => {
     const [isLoadingErrorData, setIsLoadingErrorData] = useState(true);
 
     const { user, loading: authLoading } = useAuth();
-    const supabase = getSupabase(); // Získá jedinou existující instanci
+    const supabase = getSupabase();
 
     const fetchErrorData = useCallback(async () => {
         setIsLoadingErrorData(true);
@@ -66,6 +66,10 @@ export const DataProvider = ({ children }) => {
 
     const handleFileUpload = useCallback(async (file) => {
         if (!file) return;
+        if (!user) {
+            toast.error("Pro nahrání souboru musíte být přihlášen.");
+            return;
+        }
         toast.loading('Zpracovávám soubor...');
         const XLSX = await import('xlsx');
         const reader = new FileReader();
@@ -77,7 +81,22 @@ export const DataProvider = ({ children }) => {
                 const ws = wb.Sheets[wsname];
                 const jsonData = XLSX.utils.sheet_to_json(ws);
                 const parseExcelDate = (excelDate) => excelDate ? new Date(excelDate).toISOString() : null;
-                const transformedData = jsonData.map(row => ({ "Delivery No": String(row["Delivery No"] || row["Delivery"] || '').trim(), "Status": Number(row["Status"]), "del.type": row["del.type"], "Loading Date": parseExcelDate(row["Loading Date"]), "Note": row["Note"] || "", "Forwarding agent name": row["Forwarding agent name"], "Name of ship-to party": row["Name of ship-to party"], "Total Weight": row["Total Weight"], "Bill of lading": row["Bill of lading"], "Country ship-to prty": row["Country ship-to prty"], "order_type": row["order type"], "updated_at": new Date().toISOString() })).filter(row => row["Delivery No"]);
+
+                const transformedData = jsonData.map(row => ({
+                    "Delivery No": String(row["Delivery No"] || row["Delivery"] || '').trim(),
+                    "Status": Number(row["Status"]),
+                    "del.type": row["del.type"],
+                    "Loading Date": parseExcelDate(row["Loading Date"]),
+                    "Note": row["Note"] || "",
+                    "Forwarding agent name": row["Forwarding agent name"],
+                    "Name of ship-to party": row["Name of ship-to party"],
+                    "Total Weight": row["Total Weight"],
+                    "Bill of lading": row["Bill of lading"],
+                    "Country ship-to prty": row["Country ship-to prty"],
+                    "order_type": row["order type"],
+                    "updated_at": new Date().toISOString()
+                })).filter(row => row["Delivery No"]);
+
                 if (transformedData.length > 0) {
                     setPreviousSummary(summary);
                     toast.loading('Nahrávám nová data...');
@@ -101,18 +120,17 @@ export const DataProvider = ({ children }) => {
             }
         };
         reader.readAsBinaryString(file);
-    }, [supabase, summary]);
+    }, [supabase, summary, user]);
     
     const handleErrorLogUpload = useCallback(async (file) => {
         if (!file) return;
-        if (!user) { // <-- OPRAVA: Kontrola přihlášení
+        if (!user) {
             toast.error("Pro nahrání souboru musíte být přihlášen.");
             return;
         }
         toast.loading('Zpracovávám soubor...');
         try {
-            // <-- OPRAVA: Předání user.uid
-            const dataForSupabase = await processErrorDataForSupabase(file, user.uid);
+            const dataForSupabase = await processErrorDataForSupabase(file); // Odebráno user.uid
             if (dataForSupabase && dataForSupabase.length > 0) {
                 const { error } = await supabase.from('errors').upsert(dataForSupabase, { onConflict: 'unique_key' });
                 if (error) throw new Error(error.message);
@@ -127,7 +145,7 @@ export const DataProvider = ({ children }) => {
             toast.error(`Chyba při nahrávání logu: ${error.message}`);
             console.error("Detail chyby při nahrávání logu:", error);
         }
-    }, [supabase, fetchErrorData, user]); // <-- OPRAVA: Přidána závislost `user`
+    }, [supabase, fetchErrorData, user]);
 
     const value = useMemo(() => ({
         allOrdersData, summary, previousSummary, isLoadingData, refetchData: fetchAndSetSummaries, handleFileUpload, handleErrorLogUpload, errorData, isLoadingErrorData, refetchErrorData: fetchErrorData,

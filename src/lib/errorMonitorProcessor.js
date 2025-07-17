@@ -8,7 +8,7 @@ const getCellValue = (row, keys) => {
     return null;
 };
 
-export const processErrorDataForSupabase = (file, userId) => { // Přidán argument userId
+export const processErrorDataForSupabase = (file) => {
   return new Promise(async (resolve, reject) => {
     const XLSX = await import('xlsx');
 
@@ -55,24 +55,16 @@ export const processErrorDataForSupabase = (file, userId) => { // Přidán argum
             const storageBin = String(getCellValue(row, ['Storage Bin', 'storage bin']) || 'N/A').trim();
             const uniqueKey = `${datePart.toISOString()}_${getCellValue(row, ['Material'])}_${getCellValue(row, ['Created By', 'created by'])}_${storageBin}`;
 
-            // ====================== KLÍČOVÁ OPRAVA ZDE ======================
-            // Názvy klíčů byly upraveny tak, aby přesně odpovídaly názvům sloupců
-            // v databázi Supabase, jak je vidět na vašem screenshotu.
-            // Například 'order_number' bylo změněno na 'order_refence'.
-            // Přidány byly i chybějící kvantitativní sloupce.
-            // Přidáno user_id pro splnění RLS politiky.
-            // ================================================================
             return {
-              user_id: userId, // <-- PŘIDÁNO
               unique_key: uniqueKey,
               description: String(getCellValue(row, ['Text', 'Description']) || 'Neznámá chyba').trim(),
               material: String(getCellValue(row, ['Material']) || 'N/A').trim(),
-              order_refence: String(getCellValue(row, ['Dest.Storage Bin']) || 'N/A').trim(), // OPRAVENO
+              order_refence: String(getCellValue(row, ['Dest.Storage Bin']) || 'N/A').trim(),
               user: String(getCellValue(row, ['Created By', 'created by']) || 'N/A').trim(),
               timestamp: datePart.toISOString(),
               error_location: storageBin,
-              target_qty: Number(getCellValue(row, ['Source target qty']) || 0), // PŘIDÁNO
-              actual_qty: Number(getCellValue(row, ['Source actual qty.']) || 0), // PŘIDÁNO
+              target_qty: Number(getCellValue(row, ['Source target qty']) || 0),
+              actual_qty: Number(getCellValue(row, ['Source actual qty.']) || 0),
               diff_qty: Number(getCellValue(row, ['Source bin differ.']) || 0)
             };
           } catch (e) {
@@ -95,7 +87,6 @@ export const processErrorDataForSupabase = (file, userId) => { // Přidán argum
   });
 };
 
-// Zbytek souboru zůstává stejný...
 export const processArrayForDisplay = (data) => {
     if (!data || data.length === 0) return null;
 
