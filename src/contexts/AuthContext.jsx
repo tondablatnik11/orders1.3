@@ -1,3 +1,4 @@
+// src/contexts/AuthContext.jsx
 'use client';
 import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
@@ -15,9 +16,23 @@ export const AuthProvider = ({ children }) => {
     const supabase = getSupabase();
 
     useEffect(() => {
+        // Tato funkce sleduje změny v přihlášení přes Firebase
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             try {
                 if (user) {
+                    // --- ZAČÁTEK FINÁLNÍ OPRAVY ---
+                    // 1. Získáme čerstvý Firebase token. Funkce getIdToken se postará o jeho případné obnovení.
+                    const token = await user.getIdToken(true);
+                    
+                    // 2. Nastavíme session pro Supabase klienta s tímto tokenem.
+                    // Tímto krokem se Supabase dozví, že uživatel je přihlášený.
+                    await supabase.auth.setSession({
+                        access_token: token,
+                        refresh_token: user.refreshToken,
+                    });
+                    // --- KONEC FINÁLNÍ OPRAVY ---
+
+                    // Načítání profilu z Firestore (tato část je v pořádku)
                     const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, user.uid);
                     const userProfileSnap = await getDoc(userProfileRef);
                     
@@ -29,12 +44,17 @@ export const AuthProvider = ({ children }) => {
                         setCurrentUserProfile({ uid: user.uid, ...newProfile });
                     }
                     setCurrentUser(user);
+
                 } else {
+                    // Pokud se uživatel odhlásí, vyčistíme i session v Supabase
+                    await supabase.auth.signOut();
                     setCurrentUser(null);
                     setCurrentUserProfile(null);
                 }
             } catch (error) {
-                console.error("Chyba při načítání profilu uživatele:", error);
+                console.error("Chyba při synchronizaci autentifikace:", error);
+                // V případě chyby se bezpečně odhlásíme všude
+                await supabase.auth.signOut();
                 setCurrentUser(null);
                 setCurrentUserProfile(null);
             } finally {
@@ -42,19 +62,25 @@ export const AuthProvider = ({ children }) => {
             }
         });
 
-        return () => unsubscribe();
-    }, [appId]);
+        // Tento listener se stará o automatické obnovování tokenu pro Supabase
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'TOKEN_REFRESHED') {
+                console.log('Supabase token byl obnoven.');
+            }
+        });
 
+        // Při odpojení komponenty zrušíme listenery, abychom předešli memory leakům
+        return () => {
+            unsubscribe();
+            subscription?.unsubscribe();
+        };
+    }, [appId, supabase]);
+
+    // Zbytek souboru zůstává stejný...
     useEffect(() => {
-        if (currentUserProfile?.isAdmin) {
+        if (currentUserProfile?.isAdmin || currentUser) {
             const usersColRef = collection(db, `artifacts/${appId}/public/data/user_profiles`);
             const unsubscribeUsers = onSnapshot(usersColRef, (snapshot) => {
-                setAllUsers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
-            });
-            return () => unsubscribeUsers();
-        } else if (currentUser) {
-            const usersColRef = collection(db, `artifacts/${appId}/public/data/user_profiles`);
-             const unsubscribeUsers = onSnapshot(usersColRef, (snapshot) => {
                 setAllUsers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
             });
             return () => unsubscribeUsers();

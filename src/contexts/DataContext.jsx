@@ -142,25 +142,13 @@ export const DataProvider = ({ children }) => {
         };
         reader.readAsBinaryString(file);
     }, [supabase, summary]);
-
+    
+    // FINÁLNÍ VERZE FUNKCE:
+    // Odstraněna lokální správa session, spoléhá se na globální AuthContext
     const handleErrorLogUpload = useCallback(async (file) => {
         if (!file) return;
-        toast.loading('Ověřuji přihlášení a zpracovávám soubor...');
+        toast.loading('Zpracovávám soubor...');
         try {
-            // 1. Vynutíme si obnovení session, abychom měli jistotu platného tokenu.
-            const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
-
-            if (sessionError) {
-              throw new Error(`Chyba obnovení session: ${sessionError.message}`);
-            }
-            if (!session) {
-                throw new Error("Chyba autentizace. Zkuste se prosím znovu přihlásit.");
-            }
-
-            // 2. Explicitně nastavíme novou session pro klienta.
-            supabase.auth.setSession(session);
-
-            // 3. Pokračujeme v nahrávání souboru.
             const dataForSupabase = await processErrorDataForSupabase(file);
             if (dataForSupabase && dataForSupabase.length > 0) {
                 const { error } = await supabase.from('errors').upsert(dataForSupabase, { onConflict: 'unique_key' });
