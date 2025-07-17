@@ -1,5 +1,3 @@
-// Odstranili jsme: import * as XLSX from 'xlsx';
-
 const getCellValue = (row, keys) => {
     for (const key of keys) {
         if (row[key] !== undefined && row[key] !== null) {
@@ -10,8 +8,7 @@ const getCellValue = (row, keys) => {
 };
 
 export const processErrorDataForSupabase = (file) => {
-  return new Promise(async (resolve, reject) => { // Přidáno async
-    // DYNAMICKÝ IMPORT KNIHOVNY XLSX ZDE
+  return new Promise(async (resolve, reject) => {
     const XLSX = await import('xlsx');
 
     const reader = new FileReader();
@@ -57,16 +54,16 @@ export const processErrorDataForSupabase = (file) => {
             const storageBin = String(getCellValue(row, ['Storage Bin', 'storage bin']) || 'N/A').trim();
             const uniqueKey = `${datePart.toISOString()}_${getCellValue(row, ['Material'])}_${getCellValue(row, ['Created By', 'created by'])}_${storageBin}`;
 
+            // KLÍČOVÁ ZMĚNA: Klíč 'error_type' byl nahrazen klíčem 'description', aby odpovídal DB schématu.
             return {
               unique_key: uniqueKey,
               position: storageBin,
-              error_type: String(getCellValue(row, ['Text']) || 'Neznámá chyba').trim(),
+              description: String(getCellValue(row, ['Text', 'Description']) || 'Neznámá chyba').trim(),
               material: String(getCellValue(row, ['Material']) || 'N/A').trim(),
               order_number: String(getCellValue(row, ['Dest.Storage Bin']) || 'N/A').trim(),
               qty_difference: Number(getCellValue(row, ['Source bin differ.']) || 0),
               user: String(getCellValue(row, ['Created By', 'created by']) || 'N/A').trim(),
               timestamp: datePart.toISOString(),
-              description: String(getCellValue(row, ['Text', 'Description']) || 'Neznámá chyba').trim(),
               error_location: storageBin,
               order_refence: String(getCellValue(row, ['Dest.Storage Bin']) || 'N/A').trim(),
               diff_qty: Number(getCellValue(row, ['Source bin differ.']) || 0)
@@ -89,7 +86,6 @@ export const processErrorDataForSupabase = (file) => {
   });
 };
 
-// ... (zbytek souboru beze změny)
 export const processArrayForDisplay = (data) => {
     if (!data || data.length === 0) return null;
 

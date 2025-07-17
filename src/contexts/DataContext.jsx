@@ -21,7 +21,6 @@ export const DataProvider = ({ children }) => {
     const { user, loading: authLoading } = useAuth();
     const supabase = getSupabase();
 
-    // Definice funkcí pro načítání dat hned na začátku
     const fetchErrorData = useCallback(async () => {
         setIsLoadingErrorData(true);
         try {
@@ -42,6 +41,7 @@ export const DataProvider = ({ children }) => {
     const fetchAndSetSummaries = useCallback(async () => {
         setIsLoadingData(true);
         try {
+            // KLÍČOVÁ ZMĚNA: Načtení posledního uloženého souhrnu z databáze
             const { data: snapshot, error: snapshotError } = await supabase
                 .from('summary_snapshots')
                 .select('summary_data')
@@ -52,6 +52,7 @@ export const DataProvider = ({ children }) => {
                 console.warn("Snapshot nenalezen, indikátory nebudou dostupné.", snapshotError.message);
                 setPreviousSummary(null);
             } else {
+                // Nastavení načteného snapshotu jako "předchozího" stavu
                 setPreviousSummary(snapshot.summary_data);
             }
             
@@ -72,7 +73,6 @@ export const DataProvider = ({ children }) => {
         }
     }, [supabase]);
     
-    // useEffect nyní volá funkce, které jsou již definovány
     useEffect(() => {
         if (user && !authLoading) {
             fetchAndSetSummaries();
@@ -113,7 +113,9 @@ export const DataProvider = ({ children }) => {
                 })).filter(row => row["Delivery No"]);
 
                 if (transformedData.length > 0) {
-                    const currentSummary = summary; // Uchováme si aktuální souhrn pro porovnání
+                    // KLÍČOVÁ ZMĚNA: Uchování aktuálního souhrnu PŘED nahráním nových dat
+                    const currentSummary = processData(allOrdersData);
+                    setPreviousSummary(currentSummary);
 
                     const newDeliveryNos = new Set(transformedData.map(o => o["Delivery No"]));
                     const ordersToMarkAsDeleted = allOrdersData.filter(
@@ -134,19 +136,16 @@ export const DataProvider = ({ children }) => {
                     const { error: upsertError } = await supabase.from('deliveries').upsert(transformedData, { onConflict: 'Delivery No' });
                     if (upsertError) throw upsertError;
                     
-                    // Načteme čerstvá data a vytvoříme nový souhrn
                     const { data: newData, error: dataError } = await supabase.from("deliveries").select('*').limit(20000);
                     if(dataError) throw dataError;
 
                     const newSummary = processData(newData || []);
-
-                    // Aktualizujeme stav v aplikaci
-                    setPreviousSummary(currentSummary);
+                    
                     setAllOrdersData(newData || []);
                     setSummary(newSummary);
 
-                    // Uložíme nový souhrn do DB jako snapshot pro příští načtení
-                    await supabase.from('summary_snapshots').upsert({ id: 1, summary_data: newSummary });
+                    // KLÍČOVÁ ZMĚNA: Uložení nového souhrnu do databáze jako snapshot pro příští načtení
+                    await supabase.from('summary_snapshots').upsert({ id: 1, summary_data: newSummary, updated_at: new Date().toISOString() }, { onConflict: 'id' });
 
                     toast.dismiss();
                     toast.success('Data byla úspěšně nahrána a synchronizována!');
