@@ -1,13 +1,8 @@
 import { format, parseISO } from 'date-fns';
 import toast from 'react-hot-toast';
 
-// Hlavní exportní funkce, nyní s ochranou proti spuštění na serveru
 const exportToXLSX = (data, fileName = 'export', t) => {
-    // TATO KONTROLA ŘEŠÍ CHYBU PŘI BUILDU
     if (typeof window === 'undefined' || typeof window.XLSX === 'undefined') {
-        console.error("Export function called on the server or XLSX library not ready.");
-        // Během buildu na serveru jen tiše skončíme.
-        // Pro uživatele v prohlížeči zobrazíme chybu.
         if (typeof window !== 'undefined') {
             toast.error(t.xlsxLibNotLoaded || "Knihovna pro export není připravena.");
         }
@@ -30,8 +25,6 @@ const exportToXLSX = (data, fileName = 'export', t) => {
     }
 };
 
-// --- OSTATNÍ FUNKCE ZŮSTÁVAJÍ, PROTOŽE VOLAJÍ OPRAVENOU exportToXLSX ---
-
 export const exportCustomOrdersToXLSX = (orders, title, t) => {
     if (!orders || orders.length === 0) {
         toast.error(t.noDataAvailable || "Nejsou k dispozici žádná data pro export.");
@@ -51,6 +44,7 @@ export const exportCustomOrdersToXLSX = (orders, title, t) => {
     exportToXLSX(formattedData, title, t);
 };
 
+// ... (zbytek exportovacích funkcí beze změny)
 export const exportDelayedOrdersXLSX = (delayedOrders, t) => {
     if (!delayedOrders || delayedOrders.length === 0) {
         toast.error(t.noDataAvailable || "Nejsou žádné zpožděné zakázky k exportu.");
@@ -67,6 +61,7 @@ export const exportDelayedOrdersXLSX = (delayedOrders, t) => {
     }));
     exportToXLSX(formattedData, t.delayed, t);
 };
+
 
 export const exportSearchResultsToXLSX = (searchData, t) => {
     const formattedData = searchData.map(order => ({

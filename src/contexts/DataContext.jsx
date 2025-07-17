@@ -5,7 +5,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { processData } from '../lib/dataProcessor';
 import { processArrayForDisplay, processErrorDataForSupabase } from '../lib/errorMonitorProcessor';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
 
 export const DataContext = createContext(null);
 export const useData = () => useContext(DataContext);
@@ -16,58 +15,64 @@ export const DataProvider = ({ children }) => {
     const [previousSummary, setPreviousSummary] = useState(null);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
-    
     const [errorData, setErrorData] = useState(null);
     const [isLoadingErrorData, setIsLoadingErrorData] = useState(true);
 
     const { user, loading: authLoading } = useAuth();
     const supabase = getSupabase();
 
-    const fetchData = useCallback(async () => {
-        // Tento useCallback nyní pouze načítá data, logika pro souhrny je oddělena
+    // Definice funkcí pro načítání dat hned na začátku
+    const fetchErrorData = useCallback(async () => {
+        setIsLoadingErrorData(true);
         try {
-            const { data, error } = await supabase.from("deliveries").select('*').limit(20000);
+            const { data, error } = await supabase.from("errors").select('*').order('timestamp', { ascending: false }).limit(1000);
             if (error) throw error;
-            return data || [];
+            
+            const processedErrors = processArrayForDisplay(data || []);
+            setErrorData(processedErrors);
         } catch (error) {
-            toast.error("Chyba při načítání dat zakázek.");
-            return [];
+            console.error("Chyba ve funkci fetchErrorData:", error);
+            toast.error("Chyba při načítání dat pro Error Monitor.");
+            setErrorData(null);
+        } finally {
+            setIsLoadingErrorData(false);
         }
     }, [supabase]);
-    
-    // Nová funkce pro načtení a nastavení obou souhrnů při startu
+
     const fetchAndSetSummaries = useCallback(async () => {
         setIsLoadingData(true);
         try {
-            // 1. Načteme poslední uložený souhrn z DB -> stane se z něj "předchozí"
             const { data: snapshot, error: snapshotError } = await supabase
                 .from('summary_snapshots')
                 .select('summary_data')
                 .eq('id', 1)
                 .single();
-
+            
             if (snapshotError) {
-                console.warn("Nepodařilo se načíst snapshot souhrnu, indikátory nebudou dostupné.", snapshotError.message);
+                console.warn("Snapshot nenalezen, indikátory nebudou dostupné.", snapshotError.message);
                 setPreviousSummary(null);
             } else {
                 setPreviousSummary(snapshot.summary_data);
             }
-
-            // 2. Načteme aktuální data o zakázkách a vytvoříme z nich "současný" souhrn
-            const currentData = await fetchData();
-            setAllOrdersData(currentData);
-            setSummary(processData(currentData));
+            
+            const { data: currentData, error: dataError } = await supabase.from("deliveries").select('*').limit(20000);
+            if (dataError) throw dataError;
+            
+            const processed = processData(currentData || []);
+            setAllOrdersData(currentData || []);
+            setSummary(processed);
 
         } catch (error) {
-            toast.error("Kompletní inicializace dat selhala.");
+            toast.error("Chyba při inicializaci dat.");
             setAllOrdersData([]);
             setSummary(null);
             setPreviousSummary(null);
         } finally {
             setIsLoadingData(false);
         }
-    }, [supabase, fetchData]);
-
+    }, [supabase]);
+    
+    // useEffect nyní volá funkce, které jsou již definovány
     useEffect(() => {
         if (user && !authLoading) {
             fetchAndSetSummaries();
@@ -77,18 +82,21 @@ export const DataProvider = ({ children }) => {
 
     const handleFileUpload = useCallback(async (file) => {
         if (!file) return;
-        toast.loading('Zpracovávám soubor a porovnávám data...');
-        const parseExcelDate = (excelDate) => excelDate ? new Date((excelDate - 25569) * 86400 * 1000).toISOString() : null;
+        toast.loading('Zpracovávám soubor...');
+        
+        const XLSX = await import('xlsx');
 
         const reader = new FileReader();
         reader.onload = async (evt) => {
             try {
                 const bstr = evt.target.result;
-                const wb = XLSX.read(bstr, { type: 'binary' });
+                const wb = XLSX.read(bstr, { type: 'binary', cellDates: true });
                 const wsname = wb.SheetNames[0];
                 const ws = wb.Sheets[wsname];
                 const jsonData = XLSX.utils.sheet_to_json(ws);
                 
+                const parseExcelDate = (excelDate) => excelDate ? new Date(excelDate).toISOString() : null;
+
                 const transformedData = jsonData.map(row => ({ 
                     "Delivery No": String(row["Delivery No"] || row["Delivery"] || '').trim(), 
                     "Status": Number(row["Status"]), 
@@ -105,6 +113,8 @@ export const DataProvider = ({ children }) => {
                 })).filter(row => row["Delivery No"]);
 
                 if (transformedData.length > 0) {
+                    const currentSummary = summary; // Uchováme si aktuální souhrn pro porovnání
+
                     const newDeliveryNos = new Set(transformedData.map(o => o["Delivery No"]));
                     const ordersToMarkAsDeleted = allOrdersData.filter(
                         order => !newDeliveryNos.has(order["Delivery No"]) && order.Status !== 'Smazané' && order.Status === 10
@@ -120,28 +130,27 @@ export const DataProvider = ({ children }) => {
                         await Promise.all(updates);
                     }
                     
-                    toast.loading('Nahrávám nová data do databáze...');
+                    toast.loading('Nahrávám nová data...');
                     const { error: upsertError } = await supabase.from('deliveries').upsert(transformedData, { onConflict: 'Delivery No' });
                     if (upsertError) throw upsertError;
+                    
+                    // Načteme čerstvá data a vytvoříme nový souhrn
+                    const { data: newData, error: dataError } = await supabase.from("deliveries").select('*').limit(20000);
+                    if(dataError) throw dataError;
 
-                    // Po úspěšném nahrání aktualizujeme stavy pro zobrazení indikátorů
-                    setPreviousSummary(summary); // Aktuální se stává předchozím
+                    const newSummary = processData(newData || []);
 
-                    const newData = await fetchData(); // Načteme nová data
-                    const newSummary = processData(newData); // Zpracujeme je
-
-                    setAllOrdersData(newData);
+                    // Aktualizujeme stav v aplikaci
+                    setPreviousSummary(currentSummary);
+                    setAllOrdersData(newData || []);
                     setSummary(newSummary);
 
-                    // A uložíme nový souhrn do DB pro příští načtení stránky
-                    const { error: snapshotError } = await supabase
-                        .from('summary_snapshots')
-                        .upsert({ id: 1, summary_data: newSummary });
-                    if(snapshotError) throw snapshotError;
+                    // Uložíme nový souhrn do DB jako snapshot pro příští načtení
+                    await supabase.from('summary_snapshots').upsert({ id: 1, summary_data: newSummary });
 
                     toast.dismiss();
                     toast.success('Data byla úspěšně nahrána a synchronizována!');
-                    
+
                 } else {
                     toast.dismiss();
                     toast.error('Nenalezena žádná platná data v souboru.');
@@ -152,26 +161,68 @@ export const DataProvider = ({ children }) => {
             }
         };
         reader.readAsBinaryString(file);
-    }, [supabase, fetchData, summary, allOrdersData]);
-    
-    const fetchErrorData = useCallback(async () => {
-        // ... (beze změny)
-    }, [supabase]);
+    }, [supabase, allOrdersData, summary]);
+
+    const handleErrorLogUpload = useCallback(async (file) => {
+        if (!file) return;
+        toast.loading('Zpracovávám a ukládám log chyb...');
+        try {
+            const dataForSupabase = await processErrorDataForSupabase(file);
+            if (dataForSupabase && dataForSupabase.length > 0) {
+                const { error } = await supabase.from('errors').upsert(dataForSupabase, { onConflict: 'unique_key' });
+                if (error) throw error;
+            }
+            toast.dismiss();
+            toast.success('Log chyb byl úspěšně nahrán!');
+            await fetchErrorData();
+        } catch (error) {
+            toast.dismiss();
+            toast.error(`Chyba při nahrávání logu: ${error.message}`);
+        }
+    }, [supabase, fetchErrorData]);
 
     const handleSaveNote = useCallback(async (deliveryNo, note) => {
-        // ... (beze změny)
-    }, [supabase, fetchData]);
+        try {
+            const { error } = await supabase
+                .from('deliveries')
+                .update({ Note: note, updated_at: new Date().toISOString() })
+                .eq('Delivery No', deliveryNo);
+            if (error) throw error;
+            toast.success('Poznámka uložena.');
+            await fetchAndSetSummaries();
+        } catch (error) {
+            toast.error(`Chyba při ukládání poznámky: ${error.message}`);
+        }
+    }, [supabase, fetchAndSetSummaries]);
 
     const handleUpdateStatus = useCallback(async (deliveryNo, status) => {
-       // ... (beze změny)
-    }, [supabase, fetchData]);
+        try {
+            const { data, error } = await supabase
+                .from('deliveries')
+                .update({ Status: status, updated_at: new Date().toISOString() })
+                .eq('Delivery No', deliveryNo)
+                .select(); 
+
+            if (error) throw error;
+            
+            if (data && data.length > 0) {
+                 await fetchAndSetSummaries();
+                 return { success: true };
+            } else {
+                throw new Error("Aktualizace se neprovedla.");
+            }
+        } catch (error) {
+            console.error("Chyba při aktualizaci statusu:", error);
+            return { success: false, error: error.message || "Došlo k neznámé chybě." };
+        }
+    }, [supabase, fetchAndSetSummaries]);
 
     const value = useMemo(() => ({
         allOrdersData,
         summary,
         previousSummary,
         isLoadingData,
-        refetchData: fetchAndSetSummaries, // <-- Měníme na novou funkci
+        refetchData: fetchAndSetSummaries,
         handleFileUpload,
         selectedOrderDetails,
         setSelectedOrderDetails,

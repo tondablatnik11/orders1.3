@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+// Odstranili jsme: import * as XLSX from 'xlsx';
 
 const getCellValue = (row, keys) => {
     for (const key of keys) {
@@ -10,7 +10,10 @@ const getCellValue = (row, keys) => {
 };
 
 export const processErrorDataForSupabase = (file) => {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => { // Přidáno async
+    // DYNAMICKÝ IMPORT KNIHOVNY XLSX ZDE
+    const XLSX = await import('xlsx');
+
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
@@ -86,6 +89,7 @@ export const processErrorDataForSupabase = (file) => {
   });
 };
 
+// ... (zbytek souboru beze změny)
 export const processArrayForDisplay = (data) => {
     if (!data || data.length === 0) return null;
 
