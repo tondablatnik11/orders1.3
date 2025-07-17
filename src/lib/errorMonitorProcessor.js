@@ -54,7 +54,11 @@ export const processErrorDataForSupabase = (file) => {
             const storageBin = String(getCellValue(row, ['Storage Bin', 'storage bin']) || 'N/A').trim();
             const uniqueKey = `${datePart.toISOString()}_${getCellValue(row, ['Material'])}_${getCellValue(row, ['Created By', 'created by'])}_${storageBin}`;
 
-            // KLÍČOVÁ ZMĚNA: Klíč 'error_type' byl nahrazen klíčem 'description', aby odpovídal DB schématu.
+            // ====================== KLÍČOVÁ OPRAVA ZDE ======================
+            // Kód se pokoušel vytvořit objekt s klíčem 'error_type'.
+            // Správný název sloupce v databázi je 'description'.
+            // Nahrazením 'error_type' za 'description' zajistíme správný import.
+            // ================================================================
             return {
               unique_key: uniqueKey,
               position: storageBin,
@@ -91,7 +95,7 @@ export const processArrayForDisplay = (data) => {
 
     const errorsForCharts = data.map(row => ({
         position: row.error_location || row.position,
-        errorType: row.description || row.error_type,
+        errorType: row.description || 'N/A',
         material: row.material,
         qtyDifference: Number(row.diff_qty || row.qty_difference) || 0,
     }));

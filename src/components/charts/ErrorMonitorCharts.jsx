@@ -10,7 +10,6 @@ import {
 } from '@tremor/react';
 import { ListChecks, MapPin, Package, GitCommitVertical } from 'lucide-react';
 
-// Vlastní Tooltip pro grafy pro lepší zobrazení
 const CustomTooltip = ({ payload, active, label }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -26,7 +25,6 @@ const CustomTooltip = ({ payload, active, label }) => {
     return null;
 };
 
-// Formátování typů chyb pro lepší čitelnost
 const formatErrorTypeForDisplay = (description) => {
     if (!description) return "Neznámý typ";
     const desc = description.toLowerCase();
@@ -38,11 +36,9 @@ const formatErrorTypeForDisplay = (description) => {
     return description.charAt(0).toUpperCase() + description.slice(1);
 };
 
-// Barevná paleta pro Donut Chart
 const donutColors = ["#3b82f6", "#16a34a", "#facc15", "#f97316", "#ef4444", "#9333ea"];
 
 const ErrorMonitorCharts = ({ chartsData }) => {
-    // Transformace dat pro Donut Chart s lepšími popisky
     const errorsByTypeData = chartsData?.errorsByType.map(e => ({
         ...e,
         name: formatErrorTypeForDisplay(e.name)
@@ -50,7 +46,7 @@ const ErrorMonitorCharts = ({ chartsData }) => {
 
     return (
         <>
-            <Grid numItemsLg={2} className="gap-6">
+            <Grid numItemsLg={2} className="gap-6 mt-6">
                 <Card>
                     <Title className="flex items-center gap-2"><ListChecks className="w-5 h-5" />TOP 6 Typů Chyb</Title>
                     <DonutChart

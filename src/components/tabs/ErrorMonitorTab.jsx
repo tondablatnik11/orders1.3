@@ -2,11 +2,11 @@
 import React, { useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useData } from '@/hooks/useData';
-import {
-    Card,
-    Title,
-    Button,
-    Text,
+import { 
+    Card, 
+    Title, 
+    Button, 
+    Text, 
     Table,
     TableHead,
     TableRow,
@@ -16,8 +16,11 @@ import {
 } from '@tremor/react';
 import { RefreshCw, UploadCloud, PackageX, List } from 'lucide-react';
 
-// KLÍČOVÁ ZMĚNA: Dynamický import komponenty s grafy a vypnutí SSR (Server-Side Rendering)
-// Toto zajistí, že se grafy vykreslí na straně klienta a předejde se tak problému s černými obdélníky.
+// ====================== KLÍČOVÁ OPRAVA ZDE ======================
+// Dynamicky importujeme komponentu s grafy a s parametrem { ssr: false }.
+// Tím zajistíme, že se kód pro grafy vůbec nespustí na serveru.
+// Vykreslí se až v prohlížeči klienta, což vyřeší problém černých obdélníků.
+// ================================================================
 const ErrorMonitorCharts = dynamic(() => import('../charts/ErrorMonitorCharts'), {
     ssr: false,
     loading: () => <div className="flex justify-center items-center h-96"><RefreshCw className="w-10 h-10 text-gray-400 animate-spin" /></div>
@@ -32,7 +35,6 @@ export default function ErrorMonitorTab() {
         if (file) {
             handleErrorLogUpload(file);
         }
-        // Resetování inputu pro možnost nahrání stejného souboru znovu
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -66,7 +68,7 @@ export default function ErrorMonitorTab() {
                 </div>
             ) : errorData && errorData.chartsData ? (
                 <>
-                    {/* Použití nové, dynamicky importované komponenty pro všechny grafy */}
+                    {/* Zde vložíme dynamicky načtenou komponentu s grafy */}
                     <ErrorMonitorCharts chartsData={errorData.chartsData} />
                     
                     <Card className="mt-6">
@@ -100,7 +102,6 @@ export default function ErrorMonitorTab() {
                             </Table>
                         </div>
                     </Card>
-
                 </>
             ) : (
                 <div className="flex items-center justify-center h-[60vh] text-center">
