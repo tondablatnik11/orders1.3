@@ -56,18 +56,21 @@ export const processErrorDataForSupabase = (file) => {
             const uniqueKey = `${datePart.toISOString()}_${getCellValue(row, ['Material'])}_${getCellValue(row, ['Created By', 'created by'])}_${storageBin}`;
 
             // ====================== KLÍČOVÁ OPRAVA ZDE ======================
-            // Názvy klíčů byly upraveny tak, aby odpovídaly názvům sloupců
+            // Názvy klíčů byly upraveny tak, aby přesně odpovídaly názvům sloupců
             // v databázi Supabase, jak je vidět na vašem screenshotu.
             // Například 'order_number' bylo změněno na 'order_refence'.
+            // Přidány byly i chybějící kvantitativní sloupce.
             // ================================================================
             return {
               unique_key: uniqueKey,
               description: String(getCellValue(row, ['Text', 'Description']) || 'Neznámá chyba').trim(),
               material: String(getCellValue(row, ['Material']) || 'N/A').trim(),
-              order_refence: String(getCellValue(row, ['Dest.Storage Bin']) || 'N/A').trim(),
+              order_refence: String(getCellValue(row, ['Dest.Storage Bin']) || 'N/A').trim(), // OPRAVENO
               user: String(getCellValue(row, ['Created By', 'created by']) || 'N/A').trim(),
               timestamp: datePart.toISOString(),
               error_location: storageBin,
+              target_qty: Number(getCellValue(row, ['Source target qty']) || 0), // PŘIDÁNO
+              actual_qty: Number(getCellValue(row, ['Source actual qty.']) || 0), // PŘIDÁNO
               diff_qty: Number(getCellValue(row, ['Source bin differ.']) || 0)
             };
           } catch (e) {
@@ -90,6 +93,7 @@ export const processErrorDataForSupabase = (file) => {
   });
 };
 
+// Zbytek souboru zůstává stejný...
 export const processArrayForDisplay = (data) => {
     if (!data || data.length === 0) return null;
 
