@@ -17,6 +17,11 @@ export const DataProvider = ({ children }) => {
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [errorData, setErrorData] = useState(null);
     const [isLoadingErrorData, setIsLoadingErrorData] = useState(true);
+    
+    // KLÍČOVÁ ZMĚNA: Přidání globálního stavu pro detail zakázky
+    const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
+    const [statusHistory, setStatusHistory] = useState({ isVisible: false, data: [] });
+
 
     const { user, loading: authLoading } = useAuth();
     const supabase = getSupabase();
@@ -33,6 +38,43 @@ export const DataProvider = ({ children }) => {
             setIsLoadingErrorData(false);
         }
     }, [supabase]);
+
+    const handleSaveNote = useCallback(async (deliveryNo, note) => {
+        const { error } = await supabase
+            .from('deliveries')
+            .update({ Note: note, updated_at: new Date().toISOString() })
+            .eq('Delivery No', deliveryNo);
+
+        if (error) {
+            toast.error('Chyba při ukládání poznámky.');
+            console.error("Note save error:", error);
+        } else {
+            toast.success('Poznámka uložena.');
+            // Aktualizujeme stav lokálně pro okamžitou odezvu
+            setAllOrdersData(prevData =>
+                prevData.map(order =>
+                    order['Delivery No'] === deliveryNo ? { ...order, Note: note } : order
+                )
+            );
+        }
+    }, [supabase]);
+    
+    // Nová funkce pro načtení historie
+     const fetchStatusHistory = useCallback(async (deliveryNo) => {
+        if (!deliveryNo) return;
+        const { data, error } = await supabase
+            .from('delivery_status_log')
+            .select('*')
+            .eq('delivery', deliveryNo)
+            .order('timestamp', { ascending: false });
+
+        if (error) {
+            toast.error("Nepodařilo se načíst historii stavů.");
+            return;
+        }
+        setStatusHistory({ isVisible: true, data: data });
+    }, [supabase]);
+
 
     const fetchAndSetSummaries = useCallback(async () => {
         setIsLoadingData(true);
@@ -81,22 +123,7 @@ export const DataProvider = ({ children }) => {
                 const ws = wb.Sheets[wsname];
                 const jsonData = XLSX.utils.sheet_to_json(ws);
                 const parseExcelDate = (excelDate) => excelDate ? new Date(excelDate).toISOString() : null;
-
-                const transformedData = jsonData.map(row => ({
-                    "Delivery No": String(row["Delivery No"] || row["Delivery"] || '').trim(),
-                    "Status": Number(row["Status"]),
-                    "del.type": row["del.type"],
-                    "Loading Date": parseExcelDate(row["Loading Date"]),
-                    "Note": row["Note"] || "",
-                    "Forwarding agent name": row["Forwarding agent name"],
-                    "Name of ship-to party": row["Name of ship-to party"],
-                    "Total Weight": row["Total Weight"],
-                    "Bill of lading": row["Bill of lading"],
-                    "Country ship-to prty": row["Country ship-to prty"],
-                    "order_type": row["order type"],
-                    "updated_at": new Date().toISOString()
-                })).filter(row => row["Delivery No"]);
-
+                const transformedData = jsonData.map(row => ({ "Delivery No": String(row["Delivery No"] || row["Delivery"] || '').trim(), "Status": Number(row["Status"]), "del.type": row["del.type"], "Loading Date": parseExcelDate(row["Loading Date"]), "Note": row["Note"] || "", "Forwarding agent name": row["Forwarding agent name"], "Name of ship-to party": row["Name of ship-to party"], "Total Weight": row["Total Weight"], "Bill of lading": row["Bill of lading"], "Country ship-to prty": row["Country ship-to prty"], "order_type": row["order type"], "updated_at": new Date().toISOString() })).filter(row => row["Delivery No"]);
                 if (transformedData.length > 0) {
                     setPreviousSummary(summary);
                     toast.loading('Nahrávám nová data...');
@@ -130,7 +157,7 @@ export const DataProvider = ({ children }) => {
         }
         toast.loading('Zpracovávám soubor...');
         try {
-            const dataForSupabase = await processErrorDataForSupabase(file); // Odebráno user.uid
+            const dataForSupabase = await processErrorDataForSupabase(file);
             if (dataForSupabase && dataForSupabase.length > 0) {
                 const { error } = await supabase.from('errors').upsert(dataForSupabase, { onConflict: 'unique_key' });
                 if (error) throw new Error(error.message);
@@ -146,10 +173,31 @@ export const DataProvider = ({ children }) => {
             console.error("Detail chyby při nahrávání logu:", error);
         }
     }, [supabase, fetchErrorData, user]);
+    
+    const handleUpdateStatus = useCallback(async (deliveryNo, newStatus) => {
+         const { data, error } = await supabase
+            .from('deliveries')
+            .update({ Status: newStatus, updated_at: new Date().toISOString() })
+            .eq('Delivery No', deliveryNo)
+            .select()
+            
+        if (error) {
+            toast.error(`Chyba při aktualizaci statusu: ${error.message}`);
+            return { success: false };
+        }
+        if (data && data.length > 0) {
+            toast.success(`Status pro zakázku ${deliveryNo} byl aktualizován.`);
+            fetchAndSetSummaries(); // Znovu načteme data pro aktualizaci UI
+            return { success: true };
+        }
+        return { success: false };
+    }, [supabase, fetchAndSetSummaries]);
 
     const value = useMemo(() => ({
         allOrdersData, summary, previousSummary, isLoadingData, refetchData: fetchAndSetSummaries, handleFileUpload, handleErrorLogUpload, errorData, isLoadingErrorData, refetchErrorData: fetchErrorData,
-    }), [allOrdersData, summary, previousSummary, isLoadingData, fetchAndSetSummaries, handleFileUpload, handleErrorLogUpload, errorData, isLoadingErrorData, fetchErrorData]);
+        selectedOrderDetails, setSelectedOrderDetails, handleSaveNote, handleUpdateStatus,
+        statusHistory, fetchStatusHistory, setStatusHistory,
+    }), [allOrdersData, summary, previousSummary, isLoadingData, fetchAndSetSummaries, handleFileUpload, handleErrorLogUpload, errorData, isLoadingErrorData, fetchErrorData, selectedOrderDetails, handleSaveNote, handleUpdateStatus, statusHistory, fetchStatusHistory]);
 
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };

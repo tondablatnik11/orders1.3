@@ -1,11 +1,10 @@
-// src/components/layout/Sidebar.jsx
 'use client';
 import { forwardRef } from 'react';
-import { Home, Search, Bell, CalendarDays, Truck, Warehouse, AlertTriangle, LogOut, MessageSquare, Settings } from 'lucide-react';
+import { Home, Search, Bell, CalendarDays, Truck, Warehouse, AlertTriangle, LogOut, MessageSquare, Settings, Ticket } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Image from 'next/image';
 
-const Sidebar = forwardRef(({ activeTab, onTabChange }, ref) => {
+const Sidebar = forwardRef(({ activeTab, onTabChange, isOpen }, ref) => {
     const { user, userProfile, logout } = useAuth();
 
     const menuItems = [
@@ -16,6 +15,7 @@ const Sidebar = forwardRef(({ activeTab, onTabChange }, ref) => {
         { id: 'dailySummary', label: 'Denní souhrn', icon: Truck },
         { id: 'warehouseActivities', label: 'Skladové aktivity', icon: Warehouse },
         { id: 'errorMonitor', label: 'Error Monitor', icon: AlertTriangle },
+        { id: 'tickets', label: 'Tickety', icon: Ticket }, // OPRAVA: Vrácená položka
     ];
     
     const bottomMenuItems = [
@@ -51,24 +51,22 @@ const Sidebar = forwardRef(({ activeTab, onTabChange }, ref) => {
     const userRole = userProfile?.isAdmin ? 'Administrátor' : 'Uživatel';
     const avatarUrl = userProfile?.avatar_url || user?.photoURL || '/profile-avatar.png';
 
+    // OPRAVA: Přidány třídy pro responzivní chování
     return (
-        <aside ref={ref} className="w-64 bg-slate-800 text-slate-200 flex-shrink-0 flex flex-col justify-between p-4 border-r border-slate-700/50">
+        <aside 
+            ref={ref} 
+            className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-800 text-slate-200 flex-shrink-0 flex flex-col justify-between p-4 border-r border-slate-700/50 transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        >
             <div>
-                {/* Horní část - Logo */}
                 <div className="flex items-center justify-center h-20 mb-6 px-4">
-                    {/* KLÍČOVÁ ZMĚNA: Větší logo bez oříznutí */}
                     <Image src="/logo.png" alt="Firemní Logo" width={180} height={50} style={{ objectFit: 'contain' }} />
                 </div>
-
-                {/* Navigace */}
                 <nav>
                     <ul className="space-y-2">
                         {menuItems.map(item => <NavLink key={item.id} item={item} />)}
                     </ul>
                 </nav>
             </div>
-
-            {/* Spodní část - Nastavení, Chat a Profil */}
             <div>
                 <ul className="space-y-2 border-t border-slate-700 pt-4">
                     {bottomMenuItems.map(item => <NavLink key={item.id} item={item} />)}
@@ -80,8 +78,6 @@ const Sidebar = forwardRef(({ activeTab, onTabChange }, ref) => {
                         </a>
                     </li>
                 </ul>
-
-                {/* Profil uživatele */}
                 <div className="border-t border-slate-700 mt-4 pt-4">
                     <div className="flex items-center gap-3">
                         <Image src={avatarUrl} alt="Profilový obrázek" width={40} height={40} className="rounded-full border-2 border-slate-600" />
