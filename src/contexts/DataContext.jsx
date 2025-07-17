@@ -19,7 +19,7 @@ export const DataProvider = ({ children }) => {
     const [errorData, setErrorData] = useState(null);
     const [isLoadingErrorData, setIsLoadingErrorData] = useState(true);
 
-    const { user, loading: authLoading } = useAuth();
+    const { user, loading: authLoading } = useAuth(); // Tento řádek je důležitý
     const supabase = getSupabase();
 
     const fetchErrorData = useCallback(async () => {
@@ -48,12 +48,11 @@ export const DataProvider = ({ children }) => {
                 .eq('id', 1)
                 .single();
             
-            if (snapshotError) {
-                console.warn("Snapshot nenalezen, indikátory nebudou dostupné při prvním načtení.", snapshotError.message);
-                setPreviousSummary(null);
-            } else if (snapshotData) {
-                setPreviousSummary(snapshotData.summary_data);
+            if (snapshotError && snapshotError.code !== 'PGRST116') { // Ignorujeme chybu, pokud řádek prostě neexistuje
+                console.warn("Chyba při načítání snapshotu.", snapshotError.message);
             }
+            
+            setPreviousSummary(snapshotData ? snapshotData.summary_data : null);
             
             const { data: currentData, error: dataError } = await supabase.from("deliveries").select('*').limit(20000);
             if (dataError) throw dataError;
@@ -80,6 +79,10 @@ export const DataProvider = ({ children }) => {
     }, [user, authLoading, fetchAndSetSummaries, fetchErrorData]);
 
     const handleFileUpload = useCallback(async (file) => {
+        if (!user) { // Pojistka pro nahrávání hlavních dat
+            toast.error("Nejste přihlášen. Přihlaste se a zkuste to znovu.");
+            return;
+        }
         if (!file) return;
         toast.loading('Zpracovávám soubor...');
         
@@ -143,9 +146,18 @@ export const DataProvider = ({ children }) => {
             }
         };
         reader.readAsBinaryString(file);
-    }, [supabase, summary]);
+    }, [supabase, summary, user]); // PŘIDÁNA ZÁVISLOST 'user'
 
     const handleErrorLogUpload = useCallback(async (file) => {
+        // ====================== OPRAVA ZDE ======================
+        // 1. PŘIDÁNÍ KONTROLY PŘIHLÁŠENÍ
+        // Před jakoukoliv akcí zkontrolujeme, zda je uživatel přihlášen.
+        // =========================================================
+        if (!user) {
+            toast.error("Nejste přihlášen. Přihlaste se a zkuste to znovu.");
+            return;
+        }
+
         if (!file) return;
         toast.loading('Zpracovávám a ukládám log chyb...');
         try {
@@ -153,6 +165,9 @@ export const DataProvider = ({ children }) => {
             if (dataForSupabase && dataForSupabase.length > 0) {
                 const { error } = await supabase.from('errors').upsert(dataForSupabase, { onConflict: 'unique_key' });
                 if (error) throw error;
+            } else {
+                // Přidáno pro případ, že soubor neobsahuje žádná data ke zpracování
+                throw new Error("Soubor neobsahuje žádná platná data ke zpracování.");
             }
             toast.dismiss();
             toast.success('Log chyb byl úspěšně nahrán!');
@@ -161,7 +176,7 @@ export const DataProvider = ({ children }) => {
             toast.dismiss();
             toast.error(`Chyba při nahrávání logu: ${error.message}`);
         }
-    }, [supabase, fetchErrorData]);
+    }, [supabase, fetchErrorData, user]); // 2. PŘIDÁNÍ ZÁVISLOSTI 'user'
 
     const value = useMemo(() => ({
         allOrdersData,
