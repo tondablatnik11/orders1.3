@@ -142,12 +142,11 @@ export const DataProvider = ({ children }) => {
         };
         reader.readAsBinaryString(file);
     }, [supabase, summary]);
-
+    
     const handleErrorLogUpload = useCallback(async (file) => {
         if (!file) return;
         toast.loading('Ověřuji přihlášení a zpracovávám soubor...');
         try {
-            // ====================== FINÁLNÍ OPRAVA ZDE ======================
             // 1. Aktivně si vyžádáme aktuální stav přihlášení od Supabase.
             const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
@@ -171,7 +170,7 @@ export const DataProvider = ({ children }) => {
             toast.dismiss();
             toast.error(`Chyba při nahrávání logu: ${error.message}`);
         }
-    }, [supabase, fetchErrorData]); // Odebrána závislost na 'user', protože session řešíme aktivně
+    }, [supabase, fetchErrorData]);
 
     const value = useMemo(() => ({
         allOrdersData,
