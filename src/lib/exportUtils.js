@@ -1,30 +1,37 @@
 import { format, parseISO } from 'date-fns';
 import toast from 'react-hot-toast';
 
+// Hlavní exportní funkce, nyní s ochranou proti spuštění na serveru
 const exportToXLSX = (data, fileName = 'export', t) => {
-    // KROK 1: Zjistíme, zda se kód spouští v prohlížeči.
-    // 'window' existuje pouze v prohlížeči, ne na serveru.
-    if (typeof window === 'undefined') {
-        console.error("Export function called on the server.");
+    // TATO KONTROLA ŘEŠÍ CHYBU PŘI BUILDU
+    if (typeof window === 'undefined' || typeof window.XLSX === 'undefined') {
+        console.error("Export function called on the server or XLSX library not ready.");
+        // Během buildu na serveru jen tiše skončíme.
+        // Pro uživatele v prohlížeči zobrazíme chybu.
+        if (typeof window !== 'undefined') {
+            toast.error(t.xlsxLibNotLoaded || "Knihovna pro export není připravena.");
+        }
         return;
     }
 
-    if (typeof window.XLSX === 'undefined') {
-        toast.error(t.xlsxLibNotLoaded || "Knihovna pro export (XLSX) není načtena.");
-        return;
-    }
-     if (!data || data.length === 0) {
+    if (!data || data.length === 0) {
         toast.error(t.noDataAvailable || "Nejsou k dispozici žádná data pro export.");
         return;
     }
 
-    const ws = window.XLSX.utils.json_to_sheet(data);
-    const wb = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(wb, ws, "Data");
-    window.XLSX.writeFile(wb, `${fileName.replace(/ /g, '_')}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+    try {
+        const ws = window.XLSX.utils.json_to_sheet(data);
+        const wb = window.XLSX.utils.book_new();
+        window.XLSX.utils.book_append_sheet(wb, ws, "Data");
+        window.XLSX.writeFile(wb, `${fileName.replace(/ /g, '_')}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+    } catch (error) {
+        toast.error("Při exportu došlo k chybě.");
+        console.error("XLSX Export Error:", error);
+    }
 };
 
-// --- Nová generická funkce pro export z modálních oken ---
+// --- OSTATNÍ FUNKCE ZŮSTÁVAJÍ, PROTOŽE VOLAJÍ OPRAVENOU exportToXLSX ---
+
 export const exportCustomOrdersToXLSX = (orders, title, t) => {
     if (!orders || orders.length === 0) {
         toast.error(t.noDataAvailable || "Nejsou k dispozici žádná data pro export.");
@@ -44,7 +51,6 @@ export const exportCustomOrdersToXLSX = (orders, title, t) => {
     exportToXLSX(formattedData, title, t);
 };
 
-// --- Export pro zpožděné zakázky ---
 export const exportDelayedOrdersXLSX = (delayedOrders, t) => {
     if (!delayedOrders || delayedOrders.length === 0) {
         toast.error(t.noDataAvailable || "Nejsou žádné zpožděné zakázky k exportu.");
@@ -59,12 +65,9 @@ export const exportDelayedOrdersXLSX = (delayedOrders, t) => {
         [t.billOfLading]: item["Bill of lading"],
         [t.note]: item.note,
     }));
-
     exportToXLSX(formattedData, t.delayed, t);
 };
 
-
-// --- Export pro výsledky vyhledávání ---
 export const exportSearchResultsToXLSX = (searchData, t) => {
     const formattedData = searchData.map(order => ({
         [t.deliveryNo]: order["Delivery No"],
@@ -80,7 +83,6 @@ export const exportSearchResultsToXLSX = (searchData, t) => {
     exportToXLSX(formattedData, t.searchOrders, t);
 };
 
-// --- Export pro tickety ---
 export const exportTicketsToXLSX = (tickets, allUsers, t) => {
     const formattedData = tickets.map(ticket => ({
         [t.ticketTitle]: ticket.title,

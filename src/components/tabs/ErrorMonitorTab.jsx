@@ -24,16 +24,9 @@ const CustomTooltip = ({ payload, active, label }) => {
       const data = payload[0].payload;
       const category = payload[0].dataKey;
       const value = data[category];
-      let bgColor = 'bg-gray-700';
-      if (category.includes('Počet chyb')) bgColor = 'bg-blue-500';
-      if (category.includes('Absolutní rozdíl')) bgColor = 'bg-orange-500';
-
       return (
         <div className="rounded-tremor-default text-tremor-default bg-tremor-background p-2 shadow-tremor-dropdown border border-tremor-border">
-          <div className="flex items-center space-x-2">
-            <div className={`w-3 h-3 rounded-full ${bgColor}`} />
-            <p className="text-tremor-content-emphasis font-medium">{label}</p>
-          </div>
+          <p className="text-tremor-content-emphasis font-medium">{label}</p>
           <p className="text-tremor-content mt-1">{`${category}: ${value}`}</p>
         </div>
       );
@@ -56,23 +49,23 @@ export default function ErrorMonitorTab() {
         }
     };
 
-    const donutColors = ["blue", "green", "yellow", "orange", "red"];
+    const donutColors = ["blue", "green", "yellow", "orange", "red", "purple"];
 
     const formatErrorTypeForDisplay = (description) => {
-        if(!description) return "Neznámá";
+        if (!description) return "Neznámý typ";
         const desc = description.toLowerCase();
         if (desc.includes('location empty')) return 'Prázdná lokace';
         if (desc.includes('skip position')) return 'Přeskočená pozice';
-        if (desc.includes('serial number')) return 'Sériové číslo';
+        if (desc.includes('serial number')) return 'Chyba sériového čísla';
         if (desc.includes('location short')) return 'Neúplná lokace';
         if (desc.includes('empty skid')) return 'Prázdná paleta';
-        return description;
+        return description.charAt(0).toUpperCase() + description.slice(1);
     };
     
     const errorsByTypeData = errorData?.chartsData?.errorsByType.map(e => ({
         ...e,
         name: formatErrorTypeForDisplay(e.name)
-    })).slice(0, 5) || [];
+    })).slice(0, 6) || [];
 
 
     return (
@@ -94,7 +87,7 @@ export default function ErrorMonitorTab() {
                 <>
                     <Grid numItemsLg={2} className="gap-6">
                         <Card>
-                            <Title className="flex items-center gap-2"><ListChecks className="w-5 h-5" />TOP 5 Typů Chyb</Title>
+                            <Title className="flex items-center gap-2"><ListChecks className="w-5 h-5" />TOP 6 Typů Chyb</Title>
                              <DonutChart
                                 className="mt-8 h-64"
                                 data={errorsByTypeData}
@@ -114,7 +107,7 @@ export default function ErrorMonitorTab() {
                                 index="name"
                                 categories={['Počet chyb']}
                                 colors={["blue"]}
-                                yAxisWidth={150}
+                                yAxisWidth={160}
                                 layout="vertical"
                                 showAnimation={true}
                                 customTooltip={CustomTooltip}
@@ -130,7 +123,7 @@ export default function ErrorMonitorTab() {
                                 index="name"
                                 categories={['Počet chyb']}
                                 colors={["green"]}
-                                yAxisWidth={150}
+                                yAxisWidth={160}
                                 layout="vertical"
                                 showAnimation={true}
                                 customTooltip={CustomTooltip}
@@ -144,7 +137,7 @@ export default function ErrorMonitorTab() {
                                 index="name"
                                 categories={['Absolutní rozdíl']}
                                 colors={["orange"]}
-                                yAxisWidth={150}
+                                yAxisWidth={160}
                                 layout="vertical"
                                 showAnimation={true}
                                 customTooltip={CustomTooltip}
@@ -154,32 +147,34 @@ export default function ErrorMonitorTab() {
                     
                     <Card>
                         <Title className="flex items-center gap-2"><List className="w-5 h-5" />Detailní Seznam Chyb</Title>
-                        <Table className="mt-5">
-                            <TableHead>
-                                <TableRow>
-                                    <TableHeaderCell>Timestamp</TableHeaderCell>
-                                    <TableHeaderCell>Typ chyby</TableHeaderCell>
-                                    <TableHeaderCell>Pozice</TableHeaderCell>
-                                    <TableHeaderCell>Zakázka</TableHeaderCell>
-                                    <TableHeaderCell>Rozdíl</TableHeaderCell>
-                                    <TableHeaderCell>Uživatel</TableHeaderCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {(errorData.detailedErrors || []).map((error, index) => (
-                                    <TableRow key={index}>
-                                        <TableCell>{new Date(error.timestamp).toLocaleString('cs-CZ')}</TableCell>
-                                        <TableCell>
-                                            <Text>{formatErrorTypeForDisplay(error.description)}</Text>
-                                        </TableCell>
-                                        <TableCell>{error.error_location}</TableCell>
-                                        <TableCell>{error.order_refence}</TableCell>
-                                        <TableCell>{error.diff_qty}</TableCell>
-                                        <TableCell>{error.user}</TableCell>
+                        <div className="overflow-x-auto">
+                            <Table className="mt-5 min-w-full">
+                                <TableHead>
+                                    <TableRow>
+                                        <TableHeaderCell>Timestamp</TableHeaderCell>
+                                        <TableHeaderCell>Typ chyby</TableHeaderCell>
+                                        <TableHeaderCell>Pozice</TableHeaderCell>
+                                        <TableHeaderCell>Zakázka</TableHeaderCell>
+                                        <TableHeaderCell>Rozdíl</TableHeaderCell>
+                                        <TableHeaderCell>Uživatel</TableHeaderCell>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHead>
+                                <TableBody>
+                                    {(errorData.detailedErrors || []).map((error, index) => (
+                                        <TableRow key={error.unique_key || index}>
+                                            <TableCell>{new Date(error.timestamp).toLocaleString('cs-CZ')}</TableCell>
+                                            <TableCell>
+                                                <Text>{formatErrorTypeForDisplay(error.description)}</Text>
+                                            </TableCell>
+                                            <TableCell>{error.error_location}</TableCell>
+                                            <TableCell>{error.order_refence}</TableCell>
+                                            <TableCell>{error.diff_qty}</TableCell>
+                                            <TableCell>{error.user}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
                     </Card>
 
                 </>

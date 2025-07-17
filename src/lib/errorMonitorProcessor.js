@@ -48,9 +48,7 @@ export const processErrorDataForSupabase = (file) => {
                     minutes = parseInt(timeParts[1], 10) || 0;
                     seconds = parseInt(timeParts[2], 10) || 0;
                 }
-                datePart.setHours(hours);
-                datePart.setMinutes(minutes);
-                datePart.setSeconds(seconds);
+                datePart.setHours(hours, minutes, seconds);
             }
             
             const storageBin = String(getCellValue(row, ['Storage Bin', 'storage bin']) || 'N/A').trim();
@@ -71,13 +69,12 @@ export const processErrorDataForSupabase = (file) => {
               diff_qty: Number(getCellValue(row, ['Source bin differ.']) || 0)
             };
           } catch (e) {
-            console.error("Chyba při zpracování řádku:", row, e);
             return null;
           }
         }).filter(Boolean);
 
         if (dataForSupabase.length === 0) {
-          throw new Error("V souboru nebyla nalezena žádná platná data. Zkontrolujte, zda soubor obsahuje sloupec 'Created On'.");
+          throw new Error("V souboru nebyla nalezena žádná platná data.");
         }
         resolve(dataForSupabase);
       } catch (error) {
