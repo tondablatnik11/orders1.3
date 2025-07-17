@@ -2,7 +2,7 @@
 'use client';
 import React, { createContext, useState, useEffect, useCallback, useMemo, useContext } from 'react';
 import { getSupabase } from '../lib/supabaseClient';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/useAuth'; // Ujistěte se, že je tento import přítomen
 import { processData } from '../lib/dataProcessor';
 import { processArrayForDisplay, processErrorDataForSupabase } from '../lib/errorMonitorProcessor';
 import toast from 'react-hot-toast';
@@ -15,10 +15,10 @@ export const DataProvider = ({ children }) => {
     const [summary, setSummary] = useState(null);
     const [previousSummary, setPreviousSummary] = useState(null);
     const [isLoadingData, setIsLoadingData] = useState(true);
-    const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
     const [errorData, setErrorData] = useState(null);
     const [isLoadingErrorData, setIsLoadingErrorData] = useState(true);
 
+    // Získáme si přihlášeného uživatele přímo z AuthContextu
     const { user, loading: authLoading } = useAuth();
     const supabase = getSupabase();
 
@@ -27,12 +27,9 @@ export const DataProvider = ({ children }) => {
         try {
             const { data, error } = await supabase.from("errors").select('*').order('timestamp', { ascending: false }).limit(1000);
             if (error) throw error;
-            
-            const processedErrors = processArrayForDisplay(data || []);
-            setErrorData(processedErrors);
+            setErrorData(processArrayForDisplay(data || []));
         } catch (error) {
             console.error("Chyba ve funkci fetchErrorData:", error);
-            // Chybu již hlásí ostatní funkce, zde není potřeba toast
         } finally {
             setIsLoadingErrorData(false);
         }
@@ -41,17 +38,11 @@ export const DataProvider = ({ children }) => {
     const fetchAndSetSummaries = useCallback(async () => {
         setIsLoadingData(true);
         try {
-            const { data: snapshotData, error: snapshotError } = await supabase
-                .from('summary_snapshots')
-                .select('summary_data')
-                .eq('id', 1)
-                .single();
-            
+            const { data: snapshotData, error: snapshotError } = await supabase.from('summary_snapshots').select('summary_data').eq('id', 1).single();
             if (snapshotError && snapshotError.code !== 'PGRST116') {
-                // Ignorujeme chybu, pouze pokud řádek neexistuje, jiné chyby logujeme
                 console.warn("Chyba při načítání snapshotu:", snapshotError.message);
             } else {
-                 setPreviousSummary(snapshotData ? snapshotData.summary_data : null);
+                setPreviousSummary(snapshotData ? snapshotData.summary_data : null);
             }
             
             const { data: currentData, error: dataError } = await supabase.from("deliveries").select('*').limit(20000);
@@ -60,7 +51,6 @@ export const DataProvider = ({ children }) => {
             const currentSummary = processData(currentData || []);
             setAllOrdersData(currentData || []);
             setSummary(currentSummary);
-
         } catch (error) {
              if (!error.message.includes('security policy')) {
                toast.error("Chyba při inicializaci dat.");
@@ -78,11 +68,10 @@ export const DataProvider = ({ children }) => {
     }, [user, authLoading, fetchAndSetSummaries, fetchErrorData]);
 
     const handleFileUpload = useCallback(async (file) => {
+        // ... tato funkce pro Přehled již funguje, není třeba ji měnit ...
         if (!file) return;
         toast.loading('Zpracovávám soubor...');
-        
         const XLSX = await import('xlsx');
-
         const reader = new FileReader();
         reader.onload = async (evt) => {
             try {
@@ -91,46 +80,21 @@ export const DataProvider = ({ children }) => {
                 const wsname = wb.SheetNames[0];
                 const ws = wb.Sheets[wsname];
                 const jsonData = XLSX.utils.sheet_to_json(ws);
-                
                 const parseExcelDate = (excelDate) => excelDate ? new Date(excelDate).toISOString() : null;
-
-                const transformedData = jsonData.map(row => ({ 
-                    "Delivery No": String(row["Delivery No"] || row["Delivery"] || '').trim(), 
-                    "Status": Number(row["Status"]), 
-                    "del.type": row["del.type"], 
-                    "Loading Date": parseExcelDate(row["Loading Date"]), 
-                    "Note": row["Note"] || "", 
-                    "Forwarding agent name": row["Forwarding agent name"], 
-                    "Name of ship-to party": row["Name of ship-to party"], 
-                    "Total Weight": row["Total Weight"], 
-                    "Bill of lading": row["Bill of lading"], 
-                    "Country ship-to prty": row["Country ship-to prty"],
-                    "order_type": row["order type"],
-                    "updated_at": new Date().toISOString() 
-                })).filter(row => row["Delivery No"]);
-
+                const transformedData = jsonData.map(row => ({ "Delivery No": String(row["Delivery No"] || row["Delivery"] || '').trim(), "Status": Number(row["Status"]), "del.type": row["del.type"], "Loading Date": parseExcelDate(row["Loading Date"]), "Note": row["Note"] || "", "Forwarding agent name": row["Forwarding agent name"], "Name of ship-to party": row["Name of ship-to party"], "Total Weight": row["Total Weight"], "Bill of lading": row["Bill of lading"], "Country ship-to prty": row["Country ship-to prty"], "order_type": row["order type"], "updated_at": new Date().toISOString() })).filter(row => row["Delivery No"]);
                 if (transformedData.length > 0) {
                     setPreviousSummary(summary);
-                    
                     toast.loading('Nahrávám nová data...');
                     const { error: upsertError } = await supabase.from('deliveries').upsert(transformedData, { onConflict: 'Delivery No' });
                     if (upsertError) throw upsertError;
-                    
                     const { data: newData, error: dataError } = await supabase.from("deliveries").select('*').limit(20000);
                     if(dataError) throw dataError;
-
                     const newSummary = processData(newData || []);
-                    
                     setAllOrdersData(newData || []);
                     setSummary(newSummary);
-
-                    await supabase
-                        .from('summary_snapshots')
-                        .upsert({ id: 1, summary_data: newSummary, updated_at: new Date().toISOString() }, { onConflict: 'id' });
-
+                    await supabase.from('summary_snapshots').upsert({ id: 1, summary_data: newSummary, updated_at: new Date().toISOString() }, { onConflict: 'id' });
                     toast.dismiss();
                     toast.success('Data byla úspěšně nahrána a synchronizována!');
-
                 } else {
                     toast.dismiss();
                     toast.error('Nenalezena žádná platná data v souboru.');
@@ -143,27 +107,50 @@ export const DataProvider = ({ children }) => {
         reader.readAsBinaryString(file);
     }, [supabase, summary]);
     
-    // FINÁLNÍ VERZE FUNKCE:
-    // Odstraněna lokální správa session, spoléhá se na globální AuthContext
+    // ====================================================================
+    // ZDE JE FINÁLNÍ OPRAVA
+    // ====================================================================
     const handleErrorLogUpload = useCallback(async (file) => {
         if (!file) return;
-        toast.loading('Zpracovávám soubor...');
+        toast.loading('Ověřuji oprávnění a zpracovávám soubor...');
+
+        // KROK 1: Zkontrolujeme, zda je uživatel k dispozici z AuthContextu.
+        if (!user) {
+            toast.dismiss();
+            toast.error("Chyba oprávnění: Zdá se, že nejste přihlášen. Zkuste prosím obnovit stránku.");
+            return;
+        }
+
         try {
+            // KROK 2: Aktivně si od Firebase vyžádáme čerstvý ověřovací token.
+            const token = await user.getIdToken(true);
+
+            // KROK 3: Tento token nastavíme pro klienta Supabase. Tím zajistíme,
+            // že následující dotaz bude 100% ověřený.
+            await supabase.auth.setSession({
+                access_token: token,
+                refresh_token: user.refreshToken,
+            });
+
+            // KROK 4: Nyní, s jistotou platného přihlášení, pokračujeme v nahrávání.
             const dataForSupabase = await processErrorDataForSupabase(file);
             if (dataForSupabase && dataForSupabase.length > 0) {
                 const { error } = await supabase.from('errors').upsert(dataForSupabase, { onConflict: 'unique_key' });
-                if (error) throw error;
+                // Pokud databáze vrátí chybu, zobrazíme ji.
+                if (error) throw new Error(error.message);
             } else {
                  throw new Error("Soubor neobsahuje žádná platná data ke zpracování.");
             }
+            
             toast.dismiss();
             toast.success('Log chyb byl úspěšně nahrán!');
             await fetchErrorData();
         } catch (error) {
             toast.dismiss();
             toast.error(`Chyba při nahrávání logu: ${error.message}`);
+            console.error("Detail chyby při nahrávání logu:", error);
         }
-    }, [supabase, fetchErrorData]);
+    }, [supabase, user, fetchErrorData]); // Přidali jsme závislost na 'user'
 
     const value = useMemo(() => ({
         allOrdersData,
