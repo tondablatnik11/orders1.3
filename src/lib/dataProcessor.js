@@ -32,7 +32,7 @@ export const processData = (allData) => {
         return null;
     }
 
-    // **Filtr pro odstranění "Smazaných" zakázek ze všech výpočtů**
+    // Filtrujeme zakázky, které jsou označené jako smazané
     const rawData = allData.filter(order => order.Status !== 'Smazané');
 
     const summary = {
@@ -48,7 +48,7 @@ export const processData = (allData) => {
         ordersByCountry: {},
         delayedByCarrier: {},
         recentUpdates: [],
-        allOrdersData: allData, // Uchováváme všechna data pro filtrování v UI (včetně smazaných)
+        allOrdersData: allData, 
         dailySummaries: new Map(),
         statusByLoadingDate: {},
         delayedOrdersList: [],
