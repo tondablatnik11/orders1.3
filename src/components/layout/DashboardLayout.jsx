@@ -5,9 +5,9 @@ import Sidebar from './Sidebar';
 import AppHeader from './AppHeader';
 import { useData } from '@/hooks/useData';
 import OrderDetailsModal from '../modals/OrderDetailsModal';
-import StatusHistoryModal from '../modals/StatusHistoryModal'; // Import historie
+import StatusHistoryModal from '../modals/StatusHistoryModal';
 
-// Import všech komponent záložek
+// Import všech komponent záložek, včetně té nové
 import DashboardTab from '../tabs/DashboardTab';
 import ErrorMonitorTab from '../tabs/ErrorMonitorTab';
 import OrderSearchTab from '../tabs/OrderSearchTab';
@@ -18,17 +18,19 @@ import WarehouseActivitiesTab from '../tabs/WarehouseActivitiesTab';
 import ChatTab from '../tabs/ChatTab';
 import SettingsTab from '../tabs/SettingsTab';
 import TicketsTab from '../tabs/TicketsTab';
+import DailyKpiTab from '../tabs/DailyKpiTab'; // <-- PŘIDÁNO ZDE
 
 const DashboardLayout = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [globalSearchQuery, setGlobalSearchQuery] = useState('');
-    const [isSidebarOpen, setSidebarOpen] = useState(false); // Stav pro mobilní sidebar
+    const [isSidebarOpen, setSidebarOpen] = useState(false);
     
     const { selectedOrderDetails, setSelectedOrderDetails, statusHistory, setStatusHistory, fetchStatusHistory } = useData();
 
     const renderActiveTab = () => {
         switch (activeTab) {
             case 'dashboard': return <DashboardTab setActiveTab={setActiveTab} />;
+            case 'dailyKpi': return <DailyKpiTab />; // <-- PŘIDÁNO ZDE
             case 'delayedOrders': return <DelayedOrdersTab />;
             case 'orderSearch': return <OrderSearchTab initialQuery={globalSearchQuery} clearInitialQuery={() => setGlobalSearchQuery('')} />;
             case 'announcedLoadings': return <AnnouncedLoadingsTab />;
@@ -48,7 +50,6 @@ const DashboardLayout = () => {
 
     return (
         <div className="flex h-screen bg-slate-900 text-slate-200">
-            {/* Overlay pro zavření sidebaru na mobilu */}
             {isSidebarOpen && <div onClick={() => setSidebarOpen(false)} className="fixed inset-0 bg-black/60 z-30 lg:hidden"></div>}
             
             <Sidebar activeTab={activeTab} onTabChange={setActiveTab} isOpen={isSidebarOpen} />
@@ -60,7 +61,7 @@ const DashboardLayout = () => {
                         setActiveTab('orderSearch');
                     }} 
                     activeTab={activeTab}
-                    onMenuClick={() => setSidebarOpen(!isSidebarOpen)} // Předání funkce pro hamburger menu
+                    onMenuClick={() => setSidebarOpen(!isSidebarOpen)}
                 />
                 <main className="flex-1 overflow-y-auto p-4 md:p-6">
                     <div className="animate-fadeInUp">

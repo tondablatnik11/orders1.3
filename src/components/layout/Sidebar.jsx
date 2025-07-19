@@ -1,6 +1,6 @@
 'use client';
 import { forwardRef } from 'react';
-import { Home, Search, Bell, CalendarDays, Truck, Warehouse, AlertTriangle, LogOut, MessageSquare, Settings, Ticket } from 'lucide-react';
+import { Home, Search, Bell, CalendarDays, Truck, Warehouse, AlertTriangle, LogOut, MessageSquare, Settings, Ticket, ListChecks } from 'lucide-react'; // Přidán import ListChecks
 import { useAuth } from '@/hooks/useAuth';
 import Image from 'next/image';
 
@@ -9,13 +9,14 @@ const Sidebar = forwardRef(({ activeTab, onTabChange, isOpen }, ref) => {
 
     const menuItems = [
         { id: 'dashboard', label: 'Přehled', icon: Home },
+        { id: 'dailyKpi', label: 'Denní Report', icon: ListChecks }, // <-- PŘIDÁNO ZDE
         { id: 'delayedOrders', label: 'Zpožděné zakázky', icon: CalendarDays },
         { id: 'orderSearch', label: 'Hledat zakázku', icon: Search },
         { id: 'announcedLoadings', label: 'Ohlášené nakládky', icon: Bell },
         { id: 'dailySummary', label: 'Denní souhrn', icon: Truck },
         { id: 'warehouseActivities', label: 'Skladové aktivity', icon: Warehouse },
         { id: 'errorMonitor', label: 'Error Monitor', icon: AlertTriangle },
-        { id: 'tickets', label: 'Tickety', icon: Ticket }, // OPRAVA: Vrácená položka
+        { id: 'tickets', label: 'Tickety', icon: Ticket },
     ];
     
     const bottomMenuItems = [
@@ -51,7 +52,6 @@ const Sidebar = forwardRef(({ activeTab, onTabChange, isOpen }, ref) => {
     const userRole = userProfile?.isAdmin ? 'Administrátor' : 'Uživatel';
     const avatarUrl = userProfile?.avatar_url || user?.photoURL || '/profile-avatar.png';
 
-    // OPRAVA: Přidány třídy pro responzivní chování
     return (
         <aside 
             ref={ref} 
