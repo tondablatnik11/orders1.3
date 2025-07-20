@@ -15,6 +15,8 @@ import StatusDistributionChart from '@/components/charts/StatusDistributionChart
 import GeoChart from '@/components/charts/GeoChart';
 import DonutChartCard from '@/components/charts/DonutChartCard';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+// NOVÉ: Import mapy kódů zemí
+import { countryCodeMap } from '@/lib/dataProcessor';
 
 const SummaryCardSkeleton = () => (
     <div className="col-span-1 bg-slate-800 rounded-xl border border-slate-700 p-4 skeleton h-[88px]"></div>
@@ -79,14 +81,10 @@ export default function DashboardTab({ setActiveTab }) {
         return change;
     };
     
-    // NOVÉ: Funkce pro drill-down z GeoChartu
     const handleCountryClick = (countryCode3) => {
         if (!allOrdersData) return;
-
-        // Mapa pro převod 3-písmenného kódu zpět na 2-písmenný
         const countryCodeMapReversed = Object.fromEntries(Object.entries(countryCodeMap).map(([k, v]) => [v, k]));
         const countryCode2 = countryCodeMapReversed[countryCode3];
-
         const filteredOrders = allOrdersData.filter(order => order["Country ship-to prty"] === countryCode2);
         
         setModalState({ 
@@ -242,7 +240,6 @@ export default function DashboardTab({ setActiveTab }) {
                 
                 <div className="lg:col-span-8 space-y-6">
                     <StatusDistributionChart />
-                    {/* UPRAVENO: Přidán onCountryClick handler */}
                     <GeoChart data={summary.ordersByCountry} onCountryClick={handleCountryClick} />
                     <Card>
                         <CardContent className="pt-6">

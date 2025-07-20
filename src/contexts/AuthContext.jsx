@@ -13,30 +13,50 @@ export const AuthProvider = ({ children }) => {
     const [currentUserProfile, setCurrentUserProfile] = useState(null);
     const [allUsers, setAllUsers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const supabase = getSupabase(); // Získá jedinou existující instanci
+    const supabase = getSupabase();
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             try {
                 if (user) {
+                    // KROK 1: Získání Firebase tokenu
                     const token = await user.getIdToken(true);
-                    await supabase.auth.setSession({
+                    
+                    // KROK 2 (KLÍČOVÁ ZMĚNA): Explicitní nastavení sezení pro Supabase
+                    // Tímto krokem Supabase klientovi řekneme, aby pro všechny další dotazy
+                    // používal autentizační token získaný z Firebase.
+                    const { error } = await supabase.auth.setSession({
                         access_token: token,
-                        refresh_token: user.refreshToken,
+                        refresh_token: user.refreshToken, // refreshToken je volitelný, ale doporučený
                     });
 
+                    if (error) {
+                        console.error("Supabase setSession error:", error);
+                        throw new Error("Nepodařilo se synchronizovat sezení se Supabase.");
+                    }
+
+                    // Krok 3: Načtení nebo vytvoření uživatelského profilu ve Firestore
                     const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, user.uid);
                     const userProfileSnap = await getDoc(userProfileRef);
                     
                     if (userProfileSnap.exists()) {
                         setCurrentUserProfile({ uid: user.uid, ...userProfileSnap.data() });
                     } else {
-                        const newProfile = { email: user.email, displayName: user.email.split('@')[0], function: '', isAdmin: false, createdAt: new Date().toISOString() };
+                        const newProfile = { 
+                            email: user.email, 
+                            displayName: user.displayName || user.email.split('@')[0], 
+                            function: '', 
+                            isAdmin: false, 
+                            createdAt: new Date().toISOString(),
+                            avatar_url: user.photoURL || null
+                        };
                         await setDoc(userProfileRef, newProfile);
                         setCurrentUserProfile({ uid: user.uid, ...newProfile });
                     }
                     setCurrentUser(user);
+
                 } else {
+                    // Pokud se uživatel odhlásí, odhlásíme ho i ze Supabase
                     await supabase.auth.signOut();
                     setCurrentUser(null);
                     setCurrentUserProfile(null);
@@ -53,16 +73,15 @@ export const AuthProvider = ({ children }) => {
         return () => unsubscribe();
     }, [appId, supabase]);
 
-    // Zbytek souboru je v pořádku a zůstává...
     useEffect(() => {
-        if (currentUserProfile?.isAdmin || currentUser) {
+        if (currentUser) {
             const usersColRef = collection(db, `artifacts/${appId}/public/data/user_profiles`);
             const unsubscribeUsers = onSnapshot(usersColRef, (snapshot) => {
                 setAllUsers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
             });
             return () => unsubscribeUsers();
         }
-    }, [currentUser, currentUserProfile, appId]);
+    }, [currentUser, appId]);
 
     const updateUserProfile = async (uid, profileData) => {
         const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, uid);
