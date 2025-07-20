@@ -1,5 +1,5 @@
 // src/components/charts/GeoChart.jsx
-'use client';
+"use client";
 import React, { useState } from 'react';
 import { ResponsiveChoropleth } from '@nivo/geo';
 import { useUI } from '@/hooks/useUI';
@@ -40,7 +40,7 @@ const GeoChart = ({ data = [], onCountryClick }) => {
                             margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
                             colors="blues"
                             domain={[0, Math.max(...data.map(d => d.value), 1)]}
-                            unknownColor="#374151" // Tmavší pro lepší kontrast
+                            unknownColor="#374151"
                             label="properties.name"
                             valueFormat=".2s"
                             projectionType="mercator"
@@ -49,14 +49,10 @@ const GeoChart = ({ data = [], onCountryClick }) => {
                             projectionTranslation={[0.5, 0.7]}
                             enableGraticule={true}
                             graticuleLineColor="rgba(255, 255, 255, 0.1)"
-                            borderWidth={0.5}
-                            borderColor="#1F2937"
-                            // UPRAVENO: Dynamický border pro zvýraznění
+                            // UPRAVENO: Správný způsob pro dynamický okraj
+                            borderWidth={0.75}
                             borderColor={(feature) => 
                                 hoveredCountry === feature.id ? '#38BDF8' : '#1F2937'
-                            }
-                            borderWidth={(feature) =>
-                                hoveredCountry === feature.id ? 2 : 0.5
                             }
                             theme={{
                                 tooltip: { container: { background: '#1F2937', color: '#FFF' } },
@@ -69,6 +65,13 @@ const GeoChart = ({ data = [], onCountryClick }) => {
                                     onCountryClick(feature.data.id);
                                 }
                             }}
+                            // NOVÉ: Handlery pro interaktivitu
+                            onMouseEnter={(feature) => {
+                                if (feature.data) setHoveredCountry(feature.data.id);
+                            }}
+                            onMouseLeave={() => {
+                                setHoveredCountry(null);
+                            }}
                         />
                     </div>
                     <div className="md:col-span-1">
@@ -78,7 +81,8 @@ const GeoChart = ({ data = [], onCountryClick }) => {
                                 {topCountries.map(country => (
                                     <li 
                                         key={country.id} 
-                                        className="flex justify-between items-center bg-gray-800 p-2 rounded-md list-none transition-all duration-200 hover:bg-gray-700"
+                                        // UPRAVENO: Přidána třída pro zvýraznění
+                                        className={`flex justify-between items-center p-2 rounded-md list-none transition-all duration-200 cursor-pointer ${hoveredCountry === country.id ? 'bg-blue-600/30' : 'bg-gray-800 hover:bg-gray-700'}`}
                                         onMouseEnter={() => setHoveredCountry(country.id)}
                                         onMouseLeave={() => setHoveredCountry(null)}
                                         onClick={() => onCountryClick && onCountryClick(country.id)}
