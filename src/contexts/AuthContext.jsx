@@ -4,41 +4,26 @@ import React, { createContext, useState, useEffect, useContext, useMemo } from '
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, onSnapshot, updateDoc } from 'firebase/firestore';
 import { auth, db, appId } from '../lib/firebase';
-import { createClient } from '@supabase/supabase-js'; // Import přímo zde
+import { getSupabase } from '../lib/supabaseClient';
 
 export const AuthContext = createContext(null);
-
-// Vytvoříme klienta Supabase s možností dynamicky měnit hlavičky
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 export const AuthProvider = ({ children }) => {
     const [currentUser, setCurrentUser] = useState(null);
     const [currentUserProfile, setCurrentUserProfile] = useState(null);
     const [allUsers, setAllUsers] = useState([]);
     const [loading, setLoading] = useState(true);
+    const supabase = getSupabase();
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             try {
                 if (user) {
                     const token = await user.getIdToken(true);
-
-                    // KLÍČOVÁ ZMĚNA: Nastavení globální hlavičky pro všechny budoucí dotazy
-                    // Místo setSession, které může způsobovat problémy, budeme token vkládat přímo.
-                    supabase.auth.onAuthStateChange((event, session) => {
-                      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                        supabase.headers['Authorization'] = `Bearer ${session.access_token}`;
-                      }
-                    });
-                    
-                    // manuální nastavení sezení
                     await supabase.auth.setSession({
                         access_token: token,
                         refresh_token: user.refreshToken,
                     });
-                    
 
                     const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, user.uid);
                     const userProfileSnap = await getDoc(userProfileRef);
@@ -46,13 +31,14 @@ export const AuthProvider = ({ children }) => {
                     if (userProfileSnap.exists()) {
                         setCurrentUserProfile({ uid: user.uid, ...userProfileSnap.data() });
                     } else {
+                        // UPRAVENO: Přidáno ukládání avatar_url při vytvoření nového profilu
                         const newProfile = { 
                             email: user.email, 
                             displayName: user.displayName || user.email.split('@')[0], 
                             function: '', 
                             isAdmin: false, 
                             createdAt: new Date().toISOString(),
-                            avatar_url: user.photoURL || null
+                            avatar_url: user.photoURL || null // <-- TOTO JE KLÍČOVÁ OPRAVA
                         };
                         await setDoc(userProfileRef, newProfile);
                         setCurrentUserProfile({ uid: user.uid, ...newProfile });
@@ -73,7 +59,7 @@ export const AuthProvider = ({ children }) => {
             }
         });
         return () => unsubscribe();
-    }, [appId]);
+    }, [appId, supabase]);
 
     useEffect(() => {
         if (currentUser) {
@@ -102,7 +88,7 @@ export const AuthProvider = ({ children }) => {
         register: (email, password) => createUserWithEmailAndPassword(auth, email, password),
         googleSignIn: () => { const provider = new GoogleAuthProvider(); return signInWithPopup(auth, provider); },
         logout: () => signOut(auth),
-    }), [currentUser, currentUserProfile, loading, allUsers, appId]);
+    }), [currentUser, currentUserProfile, loading, allUsers, appId, auth, supabase]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

@@ -9,7 +9,6 @@ import { format, parseISO } from 'date-fns';
 import { Send, Paperclip, User, Calendar, Tag } from 'lucide-react';
 import Image from 'next/image';
 
-// Pomocná komponenta pro zobrazení detailů
 const DetailItem = ({ icon: Icon, label, children }) => (
     <div>
         <p className="text-sm font-semibold text-gray-400 flex items-center gap-2"><Icon className="w-4 h-4" />{label}</p>
@@ -27,7 +26,6 @@ export default function TicketDetailsModal({ ticket, onClose }) {
     const ticketCreator = allUsers.find(u => u.uid === ticket.createdBy);
     const assignee = allUsers.find(u => u.uid === ticket.assignedTo);
     
-    // Načítání a počítání komentářů
     useEffect(() => {
         if (!db || !ticket) return;
         const commentsColRef = collection(db, `artifacts/${appId}/public/data/tickets/${ticket.id}/comments`);
@@ -35,7 +33,6 @@ export default function TicketDetailsModal({ ticket, onClose }) {
         
         const unsubscribe = onSnapshot(q, (snapshot) => {
             setComments(snapshot.docs.map(doc => doc.data()));
-            // Aktualizace počtu komentářů na ticketu
             if (snapshot.size !== ticket.commentCount) {
                 const ticketRef = doc(db, `artifacts/${appId}/public/data/tickets`, ticket.id);
                 updateDoc(ticketRef, { commentCount: snapshot.size });
@@ -72,7 +69,6 @@ export default function TicketDetailsModal({ ticket, onClose }) {
     return (
         <Modal title={ticket.title} onClose={onClose}>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Levý sloupec s detaily */}
                 <div className="md:col-span-1 space-y-4 text-sm">
                     <DetailItem icon={Tag} label={t.statusTicket}>
                         <select
@@ -89,7 +85,7 @@ export default function TicketDetailsModal({ ticket, onClose }) {
                                 <Image src={assignee.avatar_url || '/profile-avatar.png'} width={24} height={24} alt="avatar" className="rounded-full" />
                                 <p>{assignee.displayName}</p>
                             </div>
-                        ) : 'N/A'}
+                        ) : 'Nepřiřazeno'}
                     </DetailItem>
                     <DetailItem icon={User} label={t.createdBy}>
                          <p>{ticketCreator?.displayName || 'N/A'}</p>
@@ -104,7 +100,6 @@ export default function TicketDetailsModal({ ticket, onClose }) {
                     )}
                 </div>
 
-                {/* Pravý sloupec s popisem a komentáři */}
                 <div className="md:col-span-2">
                     <div className="bg-gray-900 p-4 rounded-lg mb-4">
                         <h4 className="font-semibold mb-2">{t.ticketDescription}</h4>
