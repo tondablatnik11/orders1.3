@@ -8,6 +8,7 @@ import { getStatusColor } from '@/lib/utils';
 import { Card, CardContent } from '../ui/Card';
 import { format, parseISO } from 'date-fns';
 
+// Komponenta pro vlastní vzhled tooltipu
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
         return (
@@ -26,13 +27,13 @@ const CustomTooltip = ({ active, payload, label }) => {
     return null;
 };
 
-// UPRAVENO: Přidán prop onBarClick
 export default function StatusDistributionChart({ onBarClick }) {
     const { summary } = useData();
     const { t } = useUI();
     const [brushDomain, setBrushDomain] = useState({ startIndex: 0, endIndex: 0 });
     const [hiddenStatuses, setHiddenStatuses] = useState({});
 
+    // Logika pro agregaci méně častých statusů
     const { stackedData, uniqueStatuses } = useMemo(() => {
         if (!summary || !summary.statusByLoadingDate) return { stackedData: [], uniqueStatuses: [] };
 
@@ -47,8 +48,13 @@ export default function StatusDistributionChart({ onBarClick }) {
 
         const totalOrders = Object.values(totalCounts).reduce((sum, count) => sum + count, 0);
         const frequentStatuses = new Set(Object.entries(totalCounts)
-            .filter(([, count]) => (count / totalOrders) > 0.02)
+            .filter(([, count]) => (count / totalOrders) > 0.02) // Zobrazit statusy, které tvoří více než 2 % celku
             .map(([key]) => key));
+        
+        // Zajistíme, že status 40 bude vždy viditelný, pokud existuje
+        if (totalCounts['status40']) {
+            frequentStatuses.add('status40');
+        }
         
         const rawData = Object.values(summary.statusByLoadingDate || {})
             .filter(d => d.date && !isNaN(new Date(d.date).getTime()))
@@ -73,7 +79,14 @@ export default function StatusDistributionChart({ onBarClick }) {
             statuses.push('Ostatní');
         }
         
-        return { stackedData: processedData, uniqueStatuses: statuses };
+        return { 
+            stackedData: processedData, 
+            uniqueStatuses: statuses.sort((a, b) => {
+                if (a === 'Ostatní') return 1;
+                if (b === 'Ostatní') return -1;
+                return parseInt(a.replace('status', '')) - parseInt(b.replace('status', ''));
+            })
+        };
     }, [summary]);
 
     useEffect(() => {
