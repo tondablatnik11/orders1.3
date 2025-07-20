@@ -6,22 +6,27 @@ import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { getStatusColor } from '@/lib/utils';
 import { Card, CardContent } from '../ui/Card';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isBefore, addDays, startOfToday } from 'date-fns';
 
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
+        const total = payload.reduce((sum, entry) => sum + entry.value, 0);
         return (
             <div className="bg-gray-800/90 p-3 border border-gray-700 rounded-lg shadow-xl backdrop-blur-sm">
                 <p className="label text-white font-semibold">{`Den: ${label}`}</p>
-                <div className="mt-2 space-y-1 text-sm">
-                    {payload.slice().reverse().map((p, index) => ( // Reverse to show from bottom up
-                        p.value > 0 && (
-                            <div key={index} style={{ color: p.color || p.fill }}>
-                                {`${p.name}: ${p.value}`}
-                            </div>
-                        )
-                    ))}
-                </div>
+                {total > 0 ? (
+                    <div className="mt-2 space-y-1 text-sm">
+                        {payload.slice().reverse().map((p, index) => (
+                            p.value > 0 && (
+                                <div key={index} style={{ color: p.color || p.fill }}>
+                                    {`${p.name}: ${p.value}`}
+                                </div>
+                            )
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-sm text-gray-400 mt-1">Žádná data</p>
+                )}
             </div>
         );
     }
@@ -47,13 +52,31 @@ export default function StatusDistributionChart({ onBarClick }) {
             .filter(d => d.date && !isNaN(new Date(d.date).getTime()))
             .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-        const processedData = rawData.map(day => {
-            const newDay = { date: format(parseISO(day.date), 'dd/MM') };
+        let processedData = rawData.map(day => {
+            const newDay = { dateObj: parseISO(day.date), date: format(parseISO(day.date), 'dd/MM') };
             allAvailableStatuses.forEach(statusKey => {
                 newDay[statusKey] = day[statusKey] || 0;
             });
             return newDay;
         });
+        
+        // OPRAVA: Doplnění chybějících dnů až do dneška
+        if (processedData.length > 0) {
+            const lastDataDate = processedData[processedData.length - 1].dateObj;
+            const today = startOfToday();
+
+            if (isBefore(lastDataDate, today)) {
+                let currentDate = addDays(lastDataDate, 1);
+                while (!isBefore(today, currentDate)) {
+                    const emptyDay = { dateObj: currentDate, date: format(currentDate, 'dd/MM') };
+                    allAvailableStatuses.forEach(statusKey => {
+                        emptyDay[statusKey] = 0;
+                    });
+                    processedData.push(emptyDay);
+                    currentDate = addDays(currentDate, 1);
+                }
+            }
+        }
 
         return {
             stackedData: processedData,
@@ -65,23 +88,20 @@ export default function StatusDistributionChart({ onBarClick }) {
         if (stackedData && stackedData.length > 0) {
             const todayFormatted = format(new Date(), 'dd/MM');
             let todayIndex = stackedData.findIndex(d => d.date === todayFormatted);
-            const visibleRange = 8; // Celkový počet dnů k zobrazení
+            const visibleRange = 8;
             
             let startIndex, endIndex;
 
-            // Pokud dnešní datum v datech není, použijeme poslední dostupný den jako referenci
             if (todayIndex === -1) {
                 todayIndex = stackedData.length - 1;
             }
 
-            // Výpočet pro vycentrování
-            const halfRangeBefore = Math.floor((visibleRange - 1) / 2); // Kolik dní zobrazit před
-            const halfRangeAfter = Math.ceil((visibleRange - 1) / 2);  // Kolik dní zobrazit po
+            const halfRangeBefore = 4; // Zobrazit 4 dny před
+            const halfRangeAfter = 3;  // Zobrazit 3 dny po
 
             startIndex = Math.max(0, todayIndex - halfRangeBefore);
             endIndex = Math.min(stackedData.length - 1, todayIndex + halfRangeAfter);
 
-            // Korekce, pokud jsme na začátku nebo na konci datového rozsahu
             if (endIndex - startIndex + 1 < visibleRange) {
                 if (startIndex === 0) {
                     endIndex = Math.min(stackedData.length - 1, visibleRange - 1);
@@ -92,7 +112,7 @@ export default function StatusDistributionChart({ onBarClick }) {
             
             setBrushDomain({ startIndex, endIndex });
         }
-    }, [stackedData]); // Spustí se pokaždé, když se změní `stackedData`
+    }, [stackedData]);
 
     const handleLegendClick = (e) => {
         const { dataKey } = e;
