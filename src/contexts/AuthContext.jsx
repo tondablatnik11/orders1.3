@@ -4,38 +4,42 @@ import React, { createContext, useState, useEffect, useContext, useMemo } from '
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, onSnapshot, updateDoc } from 'firebase/firestore';
 import { auth, db, appId } from '../lib/firebase';
-import { getSupabase } from '../lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js'; // Import přímo zde
 
 export const AuthContext = createContext(null);
+
+// Vytvoříme klienta Supabase s možností dynamicky měnit hlavičky
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export const AuthProvider = ({ children }) => {
     const [currentUser, setCurrentUser] = useState(null);
     const [currentUserProfile, setCurrentUserProfile] = useState(null);
     const [allUsers, setAllUsers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const supabase = getSupabase();
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             try {
                 if (user) {
-                    // KROK 1: Získání Firebase tokenu
                     const token = await user.getIdToken(true);
-                    
-                    // KROK 2 (KLÍČOVÁ ZMĚNA): Explicitní nastavení sezení pro Supabase
-                    // Tímto krokem Supabase klientovi řekneme, aby pro všechny další dotazy
-                    // používal autentizační token získaný z Firebase.
-                    const { error } = await supabase.auth.setSession({
-                        access_token: token,
-                        refresh_token: user.refreshToken, // refreshToken je volitelný, ale doporučený
+
+                    // KLÍČOVÁ ZMĚNA: Nastavení globální hlavičky pro všechny budoucí dotazy
+                    // Místo setSession, které může způsobovat problémy, budeme token vkládat přímo.
+                    supabase.auth.onAuthStateChange((event, session) => {
+                      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                        supabase.headers['Authorization'] = `Bearer ${session.access_token}`;
+                      }
                     });
+                    
+                    // manuální nastavení sezení
+                    await supabase.auth.setSession({
+                        access_token: token,
+                        refresh_token: user.refreshToken,
+                    });
+                    
 
-                    if (error) {
-                        console.error("Supabase setSession error:", error);
-                        throw new Error("Nepodařilo se synchronizovat sezení se Supabase.");
-                    }
-
-                    // Krok 3: Načtení nebo vytvoření uživatelského profilu ve Firestore
                     const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, user.uid);
                     const userProfileSnap = await getDoc(userProfileRef);
                     
@@ -54,9 +58,7 @@ export const AuthProvider = ({ children }) => {
                         setCurrentUserProfile({ uid: user.uid, ...newProfile });
                     }
                     setCurrentUser(user);
-
                 } else {
-                    // Pokud se uživatel odhlásí, odhlásíme ho i ze Supabase
                     await supabase.auth.signOut();
                     setCurrentUser(null);
                     setCurrentUserProfile(null);
@@ -71,7 +73,7 @@ export const AuthProvider = ({ children }) => {
             }
         });
         return () => unsubscribe();
-    }, [appId, supabase]);
+    }, [appId]);
 
     useEffect(() => {
         if (currentUser) {
@@ -100,7 +102,7 @@ export const AuthProvider = ({ children }) => {
         register: (email, password) => createUserWithEmailAndPassword(auth, email, password),
         googleSignIn: () => { const provider = new GoogleAuthProvider(); return signInWithPopup(auth, provider); },
         logout: () => signOut(auth),
-    }), [currentUser, currentUserProfile, loading, allUsers, appId, auth, supabase]);
+    }), [currentUser, currentUserProfile, loading, allUsers, appId]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
