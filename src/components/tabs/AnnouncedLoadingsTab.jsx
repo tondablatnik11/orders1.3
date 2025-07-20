@@ -1,13 +1,16 @@
+// src/components/tabs/AnnouncedLoadingsTab.jsx
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUI } from '@/hooks/useUI';
 import { useData } from '@/hooks/useData';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Ship, Send } from 'lucide-react';
+import { Ship, Send, Calendar, List } from 'lucide-react';
 import { collection, addDoc, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { format, parseISO } from 'date-fns';
 import LoadingDetailsModal from '@/components/modals/LoadingDetailsModal';
+// NOVÉ: Import kalendáře
+import LoadingCalendar from '@/components/shared/LoadingCalendar';
 
 export default function AnnouncedLoadingsTab() {
     const { t } = useUI();
@@ -19,6 +22,8 @@ export default function AnnouncedLoadingsTab() {
     const [selectedLoading, setSelectedLoading] = useState(null);
     const [selectedLoadingOrders, setSelectedLoadingOrders] = useState([]);
     const [message, setMessage] = useState({ text: '', type: '' });
+    // NOVÉ: Stav pro přepínání zobrazení
+    const [viewMode, setViewMode] = useState('list'); 
 
     useEffect(() => {
         if (!db || !appId) return;
@@ -104,22 +109,39 @@ export default function AnnouncedLoadingsTab() {
                     </button>
                 </form>
 
-                <div className="space-y-3">
-                    {loadings.map((loading) => (
-                        <div key={loading.id} className="p-4 border border-gray-600 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors" onClick={() => handleSelectLoading(loading)}>
-                             <div className="flex justify-between items-center">
-                                <p><strong>{t.carrierName}:</strong> {loading.carrierName}</p>
-                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                    loading.status === 'Naloženo' ? 'bg-green-600 text-white' :
-                                    loading.status === 'Připraveno' ? 'bg-yellow-500 text-black' :
-                                    'bg-blue-600 text-white'
-                                }`}>{loading.status || 'Ohlášeno'}</span>
-                            </div>
-                            <p><strong>{t.loadingDate}:</strong> {format(parseISO(loading.loadingDate), 'dd/MM/yyyy')}</p>
-                            <p className="text-sm text-gray-400 mt-1">{t.notes}: {loading.notes || t.noNotes}</p>
-                        </div>
-                    ))}
+                {/* NOVÉ: Přepínač zobrazení */}
+                <div className="flex justify-end mb-4">
+                    <div className="flex items-center gap-2 rounded-lg bg-gray-700 p-1">
+                        <button onClick={() => setViewMode('list')} className={`px-3 py-1 text-sm rounded-md ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'text-gray-300'}`}>
+                           <List className="w-5 h-5 inline-block" /> Seznam
+                        </button>
+                        <button onClick={() => setViewMode('calendar')} className={`px-3 py-1 text-sm rounded-md ${viewMode === 'calendar' ? 'bg-blue-600 text-white' : 'text-gray-300'}`}>
+                            <Calendar className="w-5 h-5 inline-block" /> Kalendář
+                        </button>
+                    </div>
                 </div>
+
+                {/* NOVÉ: Podmíněné zobrazení */}
+                {viewMode === 'list' ? (
+                    <div className="space-y-3">
+                        {loadings.map((loading) => (
+                            <div key={loading.id} className="p-4 border border-gray-600 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors" onClick={() => handleSelectLoading(loading)}>
+                                <div className="flex justify-between items-center">
+                                    <p><strong>{t.carrierName}:</strong> {loading.carrierName}</p>
+                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                        loading.status === 'Naloženo' ? 'bg-green-600 text-white' :
+                                        loading.status === 'Připraveno' ? 'bg-yellow-500 text-black' :
+                                        'bg-blue-600 text-white'
+                                    }`}>{loading.status || 'Ohlášeno'}</span>
+                                </div>
+                                <p><strong>{t.loadingDate}:</strong> {format(parseISO(loading.loadingDate), 'dd/MM/yyyy')}</p>
+                                <p className="text-sm text-gray-400 mt-1">{t.notes}: {loading.notes || t.noNotes}</p>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <LoadingCalendar loadings={loadings} onSelectLoading={handleSelectLoading} />
+                )}
                 
                 {selectedLoading && (
                     <LoadingDetailsModal 

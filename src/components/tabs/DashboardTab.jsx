@@ -16,7 +16,6 @@ import GeoChart from '@/components/charts/GeoChart';
 import DonutChartCard from '@/components/charts/DonutChartCard';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
-// --- Skeleton komponenty pro načítání ---
 const SummaryCardSkeleton = () => (
     <div className="col-span-1 bg-slate-800 rounded-xl border border-slate-700 p-4 skeleton h-[88px]"></div>
 );
@@ -78,6 +77,23 @@ export default function DashboardTab({ setActiveTab }) {
         }
         const change = currentValue - previousValue;
         return change;
+    };
+    
+    // NOVÉ: Funkce pro drill-down z GeoChartu
+    const handleCountryClick = (countryCode3) => {
+        if (!allOrdersData) return;
+
+        // Mapa pro převod 3-písmenného kódu zpět na 2-písmenný
+        const countryCodeMapReversed = Object.fromEntries(Object.entries(countryCodeMap).map(([k, v]) => [v, k]));
+        const countryCode2 = countryCodeMapReversed[countryCode3];
+
+        const filteredOrders = allOrdersData.filter(order => order["Country ship-to prty"] === countryCode2);
+        
+        setModalState({ 
+            isOpen: true, 
+            title: `${t.orderListFor} ${countryCode3}`, 
+            orders: filteredOrders 
+        });
     };
 
     if (isLoadingData) {
@@ -168,7 +184,6 @@ export default function DashboardTab({ setActiveTab }) {
 
     return (
         <div className="space-y-8">
-            {/* HORNÍ KARTY */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 {summaryCardsData.map(card => (
                     <SummaryCard key={card.labelKey} title={t[card.labelKey]} value={card.value} icon={card.icon} color={card.color} change={card.change} />
@@ -182,7 +197,6 @@ export default function DashboardTab({ setActiveTab }) {
                 />
             </div>
             
-            {/* DENNÍ PŘEHLED */}
             <div>
                 <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-slate-200">
                     <ClipboardList className="w-6 h-6 text-green-400" /> Denní přehled stavu
@@ -224,12 +238,12 @@ export default function DashboardTab({ setActiveTab }) {
                 </div>
             </div>
 
-            {/* HLAVNÍ MŘÍŽKA S GRAFY */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 
                 <div className="lg:col-span-8 space-y-6">
                     <StatusDistributionChart />
-                    <GeoChart data={summary.ordersByCountry} />
+                    {/* UPRAVENO: Přidán onCountryClick handler */}
+                    <GeoChart data={summary.ordersByCountry} onCountryClick={handleCountryClick} />
                     <Card>
                         <CardContent className="pt-6">
                             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Truck className="w-5 h-5 text-indigo-400" /> Dopravci</h2>

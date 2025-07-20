@@ -5,12 +5,12 @@ import { ResponsiveChoropleth } from '@nivo/geo';
 import { useUI } from '@/hooks/useUI';
 import { Card, CardContent } from '../ui/Card';
 import worldCountries from './world_countries.json';
-import { MapOff } from 'lucide-react'; // Ikona pro prázdný stav
+import { MapOff } from 'lucide-react';
 
-const GeoChart = ({ data = [] }) => {
+// UPRAVENO: Přidán parametr `onCountryClick`
+const GeoChart = ({ data = [], onCountryClick }) => {
     const { t } = useUI();
     
-    // Vylepšený "prázdný stav", když nejsou data
     if (!data || data.length === 0) {
         return (
             <Card>
@@ -56,6 +56,12 @@ const GeoChart = ({ data = [] }) => {
                                 legends: { text: { fill: '#DDD' } },
                             }}
                             legends={[]}
+                            // NOVÉ: Přidána obsluha kliknutí
+                            onClick={(feature) => {
+                                if (onCountryClick && feature.data) {
+                                    onCountryClick(feature.data.id);
+                                }
+                            }}
                         />
                     </div>
                     <div className="md:col-span-1">

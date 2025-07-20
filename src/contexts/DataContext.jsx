@@ -6,6 +6,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { processData } from '../lib/dataProcessor';
 import { processArrayForDisplay, processErrorDataForSupabase } from '../lib/errorMonitorProcessor';
 import toast from 'react-hot-toast';
+// NOVÉ: Import pro práci s databází Firestore pro notifikace
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export const DataContext = createContext(null);
 export const useData = () => useContext(DataContext);
@@ -17,13 +19,11 @@ export const DataProvider = ({ children }) => {
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [errorData, setErrorData] = useState(null);
     const [isLoadingErrorData, setIsLoadingErrorData] = useState(true);
-    
-    // KLÍČOVÁ ZMĚNA: Přidání globálního stavu pro detail zakázky
     const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
     const [statusHistory, setStatusHistory] = useState({ isVisible: false, data: [] });
 
-
-    const { user, loading: authLoading } = useAuth();
+    // NOVÉ: Přidáváme db a appId z Auth kontextu pro notifikace
+    const { user, loading: authLoading, db, appId } = useAuth();
     const supabase = getSupabase();
 
     const fetchErrorData = useCallback(async () => {
@@ -50,7 +50,6 @@ export const DataProvider = ({ children }) => {
             console.error("Note save error:", error);
         } else {
             toast.success('Poznámka uložena.');
-            // Aktualizujeme stav lokálně pro okamžitou odezvu
             setAllOrdersData(prevData =>
                 prevData.map(order =>
                     order['Delivery No'] === deliveryNo ? { ...order, Note: note } : order
@@ -59,7 +58,6 @@ export const DataProvider = ({ children }) => {
         }
     }, [supabase]);
     
-    // Nová funkce pro načtení historie
      const fetchStatusHistory = useCallback(async (deliveryNo) => {
         if (!deliveryNo) return;
         const { data, error } = await supabase
@@ -75,6 +73,59 @@ export const DataProvider = ({ children }) => {
         setStatusHistory({ isVisible: true, data: data });
     }, [supabase]);
 
+    // NOVÉ: Funkce pro odeslání notifikace
+    const sendNotification = useCallback(async (recipientUid, message) => {
+        if (!db || !appId || !recipientUid) return;
+        try {
+            const notificationsRef = collection(db, `artifacts/${appId}/public/data/notifications`);
+            await addDoc(notificationsRef, {
+                recipient_uid: recipientUid,
+                message: message,
+                read: false,
+                created_at: serverTimestamp(),
+            });
+        } catch (error) {
+            console.error("Error sending notification:", error);
+        }
+    }, [db, appId]);
+
+    // NOVÉ: Funkce pro načtení komentářů k objednávce
+    const fetchOrderComments = useCallback(async (deliveryNo) => {
+        if (!deliveryNo) return [];
+        const { data, error } = await supabase
+            .from('order_comments')
+            .select('*')
+            .eq('delivery_no', deliveryNo)
+            .order('created_at', { ascending: true });
+        if (error) {
+            console.error("Error fetching comments:", error);
+            return [];
+        }
+        return data;
+    }, [supabase]);
+
+    // NOVÉ: Funkce pro přidání komentáře k objednávce
+    const addOrderComment = useCallback(async (deliveryNo, text, authorId, authorName, mentionedUsers) => {
+        const { data, error } = await supabase
+            .from('order_comments')
+            .insert([{ delivery_no: deliveryNo, text, author_id: authorId, author_name: authorName }])
+            .select();
+
+        if (error) {
+            toast.error("Chyba při ukládání komentáře.");
+            return null;
+        }
+
+        // Odeslání notifikací zmíněným uživatelům
+        if (mentionedUsers && mentionedUsers.length > 0) {
+            const message = `${authorName} vás zmínil/a v komentáři u objednávky ${deliveryNo}.`;
+            mentionedUsers.forEach(userId => {
+                sendNotification(userId, message);
+            });
+        }
+
+        return data[0];
+    }, [supabase, sendNotification]);
 
     const fetchAndSetSummaries = useCallback(async () => {
         setIsLoadingData(true);
@@ -187,17 +238,19 @@ export const DataProvider = ({ children }) => {
         }
         if (data && data.length > 0) {
             toast.success(`Status pro zakázku ${deliveryNo} byl aktualizován.`);
-            fetchAndSetSummaries(); // Znovu načteme data pro aktualizaci UI
+            fetchAndSetSummaries();
             return { success: true };
         }
         return { success: false };
     }, [supabase, fetchAndSetSummaries]);
 
+    // UPRAVENO: Přidány nové funkce do kontextu
     const value = useMemo(() => ({
         allOrdersData, summary, previousSummary, isLoadingData, refetchData: fetchAndSetSummaries, handleFileUpload, handleErrorLogUpload, errorData, isLoadingErrorData, refetchErrorData: fetchErrorData,
         selectedOrderDetails, setSelectedOrderDetails, handleSaveNote, handleUpdateStatus,
         statusHistory, fetchStatusHistory, setStatusHistory,
-    }), [allOrdersData, summary, previousSummary, isLoadingData, fetchAndSetSummaries, handleFileUpload, handleErrorLogUpload, errorData, isLoadingErrorData, fetchErrorData, selectedOrderDetails, handleSaveNote, handleUpdateStatus, statusHistory, fetchStatusHistory]);
+        fetchOrderComments, addOrderComment,
+    }), [allOrdersData, summary, previousSummary, isLoadingData, fetchAndSetSummaries, handleFileUpload, handleErrorLogUpload, errorData, isLoadingErrorData, fetchErrorData, selectedOrderDetails, handleSaveNote, handleUpdateStatus, statusHistory, fetchStatusHistory, fetchOrderComments, addOrderComment]);
 
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 };
