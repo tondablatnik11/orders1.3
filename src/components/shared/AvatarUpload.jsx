@@ -22,17 +22,17 @@ export default function AvatarUpload({ uid, currentAvatarUrl, onUpload }) {
             const filePath = `${uid}-${Date.now()}.${fileExt}`;
 
             // --- KLÍČOVÁ OPRAVA ZDE ---
-            // Přidáváme `fileOptions` pro explicitní nastavení Content-Type.
-            // To zajistí, že Supabase bude vždy vědět, jaký typ souboru nahráváme.
+            // Explicitně definujeme parametry nahrávání, včetně Content-Type.
+            // Tímto předejdeme chybě "400 Bad Request", protože server bude přesně vědět, co přijímá.
             const fileOptions = {
-                contentType: file.type, // Např. 'image/jpeg' nebo 'image/png'
+                contentType: file.type || 'image/jpeg', // 'image/jpeg' jako záloha
                 cacheControl: '3600',   // Uložit do mezipaměti na hodinu
                 upsert: false           // Nepřepisovat soubor se stejným jménem
             };
 
             const { error: uploadError } = await supabase.storage
                 .from('avatars')
-                .upload(filePath, file, fileOptions); // <-- Zde přidáváme fileOptions
+                .upload(filePath, file, fileOptions); // <-- Zde předáváme nové parametry
             
             if (uploadError) {
                 throw uploadError;
