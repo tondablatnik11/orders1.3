@@ -56,8 +56,7 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
             setNewComment("");
         }
     };
-    
-    // UPRAVENO: Funkce pro sledování zásilky nyní kontroluje dopravce
+
     const handleTrackShipment = () => {
         const trackingNumber = order["Bill of lading"];
         if (!trackingNumber) {
@@ -67,12 +66,15 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
 
         let trackingUrl;
 
-        // Podmínka pro dopravce UPS
-        if (order["Forwarding agent name"] === "United Parcel Service CZ s. r. o.") {
-            trackingUrl = `https://www.ups.com/track?loc=cs_CZ&tracknum=${trackingNumber}`;
-        } else {
-            // Výchozí chování pro ostatní dopravce
-            trackingUrl = `https://www.google.com/search?q=track+shipment+${trackingNumber}`;
+        switch (order["Forwarding agent name"]) {
+            case "United Parcel Service CZ s. r. o.":
+                trackingUrl = `https://www.ups.com/track?loc=cs_CZ&tracknum=${trackingNumber}`;
+                break;
+            case "FedEx Express Czech Republic s.r.o.":
+                trackingUrl = `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`;
+                break;
+            default:
+                trackingUrl = `https://www.google.com/search?q=track+shipment+${trackingNumber}`;
         }
         
         window.open(trackingUrl, '_blank');
