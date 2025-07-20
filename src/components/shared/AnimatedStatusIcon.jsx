@@ -4,6 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle, Clock, Hourglass, Truck, Package, Anchor, AlertCircle, FilePlus, PackageSearch } from 'lucide-react';
 
+// NOVÉ: Rozšířená a vylepšená konfigurace statusů
 const statusConfig = {
     '10': { Icon: FilePlus, color: '#3b82f6', label: 'Nová zakázka' },
     '30': { Icon: Clock, color: '#eab308', label: 'Připraveno k vychystání' },
@@ -18,18 +19,52 @@ const statusConfig = {
     'default': { Icon: AlertCircle, color: '#64748b', label: 'Neznámý' }
 };
 
+// UPRAVENO: Nové, charakterističtější animace
 const iconVariants = {
-    '10': { scale: [1, 1.1, 1], transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" } },
-    '30': { rotate: [0, 360], transition: { duration: 10, repeat: Infinity, ease: "linear" } },
-    '31': { rotate: [0, 180, 180, 360, 360], transition: { duration: 3, repeat: Infinity, ease: "easeInOut" } },
-    '35': { rotate: [-5, 5, -5], transition: { duration: 1, repeat: Infinity, ease: "easeInOut" } },
-    '40': { y: [0, -2, 0], transition: { duration: 1.2, repeat: Infinity, ease: "easeInOut" } },
-    '50': { scale: [1, 1.2, 1], transition: { duration: 0.5, ease: "easeOut" } },
-    '60': { y: [0, -2, 0], transition: { duration: 2, repeat: Infinity, ease: "easeInOut" } },
-    '70': { x: [-2, 2, -2], transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" } },
-    '80': { x: [-2, 2, -2], transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" } },
-    '90': { x: [-2, 2, -2], transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" } },
-    'default': { opacity: [0.5, 1, 0.5], transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" } }
+    '10': { // FilePlus - pulzování
+        scale: [1, 1.1, 1],
+        transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+    },
+    '30': { // Clock - rotace ručičky (imitace)
+        rotate: [0, 360],
+        transition: { duration: 10, repeat: Infinity, ease: "linear" }
+    },
+    '31': { // Hourglass - přesýpání (otáčení)
+        rotate: [0, 180, 180, 360, 360],
+        transition: { duration: 3, repeat: Infinity, ease: "easeInOut" }
+    },
+    '35': { // PackageSearch - "hledání"
+        rotate: [-5, 5, -5],
+        transition: { duration: 1, repeat: Infinity, ease: "easeInOut" }
+    },
+    '40': { // Package - "zavírání"
+        y: [0, -2, 0],
+        transition: { duration: 1.2, repeat: Infinity, ease: "easeInOut" }
+    },
+    '50': { // CheckCircle - potvrzení
+        scale: [1, 1.2, 1],
+        transition: { duration: 0.5, ease: "easeOut" }
+    },
+    '60': { // Anchor - "ukotvení"
+         y: [0, -2, 0],
+         transition: { duration: 2, repeat: Infinity, ease: "easeInOut" }
+    },
+    '70': { // Truck - jízda
+        x: [-2, 2, -2],
+        transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+    },
+     '80': { // Truck
+        x: [-2, 2, -2],
+        transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+    },
+     '90': { // Truck
+        x: [-2, 2, -2],
+        transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+    },
+    'default': { // AlertCircle - blikání
+        opacity: [0.5, 1, 0.5],
+        transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+    }
 };
 
 // UPRAVENO: Přidán prop `size` pro nastavení velikosti

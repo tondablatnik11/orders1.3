@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Modal } from '../ui/Modal';
 import { History, Send, Truck, Package, User, Hash, Calendar, Globe, Weight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import AnimatedStatusIcon from '../shared/AnimatedStatusIcon';
+import AnimatedStatusIcon from '../shared/AnimatedStatusIcon'; // NOVÉ
 
 // NOVÉ: Pomocná komponenta pro zobrazení detailů
 const DetailItem = ({ icon: Icon, label, value }) => (

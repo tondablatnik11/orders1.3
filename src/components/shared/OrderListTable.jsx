@@ -4,9 +4,10 @@ import React, { useState, useMemo } from 'react';
 import { useUI } from '@/hooks/useUI';
 import { format, parseISO } from 'date-fns';
 import AnimatedStatusIcon from './AnimatedStatusIcon';
-import StaticStatusIcon from './StaticStatusIcon';
-import { ArrowUpDown } from 'lucide-react';
+import StaticStatusIcon from './StaticStatusIcon'; // NOVÉ
+import { ArrowUpDown } from 'lucide-react'; // NOVÉ
 
+// NOVÉ: Hook pro řazení dat
 const useSortableData = (items, config = null) => {
     const [sortConfig, setSortConfig] = useState(config);
 
@@ -43,6 +44,7 @@ const useSortableData = (items, config = null) => {
     return { items: sortedItems, requestSort, sortConfig };
 };
 
+// UPRAVENO: Přidán prop `useStaticIcons`
 export default function OrderListTable({ orders, onSelectOrder, useStaticIcons = false }) {
     const { t } = useUI();
     const { items, requestSort, sortConfig } = useSortableData(orders);
