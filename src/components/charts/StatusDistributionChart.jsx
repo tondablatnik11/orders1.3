@@ -38,11 +38,11 @@ export default function StatusDistributionChart({ onBarClick }) {
         if (!summary || !summary.statusByLoadingDate) return { stackedData: [], uniqueStatuses: [] };
 
         const allAvailableStatuses = Array.from(new Set(
-            Object.values(summary.statusByLoadingDate).flatMap(day => 
+            Object.values(summary.statusByLoadingDate).flatMap(day =>
                 Object.keys(day).filter(key => key.startsWith('status'))
             )
         )).sort((a, b) => parseInt(a.replace('status', '')) - parseInt(b.replace('status', '')));
-        
+
         const rawData = Object.values(summary.statusByLoadingDate || {})
             .filter(d => d.date && !isNaN(new Date(d.date).getTime()))
             .sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -54,18 +54,38 @@ export default function StatusDistributionChart({ onBarClick }) {
             });
             return newDay;
         });
-        
-        return { 
-            stackedData: processedData, 
+
+        return {
+            stackedData: processedData,
             uniqueStatuses: allAvailableStatuses
         };
     }, [summary]);
 
     useEffect(() => {
         if (stackedData.length > 0) {
-            const endIndex = stackedData.length - 1;
-            // OPRAVA ZDE: Změněno z 30 na 7 pro zobrazení posledních 8 dnů
-            const startIndex = Math.max(0, endIndex - 7); 
+            const todayFormatted = format(new Date(), 'dd/MM');
+            const todayIndex = stackedData.findIndex(d => d.date === todayFormatted);
+            const visibleRange = 8; // Počet dnů viditelných v grafu
+            
+            let startIndex, endIndex;
+
+            if (todayIndex !== -1) {
+                // Vycentrovat na dnešní datum
+                const halfRange = Math.floor((visibleRange - 1) / 2);
+                startIndex = Math.max(0, todayIndex - halfRange);
+                endIndex = Math.min(stackedData.length - 1, startIndex + visibleRange - 1);
+                
+                // Pokud jsme na konci a nemůžeme zobrazit celý rozsah, posuneme start zpět
+                if (endIndex - startIndex < visibleRange - 1) {
+                    startIndex = Math.max(0, endIndex - visibleRange + 1);
+                }
+
+            } else {
+                // Pokud dnešní datum v datech není, zobrazíme posledních 8 dnů
+                endIndex = stackedData.length - 1;
+                startIndex = Math.max(0, endIndex - (visibleRange - 1));
+            }
+            
             setBrushDomain({ startIndex, endIndex });
         }
     }, [stackedData.length]);
@@ -91,21 +111,21 @@ export default function StatusDistributionChart({ onBarClick }) {
                         {uniqueStatuses.map((statusKey) => {
                              const status = statusKey.replace('status', '');
                              return (
-                                <Bar 
-                                    key={`status-bar-${status}`} 
-                                    dataKey={statusKey} 
-                                    name={`Status ${status}`} 
-                                    fill={getStatusColor(status)} 
+                                <Bar
+                                    key={`status-bar-${status}`}
+                                    dataKey={statusKey}
+                                    name={`Status ${status}`}
+                                    fill={getStatusColor(status)}
                                     stackId="statusStack"
                                     hide={hiddenStatuses[statusKey]}
                                 />
                             )
                         })}
-                        <Brush 
-                            dataKey="date" 
-                            height={30} 
-                            stroke="#8884d8" 
-                            startIndex={brushDomain.startIndex} 
+                        <Brush
+                            dataKey="date"
+                            height={30}
+                            stroke="#8884d8"
+                            startIndex={brushDomain.startIndex}
                             endIndex={brushDomain.endIndex}
                             onChange={(newDomain) => setBrushDomain(newDomain)}
                             fill="rgba(100, 116, 139, 0.2)"
