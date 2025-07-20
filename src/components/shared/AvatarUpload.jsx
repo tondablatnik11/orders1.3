@@ -19,26 +19,29 @@ export default function AvatarUpload({ uid, currentAvatarUrl, onUpload }) {
 
             const file = event.target.files[0];
             const fileExt = file.name.split('.').pop();
-            const filePath = `${uid}-${Date.now()}.${fileExt}`;
+            // OPRAVA: Soubor se nyní ukládá do složky pojmenované podle UID uživatele.
+            // Příklad cesty: `public/ваш_uid/avatar.png`
+            const filePath = `${uid}/avatar.${fileExt}`;
 
-            // --- KLÍČOVÁ OPRAVA ZDE ---
-            // Přidáváme `fileOptions` pro explicitní nastavení Content-Type.
-            // To zajistí, že Supabase bude vždy vědět, jaký typ souboru nahráváme.
             const fileOptions = {
-                contentType: file.type, // Např. 'image/jpeg' nebo 'image/png'
-                cacheControl: '3600',   // Uložit do mezipaměti na hodinu
-                upsert: false           // Nepřepisovat soubor se stejným jménem
+                contentType: file.type,
+                cacheControl: '3600',
+                // Důležité: upsert: true zajistí, že nový avatar přepíše ten starý.
+                upsert: true
             };
 
             const { error: uploadError } = await supabase.storage
                 .from('avatars')
-                .upload(filePath, file, fileOptions); // <-- Zde přidáváme fileOptions
-            
+                .upload(filePath, file, fileOptions);
+
             if (uploadError) {
                 throw uploadError;
             }
 
+            // Získáme veřejnou URL k nově nahranému souboru
             const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+            
+            // Předáme novou URL rodičovské komponentě pro aktualizaci profilu
             onUpload(data.publicUrl);
             toast.success("Avatar byl úspěšně nahrán!");
         } catch (error) {
@@ -57,8 +60,8 @@ export default function AvatarUpload({ uid, currentAvatarUrl, onUpload }) {
                 height={128}
                 className="rounded-full object-cover w-32 h-32 border-4 border-slate-600 group-hover:opacity-60 transition-opacity"
             />
-            <label 
-                htmlFor="avatar-upload" 
+            <label
+                htmlFor="avatar-upload"
                 className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
             >
                 {uploading ? (
