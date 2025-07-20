@@ -8,7 +8,6 @@ import { getStatusColor } from '@/lib/utils';
 import { Card, CardContent } from '../ui/Card';
 import { format, parseISO } from 'date-fns';
 
-// Komponenta pro vlastní vzhled tooltipu
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
         return (
@@ -27,13 +26,13 @@ const CustomTooltip = ({ active, payload, label }) => {
     return null;
 };
 
-export default function StatusDistributionChart() {
+// UPRAVENO: Přidán prop onBarClick
+export default function StatusDistributionChart({ onBarClick }) {
     const { summary } = useData();
     const { t } = useUI();
     const [brushDomain, setBrushDomain] = useState({ startIndex: 0, endIndex: 0 });
     const [hiddenStatuses, setHiddenStatuses] = useState({});
 
-    // Logika pro agregaci méně častých statusů
     const { stackedData, uniqueStatuses } = useMemo(() => {
         if (!summary || !summary.statusByLoadingDate) return { stackedData: [], uniqueStatuses: [] };
 
@@ -48,7 +47,7 @@ export default function StatusDistributionChart() {
 
         const totalOrders = Object.values(totalCounts).reduce((sum, count) => sum + count, 0);
         const frequentStatuses = new Set(Object.entries(totalCounts)
-            .filter(([, count]) => (count / totalOrders) > 0.02) // Zobrazit statusy, které tvoří více než 2 % celku
+            .filter(([, count]) => (count / totalOrders) > 0.02)
             .map(([key]) => key));
         
         const rawData = Object.values(summary.statusByLoadingDate || {})
@@ -97,7 +96,7 @@ export default function StatusDistributionChart() {
             <CardContent className="pt-6">
                 <h2 className="text-xl font-semibold mb-4">{t.statusDistribution}</h2>
                 <ResponsiveContainer width="100%" height={400}>
-                    <BarChart data={stackedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <BarChart data={stackedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }} onClick={onBarClick}>
                         <defs>
                             {uniqueStatuses.map((statusKey) => {
                                 const status = statusKey.replace('status', '');
