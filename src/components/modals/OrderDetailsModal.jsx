@@ -5,9 +5,20 @@ import { useUI } from '@/hooks/useUI';
 import { useData } from '@/hooks/useData';
 import { useAuth } from '@/hooks/useAuth';
 import { Modal } from '../ui/Modal';
-import { History, Send, Truck } from 'lucide-react';
+import { History, Send, Truck, Package, User, Hash, Calendar, Globe, Weight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import AnimatedStatusIcon from '../shared/AnimatedStatusIcon'; // NOVÉ
+import AnimatedStatusIcon from '../shared/AnimatedStatusIcon';
+
+// NOVÉ: Pomocná komponenta pro zobrazení detailů
+const DetailItem = ({ icon: Icon, label, value }) => (
+    <div className="flex items-start gap-3">
+        <Icon className="w-5 h-5 text-gray-400 mt-1 flex-shrink-0" />
+        <div>
+            <p className="text-sm text-gray-400">{label}</p>
+            <p className="text-md text-white font-semibold">{value || 'N/A'}</p>
+        </div>
+    </div>
+);
 
 export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
     const { t } = useUI();
@@ -34,24 +45,12 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
     const handleAddComment = async (e) => {
         e.preventDefault();
         if (!newComment.trim() || !user) return;
-
         const mentions = newComment.match(/@(\w+)/g) || [];
         const mentionedUserIds = mentions
             .map(mention => mention.substring(1))
-            .map(username => {
-                const foundUser = allUsers.find(u => (u.displayName || u.email.split('@')[0]) === username);
-                return foundUser ? foundUser.uid : null;
-            })
+            .map(username => allUsers.find(u => (u.displayName || u.email.split('@')[0]) === username)?.uid)
             .filter(uid => uid && uid !== user.uid);
-
-        const addedComment = await addOrderComment(
-            order["Delivery No"],
-            newComment.trim(),
-            user.uid,
-            userProfile?.displayName || user.email,
-            mentionedUserIds
-        );
-
+        const addedComment = await addOrderComment(order["Delivery No"], newComment.trim(), user.uid, userProfile?.displayName || user.email, mentionedUserIds);
         if (addedComment) {
             setComments(prev => [...prev, addedComment]);
             setNewComment("");
@@ -64,9 +63,7 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
             alert("Číslo nákladního listu (Bill of Lading) není k dispozici.");
             return;
         }
-
         let trackingUrl;
-
         switch (order["Forwarding agent name"]) {
             case "United Parcel Service CZ s. r. o.":
                 trackingUrl = `https://www.ups.com/track?loc=cs_CZ&tracknum=${trackingNumber}`;
@@ -77,65 +74,69 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
             default:
                 trackingUrl = `https://www.google.com/search?q=track+shipment+${trackingNumber}`;
         }
-        
         window.open(trackingUrl, '_blank');
     };
 
-    let formattedLoadingDate = 'N/A';
-    if (order["Loading Date"]) {
-        try {
-            const parsedDate = parseISO(order["Loading Date"]);
-            if (!isNaN(parsedDate.getTime())) {
-                formattedLoadingDate = format(parsedDate, 'dd/MM/yyyy');
-            }
-        } catch (e) { /* ignore */ }
-    }
+    const formattedLoadingDate = order["Loading Date"] ? format(parseISO(order["Loading Date"]), 'dd.MM.yyyy') : 'N/A';
 
     return (
         <Modal title={t.deliveryDetails} onClose={onClose}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3 text-gray-200 text-sm">
-                    <p><strong>{t.deliveryNo}:</strong> {order["Delivery No"]}</p>
-                    {/* UPRAVENO: Přidání animované ikony */}
-                    <div className="flex items-center gap-2">
-                        <strong>{t.status}:</strong>
-                        <AnimatedStatusIcon status={order.Status} />
+            {/* UPRAVENO: Nové rozložení na 3 sloupce */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                {/* Levý sloupec s detaily */}
+                <div className="md:col-span-2 space-y-4 text-gray-200 border-r border-gray-700 pr-6">
+                    <h3 className="text-lg font-bold text-blue-300 border-b border-gray-700 pb-2">Informace o objednávce</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <DetailItem icon={Hash} label={t.deliveryNo} value={order["Delivery No"]} />
+                        <DetailItem icon={Package} label={t.deliveryType} value={order["del.type"] === 'P' ? t.pallets : t.carton} />
+                        <DetailItem icon={Calendar} label={t.loadingDate} value={formattedLoadingDate} />
+                        <DetailItem icon={Weight} label={t.totalWeight} value={`${order["Total Weight"]} kg`} />
+                        <DetailItem icon={Truck} label={t.forwardingAgent} value={order["Forwarding agent name"]} />
+                        <DetailItem icon={User} label={t.shipToPartyName} value={order["Name of ship-to party"]} />
+                        <DetailItem icon={Globe} label="Země doručení" value={order["Country ship-to prty"]} />
+                        <DetailItem icon={Hash} label={t.billOfLading} value={order["Bill of lading"]} />
                     </div>
-                    <p><strong>{t.deliveryType}:</strong> {order["del.type"]}</p>
-                    <p><strong>{t.loadingDate}:</strong> {formattedLoadingDate}</p>
-                    <p><strong>{t.forwardingAgent}:</strong> {order["Forwarding agent name"] || 'N/A'}</p>
-                    <p><strong>{t.shipToPartyName}:</strong> {order["Name of ship-to party"] || 'N/A'}</p>
-                    <p><strong>{t.billOfLading}:</strong> {order["Bill of lading"] || 'N/A'}</p>
                 </div>
-                <div className="flex flex-col h-80 bg-gray-900 rounded-lg p-3">
-                    <h4 className="font-semibold mb-2">Komentáře</h4>
-                    <div className="flex-grow overflow-y-auto space-y-3 pr-2">
-                        {comments.map((comment) => (
-                            <div key={comment.id}>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <p className="font-semibold text-xs">{comment.author_name}</p>
-                                    <p className="text-xs text-gray-400">{format(parseISO(comment.created_at), 'dd.MM HH:mm')}</p>
-                                </div>
-                                <p className="bg-gray-700 p-2 rounded-lg text-sm whitespace-pre-wrap break-words">{comment.text}</p>
-                            </div>
-                        ))}
-                        <div ref={commentsEndRef} />
+
+                {/* Pravý sloupec se statusem a komentáři */}
+                <div className="md:col-span-1 flex flex-col">
+                    <div className="text-center mb-4">
+                        <h3 className="text-lg font-bold text-blue-300 mb-4">{t.status}</h3>
+                        <AnimatedStatusIcon status={order.Status} size="large" />
                     </div>
-                    <form onSubmit={handleAddComment} className="flex gap-2 mt-2 pt-2 border-t border-gray-700">
-                        <input
-                            type="text"
-                            value={newComment}
-                            onChange={(e) => setNewComment(e.target.value)}
-                            className="flex-grow p-2 rounded-lg bg-gray-700 border border-gray-600 text-sm"
-                            placeholder="Přidat komentář (@zmínka)..."
-                        />
-                        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex-shrink-0">
-                            <Send className="w-4 h-4" />
-                        </button>
-                    </form>
+
+                    <div className="flex flex-col flex-grow h-64 bg-gray-900 rounded-lg p-3">
+                         <h4 className="font-semibold mb-2 flex-shrink-0">Komentáře</h4>
+                        <div className="flex-grow overflow-y-auto space-y-3 pr-2">
+                            {comments.map((comment) => (
+                                <div key={comment.id}>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <p className="font-semibold text-xs">{comment.author_name}</p>
+                                        <p className="text-xs text-gray-400">{format(parseISO(comment.created_at), 'dd.MM HH:mm')}</p>
+                                    </div>
+                                    <p className="bg-gray-700 p-2 rounded-lg text-sm whitespace-pre-wrap break-words">{comment.text}</p>
+                                </div>
+                            ))}
+                            <div ref={commentsEndRef} />
+                        </div>
+                        <form onSubmit={handleAddComment} className="flex gap-2 mt-2 pt-2 border-t border-gray-700 flex-shrink-0">
+                            <input
+                                type="text"
+                                value={newComment}
+                                onChange={(e) => setNewComment(e.target.value)}
+                                className="flex-grow p-2 rounded-lg bg-gray-700 border border-gray-600 text-sm"
+                                placeholder="Přidat komentář (@zmínka)..."
+                            />
+                            <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex-shrink-0">
+                                <Send className="w-4 h-4" />
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
-            <div className="mt-4 flex justify-end gap-2">
+            
+            <div className="mt-6 flex justify-end gap-2 border-t border-gray-700 pt-4">
                 {order["Bill of lading"] && (
                     <button
                         onClick={handleTrackShipment}
