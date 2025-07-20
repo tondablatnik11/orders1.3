@@ -8,80 +8,53 @@ import { getStatusColor } from '@/lib/utils';
 import { Card, CardContent } from '../ui/Card';
 import { parseISO } from 'date-fns';
 
-const D3StatusDistributionChart = () => {
+const D3StatusDistributionChart = ({ onBarClick }) => {
     const { summary } = useData();
     const { t } = useUI();
     const svgRef = useRef(null);
     const tooltipRef = useRef(null);
-    const legendRef = useRef(null);
-    const [hiddenStatuses, setHiddenStatuses] = useState({});
+    const dimensions = { width: 800, height: 400, margin: { top: 20, right: 20, bottom: 40, left: 50 } };
 
     const { data, keys, colors } = useMemo(() => {
         if (!summary || !summary.statusByLoadingDate) return { data: [], keys: [], colors: {} };
+
+        const allStatusKeys = Array.from(new Set(
+            Object.values(summary.statusByLoadingDate).flatMap(day => 
+                Object.keys(day).filter(key => key.startsWith('status'))
+            )
+        )).sort((a, b) => parseInt(a.replace('status', '')) - parseInt(b.replace('status', '')));
         
-        const totalCounts = {};
-        Object.values(summary.statusByLoadingDate).forEach(day => {
-            Object.keys(day).forEach(key => {
-                if (key.startsWith('status')) {
-                    totalCounts[key] = (totalCounts[key] || 0) + day[key];
-                }
-            });
+        const colorMap = {};
+        allStatusKeys.forEach(key => {
+            const status = key.replace('status', '');
+            colorMap[key] = getStatusColor(status);
         });
 
-        const totalOrders = Object.values(totalCounts).reduce((sum, count) => sum + count, 0);
-        const frequentStatuses = new Set(Object.entries(totalCounts)
-            .filter(([, count]) => (count / totalOrders) > 0.02)
-            .map(([key]) => key));
-        
-        const rawData = Object.values(summary.statusByLoadingDate || {})
+        const processedData = Object.values(summary.statusByLoadingDate)
             .filter(d => d.date && !isNaN(new Date(d.date).getTime()))
             .sort((a, b) => new Date(a.date) - new Date(b.date))
-            .slice(-30); // Zobrazit jen posledních 30 dní pro přehlednost
-
-        const processedData = rawData.map(day => {
-            const newDay = { date: parseISO(day.date), Ostatní: 0 };
-            Object.keys(day).forEach(key => {
-                if (key.startsWith('status')) {
-                    if (frequentStatuses.has(key)) {
-                        newDay[key] = day[key];
-                    } else {
-                        newDay['Ostatní'] += day[key];
-                    }
-                }
+            .map(d => {
+                const dayData = { date: parseISO(d.date) };
+                allStatusKeys.forEach(key => {
+                    dayData[key] = d[key] || 0;
+                });
+                return dayData;
             });
-            return newDay;
-        });
-
-        const statusKeys = Array.from(frequentStatuses);
-        if (processedData.some(d => d.Ostatní > 0)) {
-            statusKeys.push('Ostatní');
-        }
-
-        const colorMap = {};
-        statusKeys.forEach(key => {
-            const status = key.replace('status', '');
-            colorMap[key] = status === 'Ostatní' ? '#64748B' : getStatusColor(status);
-        });
-
-        return { data: processedData, keys: statusKeys, colors: colorMap };
+        
+        return { data: processedData, keys: allStatusKeys, colors: colorMap };
     }, [summary]);
 
     useEffect(() => {
         if (data.length === 0 || !svgRef.current) return;
 
-        const activeKeys = keys.filter(key => !hiddenStatuses[key]);
-        const stack = d3.stack().keys(activeKeys);
-        const series = stack(data);
-
-        const dimensions = { width: 600, height: 400, margin: { top: 10, right: 10, bottom: 20, left: 30 } };
         const { width, height, margin } = dimensions;
         const innerWidth = width - margin.left - margin.right;
         const innerHeight = height - margin.top - margin.bottom;
 
-        const svg = d3.select(svgRef.current);
+        const svg = d3.select(svgRef.current)
+            .attr("viewBox", [0, 0, width, height]);
+        
         svg.selectAll("*").remove();
-
-        const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
         const x = d3.scaleBand()
             .domain(data.map(d => d.date))
@@ -89,50 +62,74 @@ const D3StatusDistributionChart = () => {
             .padding(0.2);
 
         const y = d3.scaleLinear()
-            .domain([0, d3.max(series, d => d3.max(d, d => d[1])) || 100])
+            .domain([0, d3.max(data, d => d3.sum(keys, k => d[k]))]).nice()
             .range([innerHeight, 0]);
 
-        g.selectAll(".bar-group")
+        const xAxis = g => g
+            .attr("transform", `translate(0,${innerHeight})`)
+            .call(d3.axisBottom(x).tickSizeOuter(0).tickFormat(d3.timeFormat("%d.%m")))
+            .call(g => g.selectAll(".domain").remove());
+
+        const yAxis = g => g
+            .attr("transform", `translate(0,0)`)
+            .call(d3.axisLeft(y).ticks(5))
+            .call(g => g.selectAll(".domain").remove());
+
+        const series = d3.stack().keys(keys)(data);
+        
+        const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+        const gx = g.append("g");
+        const gy = g.append("g");
+        
+        const barGroups = g.append("g")
+            .selectAll("g")
             .data(series)
             .join("g")
-            .attr("fill", d => colors[d.key])
-            .selectAll("rect")
+            .attr("fill", d => colors[d.key]);
+
+        barGroups.selectAll("rect")
             .data(d => d)
             .join("rect")
             .attr("x", d => x(d.data.date))
             .attr("y", d => y(d[1]))
             .attr("height", d => y(d[0]) - y(d[1]))
             .attr("width", x.bandwidth());
-        
-        g.append("g")
-            .attr("transform", `translate(0,${innerHeight})`)
-            .call(d3.axisBottom(x).tickFormat(d3.timeFormat("%d/%m")).tickValues(x.domain().filter((d,i) => !(i%3))))
-            .selectAll("text").style("fill", "#9CA3AF");
 
-        g.append("g")
-            .call(d3.axisLeft(y))
-            .selectAll("text").style("fill", "#9CA3AF");
+        // Zoom a Pan logika
+        const zoom = d3.zoom()
+            .scaleExtent([1, 10])
+            .translateExtent([[0, 0], [innerWidth, innerHeight]])
+            .extent([[0, 0], [innerWidth, innerHeight]])
+            .on("zoom", (event) => {
+                const newX = event.transform.rescaleX(x);
+                gx.call(xAxis.scale(newX));
+                barGroups.selectAll("rect")
+                    .attr("x", d => newX(d.data.date))
+                    .attr("width", newX.bandwidth());
+            });
+
+        // Overlay pro zachytávání eventů myši
+        const zoomRect = svg.append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`)
+            .append("rect")
+            .attr("width", innerWidth)
+            .attr("height", innerHeight)
+            .style("fill", "none")
+            .style("pointer-events", "all")
+            .call(zoom);
+
+        gx.call(xAxis);
+        gy.call(yAxis);
         
-    }, [data, keys, colors, hiddenStatuses]);
-    
-    const toggleStatus = (key) => {
-        setHiddenStatuses(prev => ({...prev, [key]: !prev[key]}));
-    };
+    }, [data, keys, colors, dimensions]);
 
     return (
         <Card>
             <CardContent className="pt-6">
                 <h2 className="text-xl font-semibold mb-4">{t.statusDistribution}</h2>
-                <svg ref={svgRef} width="100%" height="400" viewBox="0 0 600 400"></svg>
-                <div ref={legendRef} className="flex flex-wrap justify-center gap-x-4 gap-y-2 mt-2 text-xs">
-                    {keys.map(key => (
-                        <div key={key} onClick={() => toggleStatus(key)} className="flex items-center gap-1.5 cursor-pointer">
-                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors[key], opacity: hiddenStatuses[key] ? 0.3 : 1 }}></div>
-                            <span className={hiddenStatuses[key] ? 'text-gray-500 line-through' : 'text-gray-300'}>
-                                {key === 'Ostatní' ? 'Ostatní' : `Status ${key.replace('status', '')}`}
-                            </span>
-                        </div>
-                    ))}
+                <div className="relative">
+                    <svg ref={svgRef}></svg>
+                    <div ref={tooltipRef} className="absolute bg-gray-800 p-2 border border-gray-700 rounded-md text-sm pointer-events-none" style={{ opacity: 0, transition: 'opacity 0.2s' }}></div>
                 </div>
             </CardContent>
         </Card>
