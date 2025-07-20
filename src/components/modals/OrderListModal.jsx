@@ -1,6 +1,7 @@
 "use client";
 import React from 'react';
-import { Modal } from '@/components/ui/Modal';
+// UPRAVENO: Změna cesty k importu
+import { Modal } from '../ui/Modal';
 import OrderListTable from '@/components/shared/OrderListTable';
 import { FileDown } from 'lucide-react';
 import { exportCustomOrdersToXLSX } from '@/lib/exportUtils';

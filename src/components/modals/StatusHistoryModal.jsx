@@ -1,5 +1,6 @@
 import React from 'react';
-import { Modal } from '@/components/ui/Modal';
+// UPRAVENO: Změna cesty k importu
+import { Modal } from '../ui/Modal';
 import { useUI } from '@/hooks/useUI';
 import { format, parseISO } from 'date-fns';
 

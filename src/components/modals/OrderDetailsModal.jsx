@@ -1,10 +1,10 @@
-// src/components/modals/OrderDetailsModal.jsx
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { useUI } from '@/hooks/useUI';
 import { useData } from '@/hooks/useData';
 import { useAuth } from '@/hooks/useAuth';
-// UPRAVENO: 'Track' ikona byla nahrazena za 'Truck'
+// UPRAVENO: Změna cesty k importu
+import { Modal } from '../ui/Modal';
 import { History, Send, Truck } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
@@ -123,7 +123,6 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
                         onClick={handleTrackShipment}
                         className="bg-purple-600 text-white px-4 py-2 rounded-lg shadow hover:bg-purple-700 flex items-center gap-2"
                     >
-                        {/* UPRAVENO: Použití ikony Truck */}
                         <Truck className="w-5 h-5" /> Sledovat zásilku
                     </button>
                 )}
