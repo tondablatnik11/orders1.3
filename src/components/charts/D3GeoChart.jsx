@@ -49,10 +49,11 @@ const D3GeoChart = ({ data = [], onCountryClick }) => {
             .append("path")
             .attr("d", pathGenerator)
             .attr("fill", d => dataMap.has(d.id) ? colorScale(dataMap.get(d.id)) : "#4B5563")
-            .style("stroke", d => hoveredCountry === d.id ? '#38BDF8' : '#1F2937')
-            .style("stroke-width", d => hoveredCountry === d.id ? 1.5 : 0.5)
+            .style("stroke", "#1F2937")
+            .style("stroke-width", 0.5)
             .on("mouseover", function (event, d) {
                 setHoveredCountry(d.id);
+                d3.select(this).style("stroke-width", 1.5).style("stroke", "#38BDF8");
                 tooltipRef.current.style.opacity = 1;
             })
             .on("mousemove", function (event, d) {
@@ -63,6 +64,7 @@ const D3GeoChart = ({ data = [], onCountryClick }) => {
             })
             .on("mouseout", function () {
                 setHoveredCountry(null);
+                d3.select(this).style("stroke-width", 0.5).style("stroke", "#1F2937");
                 tooltipRef.current.style.opacity = 0;
             })
             .on("click", (event, d) => {
@@ -71,7 +73,7 @@ const D3GeoChart = ({ data = [], onCountryClick }) => {
                 }
             });
 
-    }, [data, dimensions.width, dimensions.height, onCountryClick, t.orders, hoveredCountry]);
+    }, [data, dimensions.width, dimensions.height, onCountryClick, t.orders]);
 
     if (!data || data.length === 0) {
         return (
