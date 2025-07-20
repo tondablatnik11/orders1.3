@@ -8,28 +8,26 @@ export function cn(...inputs) {
   return twMerge(clsx(inputs))
 }
 
-// UPRAVENO: Nová, vysoce kontrastní paleta barev pro lepší přehlednost
+// UPRAVENO: Nová, vysoce kontrastní paleta barev pro lepší přehlednost grafů
 export const CHART_COLORS = {
-  // Statusy podle procesu
   '10': '#38BDF8',  // Nové - Světle modrá
   '30': '#FCD34D',  // Připraveno - Slunečnicová
   '31': '#F97316',  // V procesu - Oranžová
   '35': '#F59E0B',  // Pickování - Jantarová
   '40': '#D97706',  // Dopickováno - Tmavě jantarová (Přidáno zpět)
   '50': '#10B981',  // Hotovo - Smaragdová
-  '60': '#059669',  // Připraveno pro dopravce - Tmavě zelená
-  '70': '#6366F1',  // Na cestě - Indigová
-  '80': '#8B5CF6',  // Na cestě - Fialová
-  '90': '#A855F7',   // Na cestě - Druhá fialová
+  '60': '#059669',  // Připraveno pro dopravce - Tmavší zelená
+  '70': '#047857',  // Na cestě - Hluboká lesní zelená
+  '80': '#065F46',  // Na cestě - Nejtmavší zelená
+  '90': '#064E3B',  // Na cestě - Extrémně tmavá zelená
   'default': '#64748B', 
 };
-
 
 export const getStatusColor = (status) => {
     return CHART_COLORS[String(status)] || CHART_COLORS['default'];
 };
 
-// Zbytek souboru je původní a byl vrácen
+// Původní funkce, které jsou pro aplikaci nezbytné
 export const DATE_CATEGORY_COLORS = {
   'Today': '#3498DB',
   'Yesterday': '#9B59B6',

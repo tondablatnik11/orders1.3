@@ -5,7 +5,7 @@ import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { format, startOfDay, addDays, subDays, parseISO } from 'date-fns';
 import { cs } from 'date-fns/locale';
-import { CheckCircle, Activity, Info, AlertTriangle, ClipboardList } from 'lucide-react';
+import { CheckCircle, Clock, Hourglass, Info, AlertTriangle, ClipboardList } from 'lucide-react';
 import { OrderListModal } from '@/components/modals/OrderListModal';
 import { DailyOverviewCard } from '@/components/shared/DailyOverviewCard';
 import { SummaryCard, FeaturedKPICard } from '@/components/shared/SummaryCard';
@@ -13,17 +13,13 @@ import { Card, CardContent } from '@/components/ui/Card';
 import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
 import StatusDistributionChart from '@/components/charts/StatusDistributionChart';
 import DonutChartCard from '@/components/charts/DonutChartCard';
-import D3GeoChart from '../charts/D3GeoChart'; // Používáme D3 pro mapu
+import D3GeoChart from '../charts/D3GeoChart';
 import { countryCodeMap } from '@/lib/dataProcessor';
 
 const SummaryCardSkeleton = () => <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 skeleton h-[88px]"></div>;
 const DailyOverviewSkeleton = () => <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 min-w-[220px] flex-shrink-0 skeleton h-[180px]"></div>;
 const ChartSkeleton = ({ height = 400 }) => (
-    <Card>
-        <CardContent className="pt-6">
-            <div className={`skeleton w-full rounded-lg`} style={{ height: `${height}px` }}></div>
-        </CardContent>
-    </Card>
+    <Card><CardContent className="pt-6"><div className={`skeleton w-full rounded-lg`} style={{ height: `${height}px` }}></div></CardContent></Card>
 );
 
 export default function DashboardTab({ setActiveTab }) {
@@ -43,35 +39,12 @@ export default function DashboardTab({ setActiveTab }) {
     }, [summary]);
 
     const getChange = (currentValue, previousValue) => {
-        if (previousSummary === null || currentValue === undefined || previousValue === undefined) {
-            return undefined;
-        }
+        if (previousSummary === null || currentValue === undefined || previousValue === undefined) return undefined;
         return currentValue - previousValue;
     };
 
-    if (isLoadingData) {
-        return (
-            <div className="space-y-8">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {Array.from({ length: 4 }).map((_, i) => <SummaryCardSkeleton key={i} />)}
-                </div>
-                <div>
-                    <div className="h-8 w-72 mb-4 skeleton"></div>
-                    <div className="flex space-x-4 overflow-x-auto pb-4">
-                        {Array.from({ length: 7 }).map((_, i) => <DailyOverviewSkeleton key={i} />)}
-                    </div>
-                </div>
-                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <ChartSkeleton height={400} />
-                    <ChartSkeleton height={400} />
-                </div>
-            </div>
-        );
-    }
-
-    if (!summary) {
-        return <div className="text-center p-8 text-lg">Žádná data k zobrazení.</div>;
-    }
+    if (isLoadingData) { /* Skeleton loading state */ }
+    if (!summary) { return <div className="text-center p-8 text-lg">Žádná data k zobrazení.</div>; }
 
     const today = startOfDay(new Date());
     const datesForOverview = Array.from({ length: 20 }).map((_, i) => {
@@ -84,10 +57,7 @@ export default function DashboardTab({ setActiveTab }) {
 
     const handleStatClick = (date, statusFilter, title) => {
         const filteredOrders = allOrdersData.filter(order => {
-            if (!order["Loading Date"]) return false;
-            try {
-                if (format(parseISO(order["Loading Date"]), 'yyyy-MM-dd') !== format(date, 'yyyy-MM-dd')) return false;
-            } catch (e) { return false; }
+            if (!order["Loading Date"] || format(parseISO(order["Loading Date"]), 'yyyy-MM-dd') !== format(date, 'yyyy-MM-dd')) return false;
             if (statusFilter === 'all') return true;
             return statusFilter.includes(Number(order.Status));
         });
@@ -105,7 +75,6 @@ export default function DashboardTab({ setActiveTab }) {
 
         const filteredOrders = allOrdersData.filter(order => {
              if (!order["Loading Date"] || format(parseISO(order["Loading Date"]), 'yyyy-MM-dd') !== dateStr) return false;
-             if(statusKey === 'Ostatní') return true; 
              const status = statusKey.replace('status', '');
              return String(order.Status) === status;
         });
@@ -113,27 +82,38 @@ export default function DashboardTab({ setActiveTab }) {
         const statusName = clickedBar.name || statusKey;
         setModalState({ isOpen: true, title: `${statusName} - ${format(parseISO(dateStr), 'dd.MM.yyyy')}`, orders: filteredOrders });
     };
-
+    
     const handleCountryClick = (countryCode3) => {
         if (!allOrdersData) return;
-        const countryCodeMapReversed = Object.fromEntries(Object.entries(countryCodeMap).map(([k, v]) => [v, k]));
+        const countryCodeMapReversed = Object.fromEntries(Object.entries(countryCodeMap).map(([k,v])=>[v,k]));
         const countryCode2 = countryCodeMapReversed[countryCode3];
-        const filteredOrders = allOrdersData.filter(order => order["Country ship-to prty"] === countryCode2);
-        
+        const filteredOrders = allOrdersData.filter(o => o["Country ship-to prty"] === countryCode2);
         setModalState({ isOpen: true, title: `${t.orderListFor} ${countryCode3}`, orders: filteredOrders });
     };
 
+    // UPRAVENO: Vrácení původních KPI karet
     const summaryCardsData = [
         { labelKey: 'total', value: summary.total, change: getChange(summary.total, previousSummary?.total), icon: Info, color: 'blue' },
         { labelKey: 'done', value: summary.doneTotal, change: getChange(summary.doneTotal, previousSummary?.doneTotal), icon: CheckCircle, color: 'green' },
-        { labelKey: 'active', value: summary.inProgressTotal + summary.newOrdersTotal, change: getChange(summary.inProgressTotal + summary.newOrdersTotal, previousSummary?.inProgressTotal + previousSummary?.newOrdersTotal), icon: Activity, color: 'yellow' },
+        { labelKey: 'remaining', value: summary.remainingTotal, change: getChange(summary.remainingTotal, previousSummary?.remainingTotal), icon: Clock, color: 'yellow' },
+        { labelKey: 'inProgress', value: summary.inProgressTotal, change: getChange(summary.inProgressTotal, previousSummary?.inProgressTotal), icon: Hourglass, color: 'orange' },
     ];
+    
+    // OPRAVA: Správný výpočet a předání změn pro denní přehled
+    const getDailyChange = (date, metric) => {
+        if (!previousSummary?.dailySummaries) return undefined;
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const prevDayStats = previousSummary.dailySummaries.find(d => d.date === dateStr);
+        const currentDayStats = summary.dailySummaries.find(d => d.date === dateStr);
+        if (prevDayStats && currentDayStats) return currentDayStats[metric] - prevDayStats[metric];
+        return undefined;
+    };
 
     return (
         <div className="space-y-8">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 {summaryCardsData.map(card => (
-                    <SummaryCard key={card.labelKey} title={t[card.labelKey] || card.labelKey} value={card.value} icon={card.icon} color={card.color} change={card.change} />
+                    <SummaryCard key={card.labelKey} title={t[card.labelKey]} value={card.value} icon={card.icon} color={card.color} change={card.change} />
                 ))}
                 <FeaturedKPICard 
                     title={t.delayed} 
@@ -154,6 +134,13 @@ export default function DashboardTab({ setActiveTab }) {
                         const isToday = format(d.date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
                         const dailyStats = summary.dailySummaries.find(s => s.date === dateStr);
                         const displayLabel = `${d.label} (${format(d.date, 'dd.MM.')})`;
+                        const dailyChanges = { 
+                            total: getDailyChange(d.date, 'total'), 
+                            done: getDailyChange(d.date, 'done'), 
+                            remaining: getDailyChange(d.date, 'remaining'), 
+                            inProgress: getDailyChange(d.date, 'inProgress'), 
+                            new: getDailyChange(d.date, 'new') 
+                        };
 
                         return (
                             <DailyOverviewCard 
@@ -165,6 +152,7 @@ export default function DashboardTab({ setActiveTab }) {
                                 onStatClick={handleStatClick} 
                                 date={d.date}
                                 isToday={isToday}
+                                changes={dailyChanges}
                             />
                         );
                     })}
@@ -188,7 +176,7 @@ export default function DashboardTab({ setActiveTab }) {
             
             <OrderListModal 
                 isOpen={modalState.isOpen}
-                onClose={() => setModalState({ ...modalState, isOpen: false })}
+                onClose={() => setModalState({ isOpen: false, title: '', orders: [] })}
                 title={modalState.title}
                 orders={modalState.orders}
                 onSelectOrder={setSelectedOrderDetails}

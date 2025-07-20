@@ -35,7 +35,8 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function OrdersOverTimeChart({ summary }) {
     const { t } = useUI();
-    const [timeRange, setTimeRange] = useState(30); // Dny
+    // UPRAVENO: Výchozí hodnota je nyní 90
+    const [timeRange, setTimeRange] = useState(90);
 
     const chartData = useMemo(() => {
         if (!summary || !summary.dailySummaries || summary.dailySummaries.length === 0) {
@@ -46,7 +47,6 @@ export default function OrdersOverTimeChart({ summary }) {
             .map(day => ({ ...day }))
             .sort((a, b) => new Date(a.date) - new Date(b.date));
         
-        // Výpočet 7-denního klouzavého průměru
         const dataWithMovingAverage = sortedData.map((day, index, arr) => {
             const start = Math.max(0, index - 6);
             const slice = arr.slice(start, index + 1);
@@ -59,7 +59,7 @@ export default function OrdersOverTimeChart({ summary }) {
             };
         });
 
-        if (timeRange === 0) return dataWithMovingAverage; // 0 znamená všechna data
+        if (timeRange === 0) return dataWithMovingAverage;
         return dataWithMovingAverage.slice(-timeRange);
 
     }, [summary, timeRange]);
