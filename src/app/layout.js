@@ -1,6 +1,7 @@
+// src/app/layout.js
 import './globals.css';
 import { AppProviders } from '@/components/layout/AppProviders';
-import { Toaster } from 'react-hot-toast'; // <-- PŘIDÁN IMPORT
+import { Toaster } from 'react-hot-toast';
 
 export const metadata = {
   title: 'Přehled zakázek',
@@ -12,7 +13,6 @@ export default function RootLayout({ children }) {
     <html lang="cs">
       <body>
         <AppProviders>
-          {/* Poskytovatel pro notifikace */}
           <Toaster 
             position="top-right"
             toastOptions={{
@@ -27,6 +27,8 @@ export default function RootLayout({ children }) {
           />
           {children}
         </AppProviders>
+        {/* NOVÉ: Přidán kontejner pro modální okna */}
+        <div id="modal-root"></div>
       </body>
     </html>
   );
