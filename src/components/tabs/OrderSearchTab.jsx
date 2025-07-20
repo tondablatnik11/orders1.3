@@ -1,3 +1,4 @@
+// src/components/tabs/OrderSearchTab.jsx
 "use client";
 import React, { useState, useMemo, useEffect } from 'react';
 import { useData } from '@/hooks/useData';
@@ -5,15 +6,13 @@ import { useUI } from '@/hooks/useUI';
 import { exportSearchResultsToXLSX } from '@/lib/exportUtils';
 import { Card, CardContent } from '../ui/Card';
 import { Search, FileDown } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
 import OrderDetailsModal from '@/components/modals/OrderDetailsModal';
-import StatusHistoryModal from '@/components/modals/StatusHistoryModal';
+import OrderListTable from '../shared/OrderListTable';
 
 export default function OrderSearchTab({ initialQuery, clearInitialQuery }) {
     const { t } = useUI();
-    const { allOrdersData, setSelectedOrderDetails: setGlobalSelectedOrderDetails, selectedOrderDetails: globalSelectedOrderDetails, handleSaveNote, supabase } = useData();
+    const { allOrdersData, setSelectedOrderDetails: setGlobalSelectedOrderDetails, selectedOrderDetails: globalSelectedOrderDetails } = useData();
 
-    // Stavy pro filtry jsou nyní inicializovány z props nebo jako prázdné
     const [searchDeliveryNo, setSearchDeliveryNo] = useState(initialQuery || "");
     const [searchLoadingDate, setSearchLoadingDate] = useState("");
     const [searchStatus, setSearchStatus] = useState("all");
@@ -22,98 +21,57 @@ export default function OrderSearchTab({ initialQuery, clearInitialQuery }) {
     const [searchResult, setSearchResult] = useState(null);
 
     const uniqueStatuses = useMemo(() => {
+        if (!allOrdersData) return [];
         const statusesFromData = allOrdersData.map(row => Number(row.Status)).filter(s => !isNaN(s));
         const allAvailableStatuses = Array.from(new Set([...statusesFromData, 80, 90]));
         return allAvailableStatuses.sort((a, b) => a - b);
     }, [allOrdersData]);
 
-    const uniqueShipToPartyNames = useMemo(() =>
-        Array.from(new Set(allOrdersData.map(row => row["Name of ship-to party"]).filter(name => name))).sort(),
-        [allOrdersData]
-    );
+    const uniqueShipToPartyNames = useMemo(() => {
+        if (!allOrdersData) return [];
+        return Array.from(new Set(allOrdersData.map(row => row["Name of ship-to party"]).filter(name => name))).sort();
+    }, [allOrdersData]);
 
-    const uniqueForwardingAgentNames = useMemo(() =>
-        Array.from(new Set(allOrdersData.map(row => row["Forwarding agent name"]).filter(name => name))).sort(),
-        [allOrdersData]
-    );
+    const uniqueForwardingAgentNames = useMemo(() => {
+        if (!allOrdersData) return [];
+        return Array.from(new Set(allOrdersData.map(row => row["Forwarding agent name"]).filter(name => name))).sort();
+    }, [allOrdersData]);
 
-    // Funkce pro vyhledávání, nyní přijímá volitelný parametr
     const handleSearch = (queryOverride) => {
+        if (!allOrdersData) return;
         const queryToUse = typeof queryOverride === 'string' ? queryOverride : searchDeliveryNo;
         const searchDeliveryNos = queryToUse.split(/[, \n]+/).map(s => s.trim()).filter(Boolean);
 
         const filtered = allOrdersData.filter((row) => {
             const deliveryIdentifier = (row["Delivery"] || row["Delivery No"] || "").trim();
-            let loadingDateStr = "";
-            try {
-                if (row["Loading Date"]) {
-                    loadingDateStr = format(parseISO(row["Loading Date"]), "yyyy-MM-dd");
-                }
-            } catch (e) { /* Ignorovat neplatná data */ }
             
             const deliveryMatch = searchDeliveryNos.length > 0
                 ? searchDeliveryNos.some(num => deliveryIdentifier.toLowerCase().includes(num.toLowerCase()))
                 : true;
-            const loadingDateMatch = searchLoadingDate ? loadingDateStr === searchLoadingDate : true;
+            const loadingDateMatch = searchLoadingDate ? (row["Loading Date"] && row["Loading Date"].startsWith(searchLoadingDate)) : true;
             const statusMatch = searchStatus !== "all" ? String(row.Status) === String(searchStatus) : true;
-            
-            const partyNameInRow = (row["Name of ship-to party"] || "").toLowerCase();
-            const shipToPartyMatch = searchShipToPartyName !== "all"
-                ? partyNameInRow.includes(searchShipToPartyName.toLowerCase())
-                : true;
-
-            const agentNameInRow = (row["Forwarding agent name"] || "").toLowerCase();
-            const forwardingAgentMatch = searchForwardingAgentName !== "all"
-                ? agentNameInRow.includes(searchForwardingAgentName.toLowerCase())
-                : true;
+            const shipToPartyMatch = searchShipToPartyName !== "all" ? row["Name of ship-to party"] === searchShipToPartyName : true;
+            const forwardingAgentMatch = searchForwardingAgentName !== "all" ? row["Forwarding agent name"] === searchForwardingAgentName : true;
 
             return deliveryMatch && loadingDateMatch && statusMatch && shipToPartyMatch && forwardingAgentMatch;
         });
         
-        const mappedResults = filtered.map(order => ({
-            "Delivery No": (order["Delivery No"] || order["Delivery"])?.trim(),
-            "Status": Number(order.Status),
-            "del.type": order["del.type"],
-            "Loading Date": order["Loading Date"],
-            "Note": order.Note || '',
-            "Forwarding agent name": order["Forwarding agent name"] || 'N/A',
-            "Name of ship-to party": order["Name of ship-to party"] || 'N/A',
-            "Total Weight": order["Total Weight"] || 'N/A',
-            "Bill of lading": order["Bill of lading"] || 'N/A',
-        }));
-
-        setSearchResult(mappedResults);
+        setSearchResult(filtered);
     };
 
-    // Tento useEffect se postará o spuštění vyhledávání, když přijde query z AppHeaderu
     useEffect(() => {
         if (initialQuery) {
             setSearchDeliveryNo(initialQuery);
-            // Je potřeba malá prodleva, aby se stav stihl aktualizovat před spuštěním hledání
-            setTimeout(() => {
-                handleSearch(initialQuery);
-            }, 100);
-            clearInitialQuery(); // Resetujeme query, aby se hledání nespouštělo znovu při každém přepnutí tabu
+            setTimeout(() => handleSearch(initialQuery), 100);
+            clearInitialQuery();
         }
-    }, [initialQuery, clearInitialQuery]);
+    }, [initialQuery, clearInitialQuery, handleSearch]);
 
 
     const handleExport = () => {
         if (searchResult) {
             exportSearchResultsToXLSX(searchResult, t);
         }
-    };
-
-    const handleSelectOrderForModal = (order) => {
-        setGlobalSelectedOrderDetails(order);
-    };
-
-    const handleCloseOrderDetailsModal = () => {
-        setGlobalSelectedOrderDetails(null);
-    };
-
-    const handleShowStatusHistory = async (deliveryNo) => {
-        // Implementace pro historii zde
     };
 
     return (
@@ -163,58 +121,22 @@ export default function OrderSearchTab({ initialQuery, clearInitialQuery }) {
                 </button>
 
                 {searchResult && (
-                    <div className="mt-8 overflow-x-auto">
+                    <div className="mt-8">
                         <h3 className="text-xl font-semibold mb-4 text-white">
                             {`${t.orderList} (${searchResult.length})`}
                         </h3>
-                        {searchResult.length > 0 
-                            ? (
-                                <table className="min-w-full bg-gray-700 rounded-lg">
-                                    <thead className="bg-gray-600">
-                                        <tr>
-                                            <th className="py-3 px-4 text-left text-xs font-semibold">{t.deliveryNo}</th>
-                                            <th className="py-3 px-4 text-left text-xs font-semibold">{t.status}</th>
-                                            <th className="py-3 px-4 text-left text-xs font-semibold">{t.deliveryType}</th>
-                                            <th className="py-3 px-4 text-left text-xs font-semibold">{t.loadingDate}</th>
-                                            <th className="py-3 px-4 text-left text-xs font-semibold">{t.forwardingAgent}</th>
-                                            <th className="py-3 px-4 text-left text-xs font-semibold">{t.shipToPartyName}</th>
-                                            <th className="py-3 px-4 text-left text-xs font-semibold">{t.totalWeight}</th>
-                                            <th className="py-3 px-4 text-left text-xs font-semibold">{t.billOfLading}</th>
-                                            <th className="py-3 px-4 text-left text-xs font-semibold">{t.note}</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {searchResult.map((order, index) => (
-                                            <tr
-                                                key={order["Delivery No"] || index}
-                                                className="border-t border-gray-600 cursor-pointer hover:bg-gray-600"
-                                                onClick={() => handleSelectOrderForModal(order)}
-                                            >
-                                                <td className="py-3 px-4 text-sm">{order["Delivery No"]}</td>
-                                                <td className="py-3 px-4 text-sm">{order.Status}</td>
-                                                <td className="py-3 px-4 text-sm">{order["del.type"]}</td>
-                                                <td className="py-3 px-4 text-sm">{order["Loading Date"] ? format(parseISO(order["Loading Date"]), 'dd/MM/yyyy') : 'N/A'}</td>
-                                                <td className="py-3 px-4 text-sm">{order["Forwarding agent name"]}</td>
-                                                <td className="py-3 px-4 text-sm">{order["Name of ship-to party"]}</td>
-                                                <td className="py-3 px-4 text-sm">{order["Total Weight"]}</td>
-                                                <td className="py-3 px-4 text-sm">{order["Bill of lading"]}</td>
-                                                <td className="py-3 px-4 text-sm">{order.Note}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )
-                            : <p className="text-red-400 text-center mt-4">{t.noOrdersFound}</p>
-                        }
+                         <OrderListTable
+                            orders={searchResult}
+                            onSelectOrder={setGlobalSelectedOrderDetails}
+                        />
                     </div>
                 )}
 
                 {globalSelectedOrderDetails && ( 
                     <OrderDetailsModal
                         order={globalSelectedOrderDetails}
-                        onClose={handleCloseOrderDetailsModal}
-                        onShowHistory={handleShowStatusHistory} 
-                        onSaveNote={handleSaveNote} 
+                        onClose={() => setGlobalSelectedOrderDetails(null)}
+                        onShowHistory={() => {}}
                         t={t}
                     />
                 )}

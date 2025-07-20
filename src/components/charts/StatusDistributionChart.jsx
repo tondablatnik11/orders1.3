@@ -1,3 +1,4 @@
+// src/components/charts/StatusDistributionChart.jsx
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, Brush } from 'recharts';
@@ -41,13 +42,21 @@ export default function StatusDistributionChart() {
                 <h2 className="text-xl font-semibold mb-4">{t.statusDistribution}</h2>
                 <ResponsiveContainer width="100%" height={400}>
                     <BarChart data={stackedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2}/>
+                         <defs>
+                            {uniqueStatuses.map((status) => (
+                                <linearGradient key={`gradient-${status}`} id={`colorStatus${status}`} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor={getStatusColor(status)} stopOpacity={0.8}/>
+                                    <stop offset="95%" stopColor={getStatusColor(status)} stopOpacity={0.4}/>
+                                </linearGradient>
+                            ))}
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.1}/>
                         <XAxis dataKey="date" stroke="#9CA3AF" tick={{ fill: "#D1D5DB", fontSize: 12 }} />
                         <YAxis stroke="#9CA3AF" tick={{ fill: "#D1D5DB" }} allowDecimals={false} />
-                        <Tooltip contentStyle={{ backgroundColor: '#1F2937' }} itemStyle={{ color: '#E5E7EB' }} cursor={{ fill: 'rgba(107, 114, 128, 0.2)' }}/>
+                        <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '0.5rem' }} itemStyle={{ color: '#E5E7EB' }} cursor={{ fill: 'rgba(107, 114, 128, 0.2)' }}/>
                         <Legend wrapperStyle={{ color: '#D1D5DB', paddingTop: '10px' }} />
                         {uniqueStatuses.map((status) => (
-                            <Bar key={`status-bar-${status}`} dataKey={`status${status}`} name={`Status ${status}`} fill={getStatusColor(status)} stackId="statusStack" />
+                            <Bar key={`status-bar-${status}`} dataKey={`status${status}`} name={`Status ${status}`} fill={`url(#colorStatus${status})`} stackId="statusStack" radius={[4, 4, 0, 0]} />
                         ))}
                         <Brush 
                             dataKey="date" 
@@ -56,6 +65,7 @@ export default function StatusDistributionChart() {
                             startIndex={brushDomain.startIndex} 
                             endIndex={brushDomain.endIndex}
                             onChange={(newDomain) => setBrushDomain(newDomain)}
+                            fill="rgba(100, 116, 139, 0.2)"
                         />
                     </BarChart>
                 </ResponsiveContainer>

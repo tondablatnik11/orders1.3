@@ -1,6 +1,6 @@
+// src/components/modals/OrderListModal.jsx
 "use client";
 import React from 'react';
-// UPRAVENO: Změna cesty k importu
 import { Modal } from '../ui/Modal';
 import OrderListTable from '@/components/shared/OrderListTable';
 import { FileDown } from 'lucide-react';
@@ -20,6 +20,7 @@ export const OrderListModal = ({ isOpen, onClose, title, orders, onSelectOrder, 
                 </button>
             </div>
             <div className="max-h-[65vh] overflow-y-auto">
+                {/* UPRAVENO: Použití nové komponenty OrderListTable */}
                 <OrderListTable orders={orders} onSelectOrder={onSelectOrder} />
             </div>
         </Modal>

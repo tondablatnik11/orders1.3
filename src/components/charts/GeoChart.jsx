@@ -7,7 +7,6 @@ import { Card, CardContent } from '../ui/Card';
 import worldCountries from './world_countries.json';
 import { MapOff } from 'lucide-react';
 
-// UPRAVENO: Přidán parametr `onCountryClick`
 const GeoChart = ({ data = [], onCountryClick }) => {
     const { t } = useUI();
     
@@ -44,8 +43,9 @@ const GeoChart = ({ data = [], onCountryClick }) => {
                             label="properties.name"
                             valueFormat=".2s"
                             projectionType="mercator"
-                            projectionScale={120}
-                            projectionTranslation={[0.5, 0.6]}
+                            projectionScale={150}
+                            projectionRotation={[-10, -52, 0]}
+                            projectionTranslation={[0.5, 0.7]}
                             enableGraticule={true}
                             graticuleLineColor="rgba(255, 255, 255, 0.1)"
                             borderWidth={0.5}
@@ -56,7 +56,6 @@ const GeoChart = ({ data = [], onCountryClick }) => {
                                 legends: { text: { fill: '#DDD' } },
                             }}
                             legends={[]}
-                            // NOVÉ: Přidána obsluha kliknutí
                             onClick={(feature) => {
                                 if (onCountryClick && feature.data) {
                                     onCountryClick(feature.data.id);
