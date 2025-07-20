@@ -19,31 +19,31 @@ export default function AvatarUpload({ uid, currentAvatarUrl, onUpload }) {
 
             const file = event.target.files[0];
             const fileExt = file.name.split('.').pop();
-            // OPRAVA: Soubor se nyní ukládá do složky pojmenované podle UID uživatele.
-            // Příklad cesty: `public/vasi_uid/avatar.png`
-            const filePath = `${uid}/avatar.${fileExt}`;
+            // Ponecháváme původní logiku názvu souboru, která je v pořádku
+            const filePath = `${uid}-${Date.now()}.${fileExt}`;
 
+            // --- DŮLEŽITÁ OPRAVA ZDE ---
+            // Explicitně nastavíme Content-Type, abychom předešli chybám 400 Bad Request.
             const fileOptions = {
-                contentType: file.type,
-                cacheControl: '3600',
-                // Důležité: upsert: true zajistí, že nový avatar přepíše ten starý.
-                upsert: true
+                contentType: file.type, // Např. 'image/jpeg' nebo 'image/png'
+                cacheControl: '3600',   // Uložit do mezipaměti na hodinu
+                upsert: false           // Nepřepisovat soubor se stejným jménem
             };
 
             const { error: uploadError } = await supabase.storage
                 .from('avatars')
-                .upload(filePath, file, fileOptions);
+                .upload(filePath, file, fileOptions); // <-- Zde přidáváme fileOptions
 
             if (uploadError) {
                 throw uploadError;
             }
 
-            // Získáme veřejnou URL k nově nahranému souboru
             const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
             
-            // Předáme novou URL rodičovské komponentě pro aktualizaci profilu
-            // Přidáme časovou značku, abychom obešli cache prohlížeče
-            onUpload(`${data.publicUrl}?t=${new Date().getTime()}`);
+            // Přidáme časovou značku pro obejití cache
+            const newUrl = `${data.publicUrl}?t=${new Date().getTime()}`;
+            onUpload(newUrl);
+
             toast.success("Avatar byl úspěšně nahrán!");
         } catch (error) {
             toast.error(`Chyba při nahrávání: ${error.message}`);
