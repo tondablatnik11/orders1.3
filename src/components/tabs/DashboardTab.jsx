@@ -12,11 +12,13 @@ import { SummaryCard, FeaturedKPICard } from '@/components/shared/SummaryCard';
 import { Card, CardContent } from '@/components/ui/Card';
 import DonutChartCard from '@/components/charts/DonutChartCard';
 
-// NOVÉ: Import D3 grafů
-import D3OrdersOverTimeChart from '../charts/D3OrdersOverTimeChart';
-import D3StatusDistributionChart from '../charts/D3StatusDistributionChart';
-import D3GeoChart from '../charts/D3GeoChart';
+// UPRAVENO: Vrácení původních Recharts grafů
+import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
+import StatusDistributionChart from '@/components/charts/StatusDistributionChart';
+// UPRAVENO: Původní D3GeoChart zůstává, protože funguje dobře
+import D3GeoChart from '@/components/charts/D3GeoChart';
 import { countryCodeMap } from '@/lib/dataProcessor';
+
 
 // Kostry pro plynulé načítání
 const SummaryCardSkeleton = () => <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 skeleton h-[88px]"></div>;
@@ -91,6 +93,30 @@ export default function DashboardTab({ setActiveTab }) {
         });
         setModalState({ isOpen: true, title: `${title} - ${format(date, 'dd.MM.yyyy')}`, orders: filteredOrders });
     };
+    
+    const handleBarClick = (data) => {
+        if (!data || !data.activePayload) return;
+        const clickedBar = data.activePayload[0];
+        const statusKey = clickedBar.dataKey;
+        const dateLabel = data.activeLabel;
+        const dateObj = summary.dailySummaries.find(d => format(parseISO(d.date), 'dd/MM') === dateLabel);
+        if (!dateObj) return;
+        const dateStr = dateObj.date;
+
+        const filteredOrders = allOrdersData.filter(order => {
+             if (!order["Loading Date"] || format(parseISO(order["Loading Date"]), 'yyyy-MM-dd') !== dateStr) return false;
+             if(statusKey === 'Ostatní') return true;
+             const status = statusKey.replace('status', '');
+             return String(order.Status) === status;
+        });
+        
+        const statusName = clickedBar.name || statusKey;
+        setModalState({ 
+            isOpen: true, 
+            title: `${statusName} - ${format(parseISO(dateStr), 'dd.MM.yyyy')}`, 
+            orders: filteredOrders 
+        });
+    };
 
     const handleCountryClick = (countryCode3) => {
         if (!allOrdersData) return;
@@ -104,8 +130,7 @@ export default function DashboardTab({ setActiveTab }) {
             orders: filteredOrders 
         });
     };
-    
-    // Nové seskupení KPI karet
+
     const summaryCardsData = [
         { labelKey: 'total', value: summary.total, icon: Info, color: 'blue' },
         { labelKey: 'done', value: summary.doneTotal, icon: CheckCircle, color: 'green' },
@@ -154,10 +179,11 @@ export default function DashboardTab({ setActiveTab }) {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <D3StatusDistributionChart summary={summary} />
-                <D3OrdersOverTimeChart summary={summary} />
+                {/* UPRAVENO: Vrácení původních Recharts grafů */}
+                <StatusDistributionChart onBarClick={handleBarClick} />
+                <OrdersOverTimeChart summary={summary} />
             </div>
-             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                  <div className="lg:col-span-8">
                     <D3GeoChart data={summary.ordersByCountry} onCountryClick={handleCountryClick} />
                  </div>
