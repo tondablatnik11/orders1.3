@@ -2,50 +2,54 @@
 "use client";
 import React from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle, Clock, Hourglass, Truck, Package, Anchor } from 'lucide-react';
+import { CheckCircle, Clock, Hourglass, Truck, Package, Anchor, AlertCircle, FilePlus, PackageSearch } from 'lucide-react';
 
-// Mapování statusů na ikony a barvy
+// NOVÉ: Rozšířená a vylepšená konfigurace statusů
 const statusConfig = {
-    '10': { Icon: Hourglass, color: '#5B9BD5', label: 'Nové' },
-    '30': { Icon: Clock, color: '#FBBF24', label: 'Připraveno' },
-    '31': { Icon: Hourglass, color: '#F97316', label: 'V procesu' },
-    '35': { Icon: Hourglass, color: '#F59E0B', label: 'Pickování' },
-    '40': { Icon: Package, color: '#FBBF24', label: 'Dopickováno' },
-    '50': { Icon: CheckCircle, color: '#10B981', label: 'Hotovo' },
+    '10': { Icon: FilePlus, color: '#3b82f6', label: 'Nová zakázka' },
+    '30': { Icon: Clock, color: '#eab308', label: 'Připraveno k vychystání' },
+    '31': { Icon: Hourglass, color: '#f97316', label: 'V procesu' },
+    '35': { Icon: PackageSearch, color: '#f59e0b', label: 'Vychystávání' },
+    '40': { Icon: Package, color: '#d97706', label: 'Vychystáno' },
+    '50': { Icon: CheckCircle, color: '#10b981', label: 'Zabaleno' },
     '60': { Icon: Anchor, color: '#059669', label: 'Připraveno pro dopravce' },
     '70': { Icon: Truck, color: '#047857', label: 'Na cestě' },
     '80': { Icon: Truck, color: '#047857', label: 'Na cestě' },
     '90': { Icon: Truck, color: '#047857', label: 'Na cestě' },
-    'default': { Icon: Hourglass, color: '#64748B', label: 'Neznámý' }
+    'default': { Icon: AlertCircle, color: '#64748b', label: 'Neznámý' }
 };
 
-// Definice animací pro jednotlivé ikony
+// UPRAVENO: Nové, charakterističtější animace
 const iconVariants = {
-    '10': { // Hourglass
-        rotate: [0, 360],
-        transition: { duration: 2, repeat: Infinity, ease: "linear" }
-    },
-    '31': { // Hourglass
-        rotate: [0, 360],
-        transition: { duration: 2, repeat: Infinity, ease: "linear" }
-    },
-    '35': { // Hourglass
-        rotate: [0, 360],
-        transition: { duration: 2, repeat: Infinity, ease: "linear" }
-    },
-    '40': { // Package
-        scale: [1, 1.05, 1],
+    '10': { // FilePlus - pulzování
+        scale: [1, 1.1, 1],
         transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
     },
-    '50': { // CheckCircle
+    '30': { // Clock - rotace ručičky (imitace)
+        rotate: [0, 360],
+        transition: { duration: 10, repeat: Infinity, ease: "linear" }
+    },
+    '31': { // Hourglass - přesýpání (otáčení)
+        rotate: [0, 180, 180, 360, 360],
+        transition: { duration: 3, repeat: Infinity, ease: "easeInOut" }
+    },
+    '35': { // PackageSearch - "hledání"
+        rotate: [-5, 5, -5],
+        transition: { duration: 1, repeat: Infinity, ease: "easeInOut" }
+    },
+    '40': { // Package - "zavírání"
+        y: [0, -2, 0],
+        transition: { duration: 1.2, repeat: Infinity, ease: "easeInOut" }
+    },
+    '50': { // CheckCircle - potvrzení
         scale: [1, 1.2, 1],
         transition: { duration: 0.5, ease: "easeOut" }
     },
-    '60': { // Anchor
+    '60': { // Anchor - "ukotvení"
          y: [0, -2, 0],
          transition: { duration: 2, repeat: Infinity, ease: "easeInOut" }
     },
-    '70': { // Truck
+    '70': { // Truck - jízda
         x: [-2, 2, -2],
         transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
     },
@@ -57,19 +61,19 @@ const iconVariants = {
         x: [-2, 2, -2],
         transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
     },
-    'default': {
-        opacity: [0.7, 1, 0.7],
-        transition: { duration: 2, repeat: Infinity, ease: "easeInOut" }
+    'default': { // AlertCircle - blikání
+        opacity: [0.5, 1, 0.5],
+        transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
     }
 };
 
 const AnimatedStatusIcon = ({ status }) => {
     const config = statusConfig[String(status)] || statusConfig['default'];
-    const { Icon, color } = config;
+    const { Icon, color, label } = config;
     const animation = iconVariants[String(status)] || iconVariants['default'];
 
     return (
-        <div className="flex items-center gap-2" title={config.label}>
+        <div className="flex items-center gap-2" title={label}>
             <motion.div
                 animate={animation}
             >

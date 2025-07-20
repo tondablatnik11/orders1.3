@@ -13,6 +13,7 @@ export default function OrderSearchTab({ initialQuery, clearInitialQuery }) {
     const { t } = useUI();
     const { allOrdersData, setSelectedOrderDetails: setGlobalSelectedOrderDetails, selectedOrderDetails: globalSelectedOrderDetails } = useData();
 
+    // ... (zbytek logiky pro vyhledávání zůstává stejný)
     const [searchDeliveryNo, setSearchDeliveryNo] = useState(initialQuery || "");
     const [searchLoadingDate, setSearchLoadingDate] = useState("");
     const [searchStatus, setSearchStatus] = useState("all");
@@ -73,7 +74,7 @@ export default function OrderSearchTab({ initialQuery, clearInitialQuery }) {
             exportSearchResultsToXLSX(searchResult, t);
         }
     };
-
+    
     return (
         <Card>
             <CardContent>
@@ -128,6 +129,7 @@ export default function OrderSearchTab({ initialQuery, clearInitialQuery }) {
                          <OrderListTable
                             orders={searchResult}
                             onSelectOrder={setGlobalSelectedOrderDetails}
+                            useStaticIcons={true} // NOVÉ: Použití statických ikon pro výkon
                         />
                     </div>
                 )}

@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Modal } from '../ui/Modal';
 import { History, Send, Truck } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import AnimatedStatusIcon from '../shared/AnimatedStatusIcon'; // NOVÉ
 
 export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
     const { t } = useUI();
@@ -56,7 +57,7 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
             setNewComment("");
         }
     };
-
+    
     const handleTrackShipment = () => {
         const trackingNumber = order["Bill of lading"];
         if (!trackingNumber) {
@@ -95,7 +96,11 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3 text-gray-200 text-sm">
                     <p><strong>{t.deliveryNo}:</strong> {order["Delivery No"]}</p>
-                    <p><strong>{t.status}:</strong> {order.Status}</p>
+                    {/* UPRAVENO: Přidání animované ikony */}
+                    <div className="flex items-center gap-2">
+                        <strong>{t.status}:</strong>
+                        <AnimatedStatusIcon status={order.Status} />
+                    </div>
                     <p><strong>{t.deliveryType}:</strong> {order["del.type"]}</p>
                     <p><strong>{t.loadingDate}:</strong> {formattedLoadingDate}</p>
                     <p><strong>{t.forwardingAgent}:</strong> {order["Forwarding agent name"] || 'N/A'}</p>

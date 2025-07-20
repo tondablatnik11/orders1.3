@@ -4,9 +4,10 @@ import React, { useState, useMemo } from 'react';
 import { useUI } from '@/hooks/useUI';
 import { format, parseISO } from 'date-fns';
 import AnimatedStatusIcon from './AnimatedStatusIcon';
+import StaticStatusIcon from './StaticStatusIcon'; // NOVÉ
 import { ArrowUpDown } from 'lucide-react';
 
-// Hook pro řazení dat
+// Hook pro řazení dat (beze změny)
 const useSortableData = (items, config = null) => {
     const [sortConfig, setSortConfig] = useState(config);
 
@@ -43,7 +44,8 @@ const useSortableData = (items, config = null) => {
     return { items: sortedItems, requestSort, sortConfig };
 };
 
-export default function OrderListTable({ orders, onSelectOrder }) {
+// UPRAVENO: Přidán prop `useStaticIcons`
+export default function OrderListTable({ orders, onSelectOrder, useStaticIcons = false }) {
     const { t } = useUI();
     const { items, requestSort, sortConfig } = useSortableData(orders);
 
@@ -97,7 +99,13 @@ export default function OrderListTable({ orders, onSelectOrder }) {
                             onClick={() => onSelectOrder(order)}
                         >
                             <td className="py-3 px-4 text-sm font-medium text-white">{order["Delivery No"]}</td>
-                            <td className="py-3 px-4 text-sm"><AnimatedStatusIcon status={order.Status} /></td>
+                            {/* UPRAVENO: Podmíněné renderování ikon */}
+                            <td className="py-3 px-4 text-sm">
+                                {useStaticIcons 
+                                    ? <StaticStatusIcon status={order.Status} /> 
+                                    : <AnimatedStatusIcon status={order.Status} />
+                                }
+                            </td>
                             <td className="py-3 px-4 text-sm">{order["del.type"]}</td>
                             <td className="py-3 px-4 text-sm">{order["Loading Date"] ? format(parseISO(order["Loading Date"]), 'dd.MM.yyyy') : 'N/A'}</td>
                             <td className="py-3 px-4 text-sm">{order["Forwarding agent name"] || 'N/A'}</td>
