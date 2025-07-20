@@ -34,7 +34,6 @@ export default function StatusDistributionChart({ onBarClick }) {
     const [brushDomain, setBrushDomain] = useState({ startIndex: 0, endIndex: 0 });
     const [hiddenStatuses, setHiddenStatuses] = useState({});
 
-    // UPRAVENO: Zobrazení všech statusů bez agregace "Ostatní"
     const { stackedData, uniqueStatuses } = useMemo(() => {
         if (!summary || !summary.statusByLoadingDate) return { stackedData: [], uniqueStatuses: [] };
 
@@ -65,7 +64,8 @@ export default function StatusDistributionChart({ onBarClick }) {
     useEffect(() => {
         if (stackedData.length > 0) {
             const endIndex = stackedData.length - 1;
-            const startIndex = Math.max(0, endIndex - 30);
+            // OPRAVA ZDE: Změněno z 30 na 7 pro zobrazení posledních 8 dnů
+            const startIndex = Math.max(0, endIndex - 7); 
             setBrushDomain({ startIndex, endIndex });
         }
     }, [stackedData.length]);
