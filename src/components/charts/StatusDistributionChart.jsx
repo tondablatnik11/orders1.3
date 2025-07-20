@@ -62,33 +62,37 @@ export default function StatusDistributionChart({ onBarClick }) {
     }, [summary]);
 
     useEffect(() => {
-        if (stackedData.length > 0) {
+        if (stackedData && stackedData.length > 0) {
             const todayFormatted = format(new Date(), 'dd/MM');
-            const todayIndex = stackedData.findIndex(d => d.date === todayFormatted);
-            const visibleRange = 8; // Počet dnů viditelných v grafu
+            let todayIndex = stackedData.findIndex(d => d.date === todayFormatted);
+            const visibleRange = 8; // Celkový počet dnů k zobrazení
             
             let startIndex, endIndex;
 
-            if (todayIndex !== -1) {
-                // Vycentrovat na dnešní datum
-                const halfRange = Math.floor((visibleRange - 1) / 2);
-                startIndex = Math.max(0, todayIndex - halfRange);
-                endIndex = Math.min(stackedData.length - 1, startIndex + visibleRange - 1);
-                
-                // Pokud jsme na konci a nemůžeme zobrazit celý rozsah, posuneme start zpět
-                if (endIndex - startIndex < visibleRange - 1) {
+            // Pokud dnešní datum v datech není, použijeme poslední dostupný den jako referenci
+            if (todayIndex === -1) {
+                todayIndex = stackedData.length - 1;
+            }
+
+            // Výpočet pro vycentrování
+            const halfRangeBefore = Math.floor((visibleRange - 1) / 2); // Kolik dní zobrazit před
+            const halfRangeAfter = Math.ceil((visibleRange - 1) / 2);  // Kolik dní zobrazit po
+
+            startIndex = Math.max(0, todayIndex - halfRangeBefore);
+            endIndex = Math.min(stackedData.length - 1, todayIndex + halfRangeAfter);
+
+            // Korekce, pokud jsme na začátku nebo na konci datového rozsahu
+            if (endIndex - startIndex + 1 < visibleRange) {
+                if (startIndex === 0) {
+                    endIndex = Math.min(stackedData.length - 1, visibleRange - 1);
+                } else {
                     startIndex = Math.max(0, endIndex - visibleRange + 1);
                 }
-
-            } else {
-                // Pokud dnešní datum v datech není, zobrazíme posledních 8 dnů
-                endIndex = stackedData.length - 1;
-                startIndex = Math.max(0, endIndex - (visibleRange - 1));
             }
             
             setBrushDomain({ startIndex, endIndex });
         }
-    }, [stackedData.length]);
+    }, [stackedData]); // Spustí se pokaždé, když se změní `stackedData`
 
     const handleLegendClick = (e) => {
         const { dataKey } = e;
