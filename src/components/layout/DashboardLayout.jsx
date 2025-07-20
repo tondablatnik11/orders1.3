@@ -1,11 +1,14 @@
 // src/components/layout/DashboardLayout.jsx
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // UPRAVENO: Přidán useEffect
 import Sidebar from './Sidebar';
 import AppHeader from './AppHeader';
 import { useData } from '@/hooks/useData';
 import OrderDetailsModal from '../modals/OrderDetailsModal';
-import StatusHistoryModal from '../modals/StatusHistoryModal'; // Import historie
+import StatusHistoryModal from '../modals/StatusHistoryModal';
+
+// NOVÉ: Import XLSX knihovny
+import * as XLSX from 'xlsx';
 
 // Import všech komponent záložek
 import DashboardTab from '../tabs/DashboardTab';
@@ -22,9 +25,19 @@ import TicketsTab from '../tabs/TicketsTab';
 const DashboardLayout = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [globalSearchQuery, setGlobalSearchQuery] = useState('');
-    const [isSidebarOpen, setSidebarOpen] = useState(false); // Stav pro mobilní sidebar
+    const [isSidebarOpen, setSidebarOpen] = useState(false);
     
     const { selectedOrderDetails, setSelectedOrderDetails, statusHistory, setStatusHistory, fetchStatusHistory } = useData();
+
+    // NOVÉ: useEffect pro globální zpřístupnění XLSX knihovny
+    useEffect(() => {
+        // Tento kód se spustí pouze na straně klienta (v prohlížeči)
+        // a zajistí, že exportní funkce vždy najde potřebnou knihovnu.
+        if (typeof window !== 'undefined') {
+            window.XLSX = XLSX;
+        }
+    }, []);
+
 
     const renderActiveTab = () => {
         switch (activeTab) {
@@ -48,7 +61,6 @@ const DashboardLayout = () => {
 
     return (
         <div className="flex h-screen bg-slate-900 text-slate-200">
-            {/* Overlay pro zavření sidebaru na mobilu */}
             {isSidebarOpen && <div onClick={() => setSidebarOpen(false)} className="fixed inset-0 bg-black/60 z-30 lg:hidden"></div>}
             
             <Sidebar activeTab={activeTab} onTabChange={setActiveTab} isOpen={isSidebarOpen} />
@@ -60,7 +72,7 @@ const DashboardLayout = () => {
                         setActiveTab('orderSearch');
                     }} 
                     activeTab={activeTab}
-                    onMenuClick={() => setSidebarOpen(!isSidebarOpen)} // Předání funkce pro hamburger menu
+                    onMenuClick={() => setSidebarOpen(!isSidebarOpen)}
                 />
                 <main className="flex-1 overflow-y-auto p-4 md:p-6">
                     <div className="animate-fadeInUp">
