@@ -64,7 +64,7 @@ const D3OrdersOverTimeChart = ({ summary }) => {
         g.append("g")
             .attr("transform", `translate(0,${innerHeight})`)
             .call(d3.axisBottom(x).ticks(width / 80).tickSizeOuter(0).tickFormat(d3.timeFormat("%d.%m")))
-            .call(g => g.selectAll(".domain, .tick line").remove());
+            .call(g => g.selectAll(".domain").remove());
 
         g.append("g")
             .call(d3.axisLeft(y).ticks(height / 40))
@@ -73,28 +73,35 @@ const D3OrdersOverTimeChart = ({ summary }) => {
                 .attr("x2", innerWidth)
                 .attr("stroke-opacity", 0.1));
 
-        const area = (yValue) => d3.area()
-            .x(d => x(d.date))
-            .y0(innerHeight)
-            .y1(d => y(d[yValue]));
+        const area = (yValue, color) => {
+            const gradient = svg.append("defs").append("linearGradient")
+                .attr("id", `gradient-${yValue}`)
+                .attr("x1", "0%").attr("y1", "0%").attr("x2", "0%").attr("y2", "100%");
+            gradient.append("stop").attr("offset", "0%").style("stop-color", color).style("stop-opacity", 0.4);
+            gradient.append("stop").attr("offset", "100%").style("stop-color", color).style("stop-opacity", 0);
+
+            return d3.area()
+                .x(d => x(d.date))
+                .y0(innerHeight)
+                .y1(d => y(d[yValue]));
+        }
 
         const line = (yValue) => d3.line()
             .x(d => x(d.date))
             .y(d => y(d[yValue]));
 
-        g.append("path").datum(chartData).attr("fill", "rgba(136, 132, 216, 0.2)").attr("d", area("total"));
-        g.append("path").datum(chartData).attr("fill", "rgba(16, 185, 129, 0.2)").attr("d", area("completed"));
+        g.append("path").datum(chartData).attr("fill", "url(#gradient-total)").attr("d", area("total", "#8884d8"));
+        g.append("path").datum(chartData).attr("fill", "url(#gradient-completed)").attr("d", area("completed", "#10B981"));
         g.append("path").datum(chartData).attr("fill", "none").attr("stroke", "#8884d8").attr("stroke-width", 2).attr("d", line("total"));
         g.append("path").datum(chartData).attr("fill", "none").attr("stroke", "#10B981").attr("stroke-width", 2).attr("d", line("completed"));
         g.append("path").datum(chartData).attr("fill", "none").attr("stroke", "#FBBF24").attr("stroke-width", 2).attr("stroke-dasharray", "3,3").attr("d", line("movingAverage"));
 
-        // Tooltip logic
         const tooltip = d3.select(tooltipRef.current);
         const bisectDate = d3.bisector(d => d.date).left;
         const focus = g.append("g").style("display", "none");
         focus.append("line").attr("y1", 0).attr("y2", innerHeight).attr("stroke", "#6b7280").attr("stroke-width", 1);
-        focus.append("circle").attr("r", 4).attr("fill", "#8884d8").attr("stroke", "#111827").attr("stroke-width", 2);
-        focus.append("circle").attr("r", 4).attr("fill", "#10B981").attr("stroke", "#111827").attr("stroke-width", 2);
+        focus.append("circle").attr("r", 4).attr("class", "circle-total").attr("fill", "#8884d8").attr("stroke", "#111827").attr("stroke-width", 2);
+        focus.append("circle").attr("r", 4).attr("class", "circle-completed").attr("fill", "#10B981").attr("stroke", "#111827").attr("stroke-width", 2);
         
         svg.append("rect")
             .attr("transform", `translate(${margin.left},${margin.top})`)
@@ -113,7 +120,8 @@ const D3OrdersOverTimeChart = ({ summary }) => {
                 const d = x0 - d0.date > d1.date - x0 ? d1 : d0;
                 
                 focus.attr("transform", `translate(${x(d.date)},0)`);
-                focus.selectAll("circle").attr("cy", e => y(d[e])); // Toto je zjednodušení, pro přesnost by se musely kružnice oddělit
+                focus.select(".circle-total").attr("cy", y(d.total));
+                focus.select(".circle-completed").attr("cy", y(d.completed));
                 
                 tooltip.html(`
                     <div class="font-semibold text-white">${format(d.date, 'dd.MM.yyyy')}</div>
