@@ -12,12 +12,13 @@ import { SummaryCard } from '@/components/shared/SummaryCard';
 import { Card, CardContent } from '@/components/ui/Card';
 import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
 import StatusDistributionChart from '@/components/charts/StatusDistributionChart';
-import GeoChart from '@/components/charts/GeoChart';
+// UPRAVENO: Import nové D3 komponenty
+import D3GeoChart from '@/components/charts/D3GeoChart'; 
 import DonutChartCard from '@/components/charts/DonutChartCard';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-// NOVÉ: Import mapy kódů zemí
 import { countryCodeMap } from '@/lib/dataProcessor';
 
+// ... (ostatní skeleton komponenty zůstávají stejné)
 const SummaryCardSkeleton = () => (
     <div className="col-span-1 bg-slate-800 rounded-xl border border-slate-700 p-4 skeleton h-[88px]"></div>
 );
@@ -33,7 +34,6 @@ const ChartSkeleton = ({ height = 400 }) => (
         </CardContent>
     </Card>
 );
-
 
 const FeaturedKPICard = ({ title, value, icon: Icon, change, onClick }) => (
     <div
@@ -240,7 +240,8 @@ export default function DashboardTab({ setActiveTab }) {
                 
                 <div className="lg:col-span-8 space-y-6">
                     <StatusDistributionChart />
-                    <GeoChart data={summary.ordersByCountry} onCountryClick={handleCountryClick} />
+                    {/* UPRAVENO: Nahrazení GeoChart za D3GeoChart */}
+                    <D3GeoChart data={summary.ordersByCountry} onCountryClick={handleCountryClick} />
                     <Card>
                         <CardContent className="pt-6">
                             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Truck className="w-5 h-5 text-indigo-400" /> Dopravci</h2>
