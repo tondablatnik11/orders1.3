@@ -4,10 +4,9 @@ import React, { useState, useMemo } from 'react';
 import { useUI } from '@/hooks/useUI';
 import { format, parseISO } from 'date-fns';
 import AnimatedStatusIcon from './AnimatedStatusIcon';
-import StaticStatusIcon from './StaticStatusIcon'; // NOVÉ
+import StaticStatusIcon from './StaticStatusIcon';
 import { ArrowUpDown } from 'lucide-react';
 
-// Hook pro řazení dat (beze změny)
 const useSortableData = (items, config = null) => {
     const [sortConfig, setSortConfig] = useState(config);
 
@@ -44,7 +43,6 @@ const useSortableData = (items, config = null) => {
     return { items: sortedItems, requestSort, sortConfig };
 };
 
-// UPRAVENO: Přidán prop `useStaticIcons`
 export default function OrderListTable({ orders, onSelectOrder, useStaticIcons = false }) {
     const { t } = useUI();
     const { items, requestSort, sortConfig } = useSortableData(orders);
@@ -75,13 +73,15 @@ export default function OrderListTable({ orders, onSelectOrder, useStaticIcons =
     
     return (
         <div className="overflow-x-auto">
-            <table className="min-w-full bg-gray-800/50 rounded-lg">
+            {/* UPRAVENO: table-fixed a w-full zajistí, že se tabulka přizpůsobí šířce rodiče */}
+            <table className="min-w-full bg-gray-800/50 rounded-lg table-fixed w-full">
                 <thead className="bg-gray-700/50">
                     <tr>
                         {headers.map(header => (
                             <th 
                                 key={header.key}
-                                className="py-3 px-4 text-left text-xs font-semibold text-gray-300 uppercase tracking-wider cursor-pointer transition-colors hover:bg-gray-600/50"
+                                // UPRAVENO: Zmenšen padding a nastavení šířky pro poslední sloupec
+                                className={`py-3 px-2 text-left text-xs font-semibold text-gray-300 uppercase tracking-wider cursor-pointer transition-colors hover:bg-gray-600/50 ${header.key === 'Note' ? 'w-48' : ''}`}
                                 onClick={() => requestSort(header.key)}
                             >
                                 <div className="flex items-center">
@@ -98,22 +98,22 @@ export default function OrderListTable({ orders, onSelectOrder, useStaticIcons =
                             className="hover:bg-gray-700 transition-colors duration-150 cursor-pointer"
                             onClick={() => onSelectOrder(order)}
                         >
-                            <td className="py-3 px-4 text-sm font-medium text-white">{order["Delivery No"]}</td>
-                            {/* UPRAVENO: Podmíněné renderování ikon */}
-                            <td className="py-3 px-4 text-sm">
+                            {/* UPRAVENO: Zmenšen padding a velikost písma pro lepší fit */}
+                            <td className="py-2 px-2 text-xs font-medium text-white truncate">{order["Delivery No"]}</td>
+                            <td className="py-2 px-2 text-xs">
                                 {useStaticIcons 
                                     ? <StaticStatusIcon status={order.Status} /> 
                                     : <AnimatedStatusIcon status={order.Status} />
                                 }
                             </td>
-                            <td className="py-3 px-4 text-sm">{order["del.type"]}</td>
-                            <td className="py-3 px-4 text-sm">{order["Loading Date"] ? format(parseISO(order["Loading Date"]), 'dd.MM.yyyy') : 'N/A'}</td>
-                            <td className="py-3 px-4 text-sm">{order["Forwarding agent name"] || 'N/A'}</td>
-                            <td className="py-3 px-4 text-sm">{order["Name of ship-to party"] || 'N/A'}</td>
-                            <td className="py-3 px-4 text-sm">{order["Total Weight"] || 'N/A'}</td>
-                            <td className="py-3 px-4 text-sm">{order["Bill of lading"] || 'N/A'}</td>
-                            <td className="py-3 px-4 text-sm">{order["Country ship-to prty"] || 'N/A'}</td>
-                            <td className="py-3 px-4 text-sm text-gray-300 truncate max-w-xs">{order.Note || ''}</td>
+                            <td className="py-2 px-2 text-xs">{order["del.type"]}</td>
+                            <td className="py-2 px-2 text-xs">{order["Loading Date"] ? format(parseISO(order["Loading Date"]), 'dd.MM.yyyy') : 'N/A'}</td>
+                            <td className="py-2 px-2 text-xs truncate">{order["Forwarding agent name"] || 'N/A'}</td>
+                            <td className="py-2 px-2 text-xs truncate">{order["Name of ship-to party"] || 'N/A'}</td>
+                            <td className="py-2 px-2 text-xs">{order["Total Weight"] || 'N/A'}</td>
+                            <td className="py-2 px-2 text-xs truncate">{order["Bill of lading"] || 'N/A'}</td>
+                            <td className="py-2 px-2 text-xs">{order["Country ship-to prty"] || 'N/A'}</td>
+                            <td className="py-2 px-2 text-xs text-gray-300 truncate">{order.Note || ''}</td>
                         </tr>
                     ))}
                 </tbody>
