@@ -31,6 +31,7 @@ const D3OrdersOverTimeChart = ({ summary }) => {
             .map(day => ({ ...day, dateObj: parseISO(day.date) }))
             .sort((a, b) => a.dateObj - b.dateObj);
         
+        // Výpočet 7-denního klouzavého průměru
         const dataWithMovingAverage = sortedData.map((day, index, arr) => {
             const start = Math.max(0, index - 6);
             const slice = arr.slice(start, index + 1);
@@ -43,8 +44,9 @@ const D3OrdersOverTimeChart = ({ summary }) => {
             };
         });
 
-        if (timeRange === 0) return dataWithMovingAverage;
+        if (timeRange === 0) return dataWithMovingAverage; // 0 znamená všechna data
         return dataWithMovingAverage.slice(-timeRange);
+
     }, [summary, timeRange]);
 
     useEffect(() => {
