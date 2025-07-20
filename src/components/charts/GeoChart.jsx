@@ -1,6 +1,6 @@
 // src/components/charts/GeoChart.jsx
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import { ResponsiveChoropleth } from '@nivo/geo';
 import { useUI } from '@/hooks/useUI';
 import { Card, CardContent } from '../ui/Card';
@@ -9,7 +9,8 @@ import { MapOff } from 'lucide-react';
 
 const GeoChart = ({ data = [], onCountryClick }) => {
     const { t } = useUI();
-    
+    const [hoveredCountry, setHoveredCountry] = useState(null);
+
     if (!data || data.length === 0) {
         return (
             <Card>
@@ -39,7 +40,7 @@ const GeoChart = ({ data = [], onCountryClick }) => {
                             margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
                             colors="blues"
                             domain={[0, Math.max(...data.map(d => d.value), 1)]}
-                            unknownColor="#4B5563"
+                            unknownColor="#374151" // Tmavší pro lepší kontrast
                             label="properties.name"
                             valueFormat=".2s"
                             projectionType="mercator"
@@ -50,6 +51,13 @@ const GeoChart = ({ data = [], onCountryClick }) => {
                             graticuleLineColor="rgba(255, 255, 255, 0.1)"
                             borderWidth={0.5}
                             borderColor="#1F2937"
+                            // UPRAVENO: Dynamický border pro zvýraznění
+                            borderColor={(feature) => 
+                                hoveredCountry === feature.id ? '#38BDF8' : '#1F2937'
+                            }
+                            borderWidth={(feature) =>
+                                hoveredCountry === feature.id ? 2 : 0.5
+                            }
                             theme={{
                                 tooltip: { container: { background: '#1F2937', color: '#FFF' } },
                                 labels: { text: { fill: '#FFF' } },
@@ -66,9 +74,15 @@ const GeoChart = ({ data = [], onCountryClick }) => {
                     <div className="md:col-span-1">
                         <h3 className="text-lg font-semibold mb-2 text-gray-300">TOP 20 Zemí</h3>
                         <div className="space-y-2 h-[360px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-                            <ul className="space-y-2">
+                            <ul className="space-y-1">
                                 {topCountries.map(country => (
-                                    <li key={country.id} className="flex justify-between items-center bg-gray-800 p-2 rounded-md list-none">
+                                    <li 
+                                        key={country.id} 
+                                        className="flex justify-between items-center bg-gray-800 p-2 rounded-md list-none transition-all duration-200 hover:bg-gray-700"
+                                        onMouseEnter={() => setHoveredCountry(country.id)}
+                                        onMouseLeave={() => setHoveredCountry(null)}
+                                        onClick={() => onCountryClick && onCountryClick(country.id)}
+                                    >
                                         <span className="font-medium text-gray-200">{country.id}</span>
                                         <span className="font-bold text-blue-400">{country.value}</span>
                                     </li>
