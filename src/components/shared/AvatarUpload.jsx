@@ -20,7 +20,7 @@ export default function AvatarUpload({ uid, currentAvatarUrl, onUpload }) {
             const file = event.target.files[0];
             const fileExt = file.name.split('.').pop();
             // OPRAVA: Soubor se nyní ukládá do složky pojmenované podle UID uživatele.
-            // Příklad cesty: `public/ваш_uid/avatar.png`
+            // Příklad cesty: `public/vasi_uid/avatar.png`
             const filePath = `${uid}/avatar.${fileExt}`;
 
             const fileOptions = {
@@ -42,7 +42,8 @@ export default function AvatarUpload({ uid, currentAvatarUrl, onUpload }) {
             const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
             
             // Předáme novou URL rodičovské komponentě pro aktualizaci profilu
-            onUpload(data.publicUrl);
+            // Přidáme časovou značku, abychom obešli cache prohlížeče
+            onUpload(`${data.publicUrl}?t=${new Date().getTime()}`);
             toast.success("Avatar byl úspěšně nahrán!");
         } catch (error) {
             toast.error(`Chyba při nahrávání: ${error.message}`);
@@ -56,6 +57,7 @@ export default function AvatarUpload({ uid, currentAvatarUrl, onUpload }) {
             <Image
                 src={currentAvatarUrl || '/profile-avatar.png'}
                 alt="Avatar"
+                key={currentAvatarUrl} // Klíč pro vynucení znovunačtení obrázku
                 width={128}
                 height={128}
                 className="rounded-full object-cover w-32 h-32 border-4 border-slate-600 group-hover:opacity-60 transition-opacity"
