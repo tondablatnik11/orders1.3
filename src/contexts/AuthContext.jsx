@@ -31,14 +31,13 @@ export const AuthProvider = ({ children }) => {
                     if (userProfileSnap.exists()) {
                         setCurrentUserProfile({ uid: user.uid, ...userProfileSnap.data() });
                     } else {
-                        // UPRAVENO: Přidáno ukládání avatar_url při vytvoření nového profilu
                         const newProfile = { 
                             email: user.email, 
                             displayName: user.displayName || user.email.split('@')[0], 
                             function: '', 
                             isAdmin: false, 
                             createdAt: new Date().toISOString(),
-                            avatar_url: user.photoURL || null // <-- TOTO JE KLÍČOVÁ OPRAVA
+                            avatar_url: user.photoURL || null
                         };
                         await setDoc(userProfileRef, newProfile);
                         setCurrentUserProfile({ uid: user.uid, ...newProfile });
@@ -51,9 +50,6 @@ export const AuthProvider = ({ children }) => {
                 }
             } catch (error) {
                 console.error("Chyba při synchronizaci autentifikace:", error);
-                await supabase.auth.signOut();
-                setCurrentUser(null);
-                setCurrentUserProfile(null);
             } finally {
                 setLoading(false);
             }
@@ -74,18 +70,22 @@ export const AuthProvider = ({ children }) => {
     const updateUserProfile = async (uid, profileData) => {
         const userProfileRef = doc(db, `artifacts/${appId}/public/data/user_profiles`, uid);
         await updateDoc(userProfileRef, profileData, { merge: true });
+    };
+
+    // NOVÉ: Funkce pro aktualizaci URL avatara
+    const updateAvatarUrl = async (uid, newAvatarUrl) => {
+        await updateUserProfile(uid, { avatar_url: newAvatarUrl });
+        // Okamžitá aktualizace stavu pro rychlou odezvu v UI
         if (currentUser?.uid === uid) {
-            const userProfileSnap = await getDoc(userProfileRef);
-            if (userProfileSnap.exists()) {
-                setCurrentUserProfile({ uid, ...userProfileSnap.data() });
-            }
+            setCurrentUserProfile(prev => ({ ...prev, avatar_url: newAvatarUrl }));
         }
+        setAllUsers(prev => prev.map(u => u.uid === uid ? { ...u, avatar_url: newAvatarUrl } : u));
     };
     
     const value = useMemo(() => ({
-        loading, currentUser, user: currentUser, userProfile: currentUserProfile, currentUserProfile, allUsers, updateUserProfile, db, auth, appId, supabase,
+        loading, currentUser, user: currentUser, userProfile: currentUserProfile, allUsers, updateUserProfile, db, auth, appId, supabase,
+        updateAvatarUrl, // <-- Přidána nová funkce
         login: (email, password) => signInWithEmailAndPassword(auth, email, password),
-        register: (email, password) => createUserWithEmailAndPassword(auth, email, password),
         googleSignIn: () => { const provider = new GoogleAuthProvider(); return signInWithPopup(auth, provider); },
         logout: () => signOut(auth),
     }), [currentUser, currentUserProfile, loading, allUsers, appId, auth, supabase]);

@@ -1,4 +1,3 @@
-// src/components/shared/TicketCard.jsx
 "use client";
 import React from 'react';
 import { Draggable } from 'react-beautiful-dnd';
@@ -26,7 +25,7 @@ const TicketCard = ({ ticket, index, onClick }) => {
                     {...provided.draggableProps}
                     {...provided.dragHandleProps}
                     onClick={onClick}
-                    className={`bg-slate-700 p-3 rounded-lg mb-2 shadow-md hover:bg-slate-600 transition-colors cursor-pointer border-l-4 ${snapshot.isDragging ? 'border-blue-500 scale-105' : 'border-slate-600'}`}
+                    className={`bg-slate-700 p-3 rounded-lg mb-2 shadow-md hover:bg-slate-600 transition-all cursor-pointer border-l-4 ${snapshot.isDragging ? 'border-blue-500 scale-105 shadow-xl' : 'border-slate-600'}`}
                 >
                     <p className="font-semibold text-white mb-2">{ticket.title}</p>
                     
@@ -48,7 +47,12 @@ const TicketCard = ({ ticket, index, onClick }) => {
                         </div>
                         <div className="flex items-center gap-3 text-slate-400">
                            {ticket.attachmentUrl && <Paperclip className="w-4 h-4" />}
-                           {(ticket.commentCount || 0) > 0 && <div className="flex items-center gap-1"><MessageSquare className="w-4 h-4" /><span className="text-xs">{ticket.commentCount}</span></div>}
+                           {(ticket.commentCount || 0) > 0 && 
+                                <div className="flex items-center gap-1">
+                                    <MessageSquare className="w-4 h-4" />
+                                    <span className="text-xs">{ticket.commentCount}</span>
+                                </div>
+                           }
                         </div>
                     </div>
                 </div>

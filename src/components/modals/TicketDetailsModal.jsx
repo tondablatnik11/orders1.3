@@ -1,4 +1,3 @@
-// src/components/modals/TicketDetailsModal.jsx
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,6 +8,7 @@ import { format, parseISO } from 'date-fns';
 import { Send, Paperclip, User, Calendar, Tag } from 'lucide-react';
 import Image from 'next/image';
 
+// Pomocná komponenta pro zobrazení detailů
 const DetailItem = ({ icon: Icon, label, children }) => (
     <div>
         <p className="text-sm font-semibold text-gray-400 flex items-center gap-2"><Icon className="w-4 h-4" />{label}</p>
@@ -39,7 +39,7 @@ export default function TicketDetailsModal({ ticket, onClose }) {
             }
         });
         return () => unsubscribe();
-    }, [db, ticket, appId]);
+    }, [db, ticket, appId, ticket.commentCount, ticket.id]);
     
     useEffect(() => {
         commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -82,39 +82,45 @@ export default function TicketDetailsModal({ ticket, onClose }) {
                      <DetailItem icon={User} label={t.assignedTo}>
                         {assignee ? (
                             <div className="flex items-center gap-2">
-                                <Image src={assignee.avatar_url || '/profile-avatar.png'} width={24} height={24} alt="avatar" className="rounded-full" />
-                                <p>{assignee.displayName}</p>
+                                <Image 
+                                    src={assignee.avatar_url || '/profile-avatar.png'} 
+                                    width={24} 
+                                    height={24} 
+                                    alt="avatar" 
+                                    className="rounded-full" 
+                                />
+                                <p className="text-white">{assignee.displayName}</p>
                             </div>
-                        ) : 'Nepřiřazeno'}
+                        ) : <p className="text-gray-400">Nepřiřazeno</p>}
                     </DetailItem>
                     <DetailItem icon={User} label={t.createdBy}>
-                         <p>{ticketCreator?.displayName || 'N/A'}</p>
+                         <p className="text-white">{ticketCreator?.displayName || 'N/A'}</p>
                     </DetailItem>
                      <DetailItem icon={Calendar} label={t.createdAt}>
-                        <p>{format(parseISO(ticket.createdAt), 'dd.MM.yyyy HH:mm')}</p>
+                        <p className="text-white">{format(parseISO(ticket.createdAt), 'dd.MM.yyyy HH:mm')}</p>
                     </DetailItem>
                     {ticket.attachmentUrl && (
                          <DetailItem icon={Paperclip} label={t.attachment}>
-                            <a href={ticket.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">{ticket.attachmentName}</a>
+                            <a href={ticket.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline break-all">{ticket.attachmentName}</a>
                         </DetailItem>
                     )}
                 </div>
 
                 <div className="md:col-span-2">
                     <div className="bg-gray-900 p-4 rounded-lg mb-4">
-                        <h4 className="font-semibold mb-2">{t.ticketDescription}</h4>
-                        <p className="text-gray-300 whitespace-pre-wrap">{ticket.description}</p>
+                        <h4 className="font-semibold mb-2 text-gray-300">{t.ticketDescription}</h4>
+                        <p className="text-white whitespace-pre-wrap">{ticket.description}</p>
                     </div>
                     <div className="flex flex-col h-96 bg-gray-900 rounded-lg p-4">
                         <h4 className="font-semibold mb-3">Komentáře</h4>
-                        <div className="flex-grow overflow-y-auto space-y-4 pr-2">
+                        <div className="flex-grow overflow-y-auto space-y-4 pr-2 scrollbar-thin">
                             {comments.map((comment, index) => (
                                 <div key={index}>
                                     <div className="flex items-center gap-2 mb-1">
-                                        <p className="font-semibold text-sm">{comment.authorName}</p>
+                                        <p className="font-semibold text-sm text-white">{comment.authorName}</p>
                                         <p className="text-xs text-gray-400">{comment.timestamp?.toDate ? format(comment.timestamp.toDate(), 'dd.MM HH:mm') : ''}</p>
                                     </div>
-                                    <p className="bg-gray-700 p-3 rounded-lg text-sm">{comment.text}</p>
+                                    <p className="bg-gray-700 p-3 rounded-lg text-sm text-gray-200">{comment.text}</p>
                                 </div>
                             ))}
                             <div ref={commentsEndRef} />
@@ -124,10 +130,10 @@ export default function TicketDetailsModal({ ticket, onClose }) {
                                 type="text"
                                 value={newComment}
                                 onChange={(e) => setNewComment(e.target.value)}
-                                className="flex-grow p-2 rounded-lg bg-gray-700 border border-gray-600"
+                                className="flex-grow p-2 rounded-lg bg-gray-700 border border-gray-600 text-white"
                                 placeholder={t.typeMessage || "Napsat komentář..."}
                             />
-                            <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                            <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-500" disabled={!newComment.trim()}>
                                 <Send className="w-5 h-5" />
                             </button>
                         </form>
