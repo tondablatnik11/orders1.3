@@ -1,9 +1,9 @@
+// src/components/modals/OrderDetailsModal.jsx
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { useUI } from '@/hooks/useUI';
 import { useData } from '@/hooks/useData';
 import { useAuth } from '@/hooks/useAuth';
-// UPRAVENO: Změna cesty k importu
 import { Modal } from '../ui/Modal';
 import { History, Send, Truck } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
@@ -57,13 +57,24 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
         }
     };
     
+    // UPRAVENO: Funkce pro sledování zásilky nyní kontroluje dopravce
     const handleTrackShipment = () => {
         const trackingNumber = order["Bill of lading"];
         if (!trackingNumber) {
             alert("Číslo nákladního listu (Bill of Lading) není k dispozici.");
             return;
         }
-        const trackingUrl = `https://www.google.com/search?q=track+shipment+${trackingNumber}`;
+
+        let trackingUrl;
+
+        // Podmínka pro dopravce UPS
+        if (order["Forwarding agent name"] === "United Parcel Service CZ s. r. o.") {
+            trackingUrl = `https://www.ups.com/track?loc=cs_CZ&tracknum=${trackingNumber}`;
+        } else {
+            // Výchozí chování pro ostatní dopravce
+            trackingUrl = `https://www.google.com/search?q=track+shipment+${trackingNumber}`;
+        }
+        
         window.open(trackingUrl, '_blank');
     };
 
