@@ -3,21 +3,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useUI } from '@/hooks/useUI';
 import { useData } from '@/hooks/useData';
-import { useAuth } from '@/hooks/useAuth'; // NOVÉ
-import { Modal } from '@/components/ui/Modal';
-import { History, Send, Track } from 'lucide-react'; // NOVÉ
+import { useAuth } from '@/hooks/useAuth';
+// UPRAVENO: 'Track' ikona byla nahrazena za 'Truck'
+import { History, Send, Truck } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
 export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
     const { t } = useUI();
-    // UPRAVENO: Nahrazení handleSaveNote za nové funkce
     const { fetchOrderComments, addOrderComment } = useData();
-    const { user, userProfile, allUsers } = useAuth(); // NOVÉ
+    const { user, userProfile, allUsers } = useAuth();
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
     const commentsEndRef = useRef(null);
 
-    // NOVÉ: Načtení komentářů při otevření modálu
     useEffect(() => {
         const loadComments = async () => {
             const fetchedComments = await fetchOrderComments(order["Delivery No"]);
@@ -28,18 +26,14 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
         }
     }, [order, fetchOrderComments]);
 
-    // NOVÉ: Automatické scrollování na poslední komentář
     useEffect(() => {
         commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [comments]);
 
-
-    // NOVÉ: Funkce pro odeslání komentáře a detekci zmínek
     const handleAddComment = async (e) => {
         e.preventDefault();
         if (!newComment.trim() || !user) return;
 
-        // Detekce @zmínek
         const mentions = newComment.match(/@(\w+)/g) || [];
         const mentionedUserIds = mentions
             .map(mention => mention.substring(1))
@@ -47,7 +41,7 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
                 const foundUser = allUsers.find(u => (u.displayName || u.email.split('@')[0]) === username);
                 return foundUser ? foundUser.uid : null;
             })
-            .filter(uid => uid && uid !== user.uid); // Ujistíme se, že neposíláme notifikaci sami sobě
+            .filter(uid => uid && uid !== user.uid);
 
         const addedComment = await addOrderComment(
             order["Delivery No"],
@@ -63,14 +57,12 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
         }
     };
     
-    // NOVÉ: Funkce pro sledování zásilky
     const handleTrackShipment = () => {
         const trackingNumber = order["Bill of lading"];
         if (!trackingNumber) {
             alert("Číslo nákladního listu (Bill of Lading) není k dispozici.");
             return;
         }
-        // Simulace, která otevře obecnou sledovací stránku - v praxi by se volilo podle dopravce
         const trackingUrl = `https://www.google.com/search?q=track+shipment+${trackingNumber}`;
         window.open(trackingUrl, '_blank');
     };
@@ -97,7 +89,6 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
                     <p><strong>{t.shipToPartyName}:</strong> {order["Name of ship-to party"] || 'N/A'}</p>
                     <p><strong>{t.billOfLading}:</strong> {order["Bill of lading"] || 'N/A'}</p>
                 </div>
-                {/* UPRAVENO: Sekce pro komentáře */}
                 <div className="flex flex-col h-80 bg-gray-900 rounded-lg p-3">
                     <h4 className="font-semibold mb-2">Komentáře</h4>
                     <div className="flex-grow overflow-y-auto space-y-3 pr-2">
@@ -127,13 +118,13 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
                 </div>
             </div>
             <div className="mt-4 flex justify-end gap-2">
-                {/* NOVÉ: Tlačítko pro sledování zásilky */}
                 {order["Bill of lading"] && (
                     <button
                         onClick={handleTrackShipment}
                         className="bg-purple-600 text-white px-4 py-2 rounded-lg shadow hover:bg-purple-700 flex items-center gap-2"
                     >
-                        <Track className="w-5 h-5" /> Sledovat zásilku
+                        {/* UPRAVENO: Použití ikony Truck */}
+                        <Truck className="w-5 h-5" /> Sledovat zásilku
                     </button>
                 )}
                 {onShowHistory && (
