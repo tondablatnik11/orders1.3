@@ -10,17 +10,12 @@ import { OrderListModal } from '@/components/modals/OrderListModal';
 import { DailyOverviewCard } from '@/components/shared/DailyOverviewCard';
 import { SummaryCard, FeaturedKPICard } from '@/components/shared/SummaryCard';
 import { Card, CardContent } from '@/components/ui/Card';
-import DonutChartCard from '@/components/charts/DonutChartCard';
-
-// UPRAVENO: Vrácení původních Recharts grafů
 import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
 import StatusDistributionChart from '@/components/charts/StatusDistributionChart';
-// UPRAVENO: Původní D3GeoChart zůstává, protože funguje dobře
-import D3GeoChart from '@/components/charts/D3GeoChart';
+import DonutChartCard from '@/components/charts/DonutChartCard';
+import D3GeoChart from '../charts/D3GeoChart'; // Používáme D3 pro mapu
 import { countryCodeMap } from '@/lib/dataProcessor';
 
-
-// Kostry pro plynulé načítání
 const SummaryCardSkeleton = () => <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 skeleton h-[88px]"></div>;
 const DailyOverviewSkeleton = () => <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 min-w-[220px] flex-shrink-0 skeleton h-[180px]"></div>;
 const ChartSkeleton = ({ height = 400 }) => (
@@ -32,7 +27,7 @@ const ChartSkeleton = ({ height = 400 }) => (
 );
 
 export default function DashboardTab({ setActiveTab }) {
-    const { summary, allOrdersData, setSelectedOrderDetails, isLoadingData } = useData();
+    const { summary, previousSummary, allOrdersData, setSelectedOrderDetails, isLoadingData } = useData();
     const { t } = useUI();
     const [modalState, setModalState] = useState({ isOpen: false, title: '', orders: [] });
     const scrollContainerRef = useRef(null);
@@ -46,6 +41,13 @@ export default function DashboardTab({ setActiveTab }) {
             container.scrollTo({ left: scrollAmount, behavior: 'smooth' });
         }
     }, [summary]);
+
+    const getChange = (currentValue, previousValue) => {
+        if (previousSummary === null || currentValue === undefined || previousValue === undefined) {
+            return undefined;
+        }
+        return currentValue - previousValue;
+    };
 
     if (isLoadingData) {
         return (
@@ -85,9 +87,7 @@ export default function DashboardTab({ setActiveTab }) {
             if (!order["Loading Date"]) return false;
             try {
                 if (format(parseISO(order["Loading Date"]), 'yyyy-MM-dd') !== format(date, 'yyyy-MM-dd')) return false;
-            } catch (e) {
-                return false;
-            }
+            } catch (e) { return false; }
             if (statusFilter === 'all') return true;
             return statusFilter.includes(Number(order.Status));
         });
@@ -105,17 +105,13 @@ export default function DashboardTab({ setActiveTab }) {
 
         const filteredOrders = allOrdersData.filter(order => {
              if (!order["Loading Date"] || format(parseISO(order["Loading Date"]), 'yyyy-MM-dd') !== dateStr) return false;
-             if(statusKey === 'Ostatní') return true;
+             if(statusKey === 'Ostatní') return true; 
              const status = statusKey.replace('status', '');
              return String(order.Status) === status;
         });
         
         const statusName = clickedBar.name || statusKey;
-        setModalState({ 
-            isOpen: true, 
-            title: `${statusName} - ${format(parseISO(dateStr), 'dd.MM.yyyy')}`, 
-            orders: filteredOrders 
-        });
+        setModalState({ isOpen: true, title: `${statusName} - ${format(parseISO(dateStr), 'dd.MM.yyyy')}`, orders: filteredOrders });
     };
 
     const handleCountryClick = (countryCode3) => {
@@ -124,30 +120,27 @@ export default function DashboardTab({ setActiveTab }) {
         const countryCode2 = countryCodeMapReversed[countryCode3];
         const filteredOrders = allOrdersData.filter(order => order["Country ship-to prty"] === countryCode2);
         
-        setModalState({ 
-            isOpen: true, 
-            title: `${t.orderListFor} ${countryCode3}`, 
-            orders: filteredOrders 
-        });
+        setModalState({ isOpen: true, title: `${t.orderListFor} ${countryCode3}`, orders: filteredOrders });
     };
 
     const summaryCardsData = [
-        { labelKey: 'total', value: summary.total, icon: Info, color: 'blue' },
-        { labelKey: 'done', value: summary.doneTotal, icon: CheckCircle, color: 'green' },
-        { labelKey: 'active', value: summary.inProgressTotal + summary.newOrdersTotal, icon: Activity, color: 'yellow' },
+        { labelKey: 'total', value: summary.total, change: getChange(summary.total, previousSummary?.total), icon: Info, color: 'blue' },
+        { labelKey: 'done', value: summary.doneTotal, change: getChange(summary.doneTotal, previousSummary?.doneTotal), icon: CheckCircle, color: 'green' },
+        { labelKey: 'active', value: summary.inProgressTotal + summary.newOrdersTotal, change: getChange(summary.inProgressTotal + summary.newOrdersTotal, previousSummary?.inProgressTotal + previousSummary?.newOrdersTotal), icon: Activity, color: 'yellow' },
     ];
 
     return (
         <div className="space-y-8">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {summaryCardsData.map(card => (
-                    <SummaryCard key={card.labelKey} title={t[card.labelKey] || card.labelKey} value={card.value} icon={card.icon} color={card.color} />
+                    <SummaryCard key={card.labelKey} title={t[card.labelKey] || card.labelKey} value={card.value} icon={card.icon} color={card.color} change={card.change} />
                 ))}
                 <FeaturedKPICard 
                     title={t.delayed} 
                     value={summary.delayed} 
                     icon={AlertTriangle} 
                     onClick={() => setActiveTab('delayedOrders')}
+                    change={getChange(summary.delayed, previousSummary?.delayed)}
                 />
             </div>
             
@@ -179,10 +172,10 @@ export default function DashboardTab({ setActiveTab }) {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* UPRAVENO: Vrácení původních Recharts grafů */}
                 <StatusDistributionChart onBarClick={handleBarClick} />
                 <OrdersOverTimeChart summary={summary} />
             </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                  <div className="lg:col-span-8">
                     <D3GeoChart data={summary.ordersByCountry} onCountryClick={handleCountryClick} />
