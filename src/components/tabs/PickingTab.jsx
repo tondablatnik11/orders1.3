@@ -7,7 +7,6 @@ import { Package, Truck, Weight, Users } from 'lucide-react';
 
 // --- Pomocné komponenty pro přehlednost ---
 
-// Komponenta pro zobrazení jedné KPI karty
 const KpiCard = ({ title, value, unit, icon }) => (
     <div className="bg-white p-6 rounded-lg shadow-md flex items-center">
         <div className="bg-blue-100 p-3 rounded-full mr-4">{icon}</div>
@@ -20,7 +19,6 @@ const KpiCard = ({ title, value, unit, icon }) => (
     </div>
 );
 
-// Komponenta pro sekci importu
 const ImportSection = ({ onImportSuccess }) => {
     const [status, setStatus] = useState({ type: 'info', message: 'Přetáhněte soubor nebo klikněte pro nahrání.' });
     const supabase = getSupabase();
@@ -39,21 +37,29 @@ const ImportSection = ({ onImportSuccess }) => {
             if (jsonData.length === 0) throw new Error('Soubor je prázdný.');
 
             const processedData = jsonData.map(row => {
+                // --- ZDE JE KLÍČOVÁ OPRAVA ---
+                // 1. Očistíme sloupec "Weight"
                 const weightString = String(row['Weight'] || '0');
                 const cleanedWeight = parseFloat(weightString.replace(/,/g, ''));
+                
+                // 2. Očistíme i sloupec "Source actual qty."
+                const qtyString = String(row['Source actual qty.'] || '0');
+                const cleanedQty = parseFloat(qtyString.replace(/,/g, ''));
+
                 const destStorageBin = String(row['Dest.Storage Bin'] || '').trim();
 
+                // 3. Vrátíme kompletně očištěný objekt
                 return {
                     user_name: row['User'],
                     confirmation_date: row['Confirmation date'],
                     confirmation_time: row['Confirmation time'],
-                    weight: cleanedWeight,
+                    weight: cleanedWeight, // Očištěná váha
                     storage_unit_type: row['Storage Unit Type'],
                     source_storage_type: row['Source Storage Type'],
                     dest_storage_type: row['Dest. Storage Type'],
                     material: row['Material'],
                     source_storage_bin: row['Source Storage Bin'],
-                    source_actual_qty: row['Source actual qty.'],
+                    source_actual_qty: cleanedQty, // Očištěný počet kusů
                     dest_storage_bin: destStorageBin,
                     delivery_no: destStorageBin,
                 };
