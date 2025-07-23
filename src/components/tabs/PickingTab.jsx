@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { getSupabase } from '@/lib/supabaseClient';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import * as XLSX from 'xlsx';
+import { Package, Truck, Weight, Users } from 'lucide-react';
 
 // --- Pomocné komponenty pro přehlednost ---
 
@@ -26,7 +27,6 @@ const ImportSection = ({ onImportSuccess }) => {
 
     const handleFileUpload = useCallback(async (file) => {
         if (!file) return;
-
         setStatus({ type: 'loading', message: 'Načítám a zpracovávám soubor...' });
 
         try {
@@ -63,7 +63,7 @@ const ImportSection = ({ onImportSuccess }) => {
             if (error) throw error;
 
             setStatus({ type: 'success', message: `Hotovo! Naimportováno ${processedData.length} záznamů.` });
-            if (onImportSuccess) onImportSuccess(); // Zavolá funkci pro obnovení dat v dashboardu
+            if (onImportSuccess) onImportSuccess();
 
         } catch (error) {
             console.error("Detail chyby při importu:", error);
@@ -89,9 +89,7 @@ const ImportSection = ({ onImportSuccess }) => {
     );
 };
 
-
 // --- Hlavní komponenta záložky ---
-
 const PickingTab = () => {
     const [pickingData, setPickingData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -147,25 +145,20 @@ const PickingTab = () => {
     return (
         <div className="space-y-8">
             <ImportSection onImportSuccess={fetchData} />
-            
             <hr />
-
             <div>
                 <h1 className="text-3xl font-bold text-slate-800 mb-6">KPI Přehled Pickování</h1>
-                
                 {loading ? (
                     <div className="text-center p-8">Načítám KPI data...</div>
                 ) : (
                     <div className="space-y-8">
-                        {/* KPI Karty */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                            <KpiCard title="Celkem operací" value={stats.totalPicks.toLocaleString()} unit="ks" icon="📦" />
-                            <KpiCard title="Vypickováno kusů" value={stats.totalQty} unit="ks" icon="👌" />
-                            <KpiCard title="Celkem zvednuto" value={stats.totalWeight} unit="t" icon="⚖️" />
-                            <KpiCard title="Aktivních pickerů" value={stats.uniquePickers} unit="" icon="👥" />
+                            <KpiCard title="Celkem operací" value={stats.totalPicks.toLocaleString()} unit="ks" icon={<Package size={24} className="text-blue-500"/>} />
+                            <KpiCard title="Vypickováno kusů" value={stats.totalQty} unit="ks" icon={<Truck size={24} className="text-green-500"/>}/>
+                            <KpiCard title="Celkem zvednuto" value={stats.totalWeight} unit="t" icon={<Weight size={24} className="text-yellow-500"/>}/>
+                            <KpiCard title="Aktivních pickerů" value={stats.uniquePickers} unit="" icon={<Users size={24} className="text-indigo-500"/>}/>
                         </div>
 
-                        {/* Graf */}
                         <div className="bg-white p-6 rounded-lg shadow-md">
                             <h2 className="text-xl font-semibold mb-4 text-gray-900">Produktivita pickerů</h2>
                             <ResponsiveContainer width="100%" height={400}>
@@ -181,7 +174,6 @@ const PickingTab = () => {
                             </ResponsiveContainer>
                         </div>
 
-                        {/* Tabulka */}
                         <div className="bg-white rounded-lg shadow-md overflow-hidden">
                             <h2 className="text-xl font-semibold p-6 text-gray-900">Poslední operace</h2>
                             <div className="overflow-x-auto">
