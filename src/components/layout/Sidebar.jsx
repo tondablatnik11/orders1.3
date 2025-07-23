@@ -1,6 +1,5 @@
 'use client';
 import { forwardRef } from 'react';
-// 1. Přidán import ikony "PackageCheck"
 import { Home, Search, Bell, CalendarDays, Truck, Warehouse, AlertTriangle, LogOut, MessageSquare, Settings, Ticket, PackageCheck } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Image from 'next/image';
@@ -15,9 +14,9 @@ const Sidebar = forwardRef(({ activeTab, onTabChange, isOpen }, ref) => {
         { id: 'announcedLoadings', label: 'Ohlášené nakládky', icon: Bell },
         { id: 'dailySummary', label: 'Denní souhrn', icon: Truck },
         { id: 'warehouseActivities', label: 'Skladové aktivity', icon: Warehouse },
-        // --- 2. ZDE JE PŘIDANÁ NOVÁ POLOŽKA PRO PICKING ---
+        // --- ZDE JE FINÁLNÍ PODOBRA ZÁLOŽKY ---
         { id: 'picking', label: 'Pickování', icon: PackageCheck },
-        // ------------------------------------------------
+        // ------------------------------------
         { id: 'errorMonitor', label: 'Error Monitor', icon: AlertTriangle },
         { id: 'tickets', label: 'Tickety', icon: Ticket },
     ];

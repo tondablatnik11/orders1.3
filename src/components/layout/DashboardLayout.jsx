@@ -18,7 +18,7 @@ import WarehouseActivitiesTab from '../tabs/WarehouseActivitiesTab';
 import ChatTab from '../tabs/ChatTab';
 import SettingsTab from '../tabs/SettingsTab';
 import TicketsTab from '../tabs/TicketsTab';
-// 1. IMPORT NAŠÍ NOVÉ KOMPONENTY
+// --- ZDE JE FINÁLNÍ IMPORT ---
 import PickingTab from '../tabs/PickingTab';
 
 const DashboardLayout = () => {
@@ -43,13 +43,12 @@ const DashboardLayout = () => {
             case 'announcedLoadings': return <AnnouncedLoadingsTab />;
             case 'dailySummary': return <DailySummaryTab />;
             case 'warehouseActivities': return <WarehouseActivitiesTab />;
+            // --- ZDE JE FINÁLNÍ PODMÍNKA ---
+            case 'picking': return <PickingTab />;
             case 'errorMonitor': return <ErrorMonitorTab />;
             case 'tickets': return <TicketsTab />;
             case 'chat': return <ChatTab />;
             case 'settings': return <SettingsTab />;
-            // --- 2. PŘIDÁNÍ PODMÍNKY PRO VYKRESLENÍ ZÁLOŽKY ---
-            case 'picking': return <PickingTab />;
-            // --------------------------------------------------
             default: return <DashboardTab setActiveTab={setActiveTab} />;
         }
     };
