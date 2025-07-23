@@ -1,13 +1,10 @@
-// src/components/layout/DashboardLayout.jsx
 'use client';
-import React, { useState, useEffect } from 'react'; // UPRAVENO: Přidán useEffect
+import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import AppHeader from './AppHeader';
 import { useData } from '@/hooks/useData';
 import OrderDetailsModal from '../modals/OrderDetailsModal';
 import StatusHistoryModal from '../modals/StatusHistoryModal';
-
-// NOVÉ: Import XLSX knihovny
 import * as XLSX from 'xlsx';
 
 // Import všech komponent záložek
@@ -21,6 +18,8 @@ import WarehouseActivitiesTab from '../tabs/WarehouseActivitiesTab';
 import ChatTab from '../tabs/ChatTab';
 import SettingsTab from '../tabs/SettingsTab';
 import TicketsTab from '../tabs/TicketsTab';
+// 1. IMPORT NAŠÍ NOVÉ KOMPONENTY
+import PickingTab from '../tabs/PickingTab';
 
 const DashboardLayout = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -29,10 +28,7 @@ const DashboardLayout = () => {
     
     const { selectedOrderDetails, setSelectedOrderDetails, statusHistory, setStatusHistory, fetchStatusHistory } = useData();
 
-    // NOVÉ: useEffect pro globální zpřístupnění XLSX knihovny
     useEffect(() => {
-        // Tento kód se spustí pouze na straně klienta (v prohlížeči)
-        // a zajistí, že exportní funkce vždy najde potřebnou knihovnu.
         if (typeof window !== 'undefined') {
             window.XLSX = XLSX;
         }
@@ -51,6 +47,9 @@ const DashboardLayout = () => {
             case 'tickets': return <TicketsTab />;
             case 'chat': return <ChatTab />;
             case 'settings': return <SettingsTab />;
+            // --- 2. PŘIDÁNÍ PODMÍNKY PRO VYKRESLENÍ ZÁLOŽKY ---
+            case 'picking': return <PickingTab />;
+            // --------------------------------------------------
             default: return <DashboardTab setActiveTab={setActiveTab} />;
         }
     };
