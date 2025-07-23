@@ -28,16 +28,26 @@ const PickingTab = () => {
                 throw new Error('Soubor je prázdný nebo má neplatný formát.');
             }
 
-            const processedData = jsonData.map(row => ({
-                user_name: row['User'],
-                confirmation_date: row['Confirmation date'],
-                confirmation_time: row['Confirmation time'],
-                weight: row['Weight'],
-                storage_unit_type: row['Storage Unit Type'],
-                source_storage_type: row['Source Storage Type'],
-                dest_storage_type: row['Dest. Storage Type'],
-                material: row['Material']
-            }));
+            const processedData = jsonData.map(row => {
+                // --- ZDE JE KLÍČOVÁ OPRAVA ---
+                // 1. Získáme hodnotu 'Weight' a zajistíme, že je to text
+                const weightString = String(row['Weight'] || '0');
+                
+                // 2. Odstraníme z textu všechny čárky a převedeme ho na číslo
+                const cleanedWeight = parseFloat(weightString.replace(/,/g, ''));
+
+                // 3. Vrátíme opravený objekt
+                return {
+                    user_name: row['User'],
+                    confirmation_date: row['Confirmation date'],
+                    confirmation_time: row['Confirmation time'],
+                    weight: cleanedWeight, // Použijeme očištěnou hodnotu
+                    storage_unit_type: row['Storage Unit Type'],
+                    source_storage_type: row['Source Storage Type'],
+                    dest_storage_type: row['Dest. Storage Type'],
+                    material: row['Material']
+                };
+            });
 
             setStatus({ type: 'loading', message: `Nalezeno ${processedData.length} záznamů. Ukládám do databáze...` });
             
