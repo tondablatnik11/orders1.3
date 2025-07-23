@@ -49,10 +49,11 @@ const ImportSection = ({ onImportSuccess }) => {
                     confirmation_date: row['Confirmation date'],
                     confirmation_time: row['Confirmation time'],
                     weight: cleanedWeight,
+                    material: row['Material'],
+                    material_description: row['Material Description'], // Nový sloupec
                     storage_unit_type: row['Storage Unit Type'],
                     source_storage_type: row['Source Storage Type'],
                     dest_storage_type: row['Dest. Storage Type'],
-                    material: row['Material'],
                     source_storage_bin: row['Source Storage Bin'],
                     source_actual_qty: cleanedQty,
                     dest_storage_bin: destStorageBin,
@@ -101,11 +102,7 @@ const PickingTab = () => {
 
     const fetchData = useCallback(async () => {
         setLoading(true);
-        const { data, error } = await supabase
-            .from('picking_dashboard_data')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(5000);
+        const { data, error } = await supabase.from('picking_dashboard_data').select('*').order('created_at', { ascending: false }).limit(5000);
         if (error) console.error("Chyba při načítání dat o pickování:", error);
         else setPickingData(data || []);
         setLoading(false);
@@ -148,10 +145,16 @@ const PickingTab = () => {
 
     const handleDeliveryClick = (deliveryNo) => {
         const orderDetails = allOrdersData.find(order => order['Delivery No'] === deliveryNo);
-        if (orderDetails) setSelectedOrderDetails(orderDetails);
-        else {
+        const relatedPicking = pickingData.filter(p => p.delivery_no === deliveryNo);
+
+        if (orderDetails) {
+            setSelectedOrderDetails({
+                ...orderDetails,
+                picking_details: relatedPicking 
+            });
+        } else {
             console.warn(`Detail pro zakázku ${deliveryNo} nebyl nalezen.`);
-            setSelectedOrderDetails({ "Delivery No": deliveryNo });
+            setSelectedOrderDetails({ "Delivery No": deliveryNo, picking_details: relatedPicking });
         }
     };
 
@@ -171,7 +174,6 @@ const PickingTab = () => {
                             <KpiCard title="Celkem zvednuto" value={stats.totalWeight} unit="t" icon={<Weight size={24} className="text-amber-400"/>} color="bg-amber-900/50"/>
                             <KpiCard title="Aktivních pickerů" value={stats.uniquePickers} unit="" icon={<Users size={24} className="text-indigo-400"/>} color="bg-indigo-900/50"/>
                         </div>
-
                         <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
                             <h2 className="text-xl font-semibold mb-4 text-white">Produktivita pickerů</h2>
                             <ResponsiveContainer width="100%" height={400}>
@@ -186,7 +188,6 @@ const PickingTab = () => {
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
-
                         <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
                             <div className="p-6">
                                 <h2 className="text-xl font-semibold text-white">Detailní přehled operací</h2>
@@ -203,9 +204,8 @@ const PickingTab = () => {
                                         <tr>
                                             <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">Picker</th>
                                             <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">Zakázka</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">Pozice pickování</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">Počet kusů</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">Příjemce</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">Material</th>
+                                            <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">Popis materiálu</th>
                                             <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">Datum</th>
                                             <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">Čas</th>
                                         </tr>
@@ -215,9 +215,8 @@ const PickingTab = () => {
                                             <tr key={index} className="hover:bg-slate-700/50">
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-slate-300">{row.user_name}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-sky-400 font-semibold hover:underline cursor-pointer" onClick={() => handleDeliveryClick(row.delivery_no)}>{row.delivery_no}</td>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{row.source_storage_bin}</td>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{row.source_actual_qty}</td>
-                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{row.deliveries?.["Name of ship-to party"] || 'N/A'}</td>
+                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{row.material}</td>
+                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{row.material_description}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{new Date(row.confirmation_date).toLocaleDateString()}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{row.confirmation_time}</td>
                                             </tr>
