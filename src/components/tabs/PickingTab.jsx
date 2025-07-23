@@ -104,8 +104,8 @@ const PickingTab = () => {
     const fetchData = useCallback(async () => {
         setLoading(true);
         const { data, error } = await supabase
-            .from('picking_operations')
-            .select(`*, deliveries ( "Status", "Name of ship-to party" )`)
+            .from('picking_dashboard_data')
+            .select('*')
             .order('created_at', { ascending: false })
             .limit(5000);
 
