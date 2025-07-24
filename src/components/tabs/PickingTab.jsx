@@ -83,8 +83,8 @@ const PickingTab = () => {
     const [loading, setLoading] = useState(true);
     const [sortConfig, setSortConfig] = useState({ key: 'totalPicks', direction: 'desc' });
     const [dateRange, setDateRange] = useState({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
-    const [activityView, setActivityView] = useState('daily'); // 'daily' or 'weekly'
     const [activityDate, setActivityDate] = useState(new Date());
+    const [activityView, setActivityView] = useState('daily');
     const [selectedUsers, setSelectedUsers] = useState([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [filters, setFilters] = useState({ global: '' });
@@ -108,31 +108,6 @@ const PickingTab = () => {
         return pickingData.filter(op => op.confirmation_date && isWithinInterval(parseISO(op.confirmation_date), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) }));
     }, [pickingData, dateRange]);
 
-    const sortedFilteredData = useMemo(() => {
-        let sortableItems = [...filteredDataByDate].filter(row => 
-            Object.values(row).some(value => 
-                String(value).toLowerCase().includes(filters.global.toLowerCase())
-            )
-        );
-        if (sortConfig.key !== null) {
-            sortableItems.sort((a, b) => {
-                const valA = a[sortConfig.key];
-                const valB = b[sortConfig.key];
-                if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-                if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
-                return 0;
-            });
-        }
-        return sortableItems;
-    }, [filteredDataByDate, filters, sortConfig]);
-    
-    const paginatedData = useMemo(() => {
-        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-        return sortedFilteredData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-    }, [sortedFilteredData, currentPage]);
-    
-    const totalPages = Math.ceil(sortedFilteredData.length / ITEMS_PER_PAGE);
-    
     const stats = useMemo(() => {
         const data = filteredDataByDate;
         if (data.length === 0) return { totalPicks: '0', totalQty: '0', morningShiftPicks: 0, morningShiftQty: 0, afternoonShiftPicks: 0, afternoonShiftQty: 0, mostActivePicker: 'N/A' };
@@ -179,6 +154,8 @@ const PickingTab = () => {
         })).sort((a,b) => b.picks - a.picks);
     }, [filteredDataByDate]);
     
+    const allPickers = useMemo(() => [...new Set(pickingData.map(p => p.user_name).filter(Boolean))].sort(), [pickingData]);
+
     const activityChartData = useMemo(() => {
         const start = activityView === 'daily' ? startOfDay(activityDate) : startOfWeek(activityDate, { weekStartsOn: 1 });
         const end = activityView === 'daily' ? endOfDay(activityDate) : endOfWeek(activityDate, { weekStartsOn: 1 });
@@ -202,10 +179,8 @@ const PickingTab = () => {
             
             return dataPoint;
         });
-    }, [pickingData, activityDate, activityView]);
+    }, [pickingData, activityDate, activityView, allPickers]);
     
-    const allPickers = useMemo(() => [...new Set(pickingData.map(p => p.user_name).filter(Boolean))].sort(), [pickingData]);
-
     const activityChartSummary = useMemo(() => {
         const start = activityView === 'daily' ? startOfDay(activityDate) : startOfWeek(activityDate, { weekStartsOn: 1 });
         const end = activityView === 'daily' ? endOfDay(activityDate) : endOfWeek(activityDate, { weekStartsOn: 1 });
@@ -224,6 +199,31 @@ const PickingTab = () => {
         });
         return { morningPicks, morningQty, afternoonPicks, afternoonQty, totalPicks: data.length, totalQty: data.reduce((acc, op) => acc + (op.source_actual_qty || 0), 0) };
     }, [pickingData, activityDate, activityView, selectedUsers]);
+
+    const sortedFilteredData = useMemo(() => {
+        let sortableItems = [...filteredDataByDate].filter(row => 
+            Object.values(row).some(value => 
+                String(value).toLowerCase().includes(filters.global.toLowerCase())
+            )
+        );
+        if (sortConfig.key !== null) {
+            sortableItems.sort((a, b) => {
+                const valA = a[sortConfig.key];
+                const valB = b[sortConfig.key];
+                if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+        return sortableItems;
+    }, [filteredDataByDate, filters, sortConfig]);
+
+    const paginatedData = useMemo(() => {
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        return sortedFilteredData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [sortedFilteredData, currentPage]);
+    
+    const totalPages = Math.ceil(sortedFilteredData.length / ITEMS_PER_PAGE);
 
     const requestSort = (key) => {
         let direction = 'asc';
