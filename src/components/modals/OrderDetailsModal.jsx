@@ -1,8 +1,8 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
-// ZDE JE KLÍČOVÁ OPRAVA: Použití relativní cesty místo aliasu
-import { Button } from '../ui/button';
+// ZDE JE KLÍČOVÁ OPRAVA: Používáme alias cestu, která je robustnější pro build na serveru.
+import { Button } from '@/components/ui/button';
 import { useData } from '@/hooks/useData';
 import { useAuth } from '@/hooks/useAuth';
 import toast from 'react-hot-toast';
