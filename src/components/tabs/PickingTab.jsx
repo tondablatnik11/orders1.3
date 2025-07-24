@@ -6,13 +6,10 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import * as XLSX from 'xlsx';
 import { Package, Truck, Weight, Users, UploadCloud } from 'lucide-react';
 
-// --- Vylepšené pomocné komponenty ---
-
+// --- Pomocné komponenty ---
 const KpiCard = ({ title, value, unit, icon, color }) => (
     <div className="bg-slate-800 p-5 rounded-lg border border-slate-700 flex items-center">
-        <div className={`p-3 rounded-lg mr-4 ${color}`}>
-            {icon}
-        </div>
+        <div className={`p-3 rounded-lg mr-4 ${color}`}>{icon}</div>
         <div>
             <h3 className="text-sm font-medium text-slate-400">{title}</h3>
             <p className="mt-1 text-3xl font-semibold text-white">
@@ -50,7 +47,7 @@ const ImportSection = ({ onImportSuccess }) => {
                     confirmation_time: row['Confirmation time'],
                     weight: cleanedWeight,
                     material: row['Material'],
-                    material_description: row['Material Description'], // Nový sloupec
+                    material_description: row['Material Description'],
                     storage_unit_type: row['Storage Unit Type'],
                     source_storage_type: row['Source Storage Type'],
                     dest_storage_type: row['Dest. Storage Type'],
@@ -92,12 +89,15 @@ const ImportSection = ({ onImportSuccess }) => {
     );
 };
 
+
 // --- Hlavní komponenta ---
 const PickingTab = () => {
     const [pickingData, setPickingData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({ picker: '', zakazka: '', pozice: '' });
     const supabase = getSupabase();
+    
+    // OPRAVA: Hooky se volají na začátku komponenty
     const { allOrdersData, setSelectedOrderDetails } = useData();
 
     const fetchData = useCallback(async () => {
@@ -144,14 +144,12 @@ const PickingTab = () => {
     };
 
     const handleDeliveryClick = (deliveryNo) => {
+        // Nyní už jen pracujeme s daty, které jsme získali na začátku
         const orderDetails = allOrdersData.find(order => order['Delivery No'] === deliveryNo);
         const relatedPicking = pickingData.filter(p => p.delivery_no === deliveryNo);
 
         if (orderDetails) {
-            setSelectedOrderDetails({
-                ...orderDetails,
-                picking_details: relatedPicking 
-            });
+            setSelectedOrderDetails({ ...orderDetails, picking_details: relatedPicking });
         } else {
             console.warn(`Detail pro zakázku ${deliveryNo} nebyl nalezen.`);
             setSelectedOrderDetails({ "Delivery No": deliveryNo, picking_details: relatedPicking });
