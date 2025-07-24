@@ -2,10 +2,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { getSupabase } from '@/lib/supabaseClient';
 import { useData } from '@/hooks/useData';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart, Line } from 'recharts';
 import * as XLSX from 'xlsx';
-import { Package, Truck, Weight, Users, UploadCloud, ChevronDown, ChevronUp, ArrowUpDown, Clock, UserCheck, Sunrise, Sunset, Activity, Percent } from 'lucide-react';
-import { format, startOfDay, endOfDay, eachDayOfInterval, parseISO, isWithinInterval, startOfWeek, endOfWeek, eachHourOfInterval, formatISO } from 'date-fns';
+import { Package, Truck, Weight, Users, UploadCloud, ChevronDown, ChevronUp, ArrowUpDown, Clock, UserCheck, Sunrise, Sunset } from 'lucide-react';
+import { format, startOfDay, endOfDay, eachHourOfInterval, parseISO, isWithinInterval, differenceInDays, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, getWeek, getMonth } from 'date-fns';
 import { cs } from 'date-fns/locale';
 
 // --- Vylepšené pomocné komponenty ---
@@ -77,17 +77,20 @@ const ImportSection = ({ onImportSuccess }) => {
     );
 };
 
+
 // --- Hlavní komponenta ---
 const PickingTab = () => {
     const [pickingData, setPickingData] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [sortConfig, setSortConfig] = useState({ key: 'totalPicks', direction: 'desc' });
     const [dateRange, setDateRange] = useState({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
-    const [activityView, setActivityView] = useState('daily'); // 'daily' or 'weekly'
     const [activityDate, setActivityDate] = useState(new Date());
-    const [selectedUsers, setSelectedUsers] = useState([]);
-    
+    const [currentPage, setCurrentPage] = useState(1);
+    const [filters, setFilters] = useState({ global: '' });
+    const ITEMS_PER_PAGE = 15;
+
     const supabase = getSupabase();
-    const { setSelectedOrderDetails } = useData();
+    const { allOrdersData, setSelectedOrderDetails } = useData();
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -103,10 +106,31 @@ const PickingTab = () => {
         if (!dateRange.from || !dateRange.to) return [];
         return pickingData.filter(op => op.confirmation_date && isWithinInterval(parseISO(op.confirmation_date), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) }));
     }, [pickingData, dateRange]);
+    
+    const paginatedAndSortedData = useMemo(() => {
+        let filteredItems = [...filteredDataByDate].filter(row => 
+            Object.values(row).some(value => 
+                String(value).toLowerCase().includes(filters.global.toLowerCase())
+            )
+        );
+
+        if (sortConfig.key) {
+            filteredItems.sort((a, b) => {
+                if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+        
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        return filteredItems.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [filteredDataByDate, filters, sortConfig, currentPage]);
+
+    const totalPages = Math.ceil(filteredDataByDate.filter(row => Object.values(row).some(value => String(value).toLowerCase().includes(filters.global.toLowerCase()))).length / ITEMS_PER_PAGE);
 
     const stats = useMemo(() => {
         const data = filteredDataByDate;
-        if (data.length === 0) return { totalPicks: '0', totalQty: '0', morningShiftPicks: 0, morningShiftQty: 0, afternoonShiftPicks: 0, afternoonShiftQty: 0, mostActivePicker: 'N/A' };
+        if (data.length === 0) return { totalPicks: '0', morningShiftPicks: 0, morningShiftQty: 0, afternoonShiftPicks: 0, afternoonShiftQty: 0, mostActivePicker: 'N/A' };
         
         let morningShiftPicks = 0, morningShiftQty = 0, afternoonShiftPicks = 0, afternoonShiftQty = 0;
         const picksByUser = data.reduce((acc, op) => {
@@ -146,57 +170,40 @@ const PickingTab = () => {
         }, {});
         return Object.values(dataByPicker).map(p => ({
             ...p,
-            avgQtyPerPick: p.picks > 0 ? (p.qty / p.picks).toFixed(2) : 0
+            avgQtyPerPick: p.picks > 0 ? parseFloat((p.qty / p.picks).toFixed(2)) : 0
         })).sort((a,b) => b.picks - a.picks);
     }, [filteredDataByDate]);
     
     const activityChartData = useMemo(() => {
-        const start = activityView === 'daily' ? startOfDay(activityDate) : startOfWeek(activityDate, { weekStartsOn: 1 });
-        const end = activityView === 'daily' ? endOfDay(activityDate) : endOfWeek(activityDate, { weekStartsOn: 1 });
-        const interval = activityView === 'daily' ? eachHourOfInterval({ start, end }) : eachDayOfInterval({ start, end });
-        const formatString = activityView === 'daily' ? 'HH:00' : 'dd.MM';
-
+        const start = startOfDay(activityDate);
+        const end = endOfDay(activityDate);
         const relevantOps = pickingData.filter(op => op.confirmation_date && isWithinInterval(parseISO(op.confirmation_date), { start, end }));
-
-        return interval.map(date => {
-            let dataPoint = { name: format(date, formatString, { locale: cs }) };
-            const opsInInterval = relevantOps.filter(op => {
-                const opDate = parseISO(op.confirmation_date);
-                if (activityView === 'daily') {
-                    return op.confirmation_time && op.confirmation_time.startsWith(format(date, 'HH'));
-                }
-                return format(opDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
-            });
-
-            allPickers.forEach(picker => dataPoint[picker] = 0);
-            opsInHour.forEach(op => dataPoint[op.user_name] = (dataPoint[op.user_name] || 0) + 1);
-            
-            return dataPoint;
+        const hours = eachHourOfInterval({ start, end });
+        return hours.map(hour => {
+            const hourString = format(hour, 'HH:00');
+            const opsInHour = relevantOps.filter(op => op.confirmation_time && op.confirmation_time.startsWith(hourString.substring(0, 2)));
+            return { name: hourString, "Celkem operací": opsInHour.length };
         });
-    }, [pickingData, activityDate, activityView]);
+    }, [pickingData, activityDate]);
 
-    const allPickers = useMemo(() => [...new Set(pickingData.map(p => p.user_name).filter(Boolean))].sort(), [pickingData]);
+    const requestSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
+        setSortConfig({ key, direction });
+    };
 
-    const activityChartSummary = useMemo(() => {
-        const start = activityView === 'daily' ? startOfDay(activityDate) : startOfWeek(activityDate, { weekStartsOn: 1 });
-        const end = activityView === 'daily' ? endOfDay(activityDate) : endOfWeek(activityDate, { weekStartsOn: 1 });
-        
-        const data = pickingData.filter(op => 
-            op.confirmation_date && 
-            isWithinInterval(parseISO(op.confirmation_date), { start, end }) &&
-            (selectedUsers.length === 0 || selectedUsers.includes(op.user_name))
-        );
-        
-        let morningPicks = 0, morningQty = 0, afternoonPicks = 0, afternoonQty = 0;
-        data.forEach(op => {
-            if (op.confirmation_time) {
-                const hour = parseInt(op.confirmation_time.split(':')[0], 10);
-                if (hour >= 6 && hour < 14) { morningPicks++; morningQty += op.source_actual_qty || 0; }
-                else if (hour >= 14 && hour < 22) { afternoonPicks++; afternoonQty += op.source_actual_qty || 0; }
-            }
-        });
-        return { morningPicks, morningQty, afternoonPicks, afternoonQty, totalPicks: data.length, totalQty: data.reduce((acc, op) => acc + (op.source_actual_qty || 0), 0) };
-    }, [pickingData, activityDate, activityView, selectedUsers]);
+    const handleDeliveryClick = (deliveryNo) => {
+        const orderDetails = allOrdersData.find(order => order['Delivery No'] === deliveryNo);
+        const relatedPicking = pickingData.filter(p => p.delivery_no === deliveryNo);
+        if (orderDetails) setSelectedOrderDetails({ ...orderDetails, picking_details: relatedPicking });
+        else setSelectedOrderDetails({ "Delivery No": deliveryNo, picking_details: relatedPicking });
+    };
+    
+    const SortableHeader = ({ label, columnKey }) => (
+        <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase cursor-pointer hover:bg-slate-700" onClick={() => requestSort(columnKey)}>
+            <div className="flex items-center">{label}{sortConfig.key === columnKey ? <ArrowUpDown className="w-4 h-4 ml-2" /> : <ArrowUpDown className="w-4 h-4 ml-2 opacity-30" />}</div>
+        </th>
+    );
 
     return (
         <div className="space-y-8">
@@ -236,34 +243,59 @@ const PickingTab = () => {
                                 </ResponsiveContainer>
                             </div>
                             <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                                <h2 className="text-xl font-semibold mb-4 text-white">Aktivita v čase</h2>
+                                <h2 className="text-xl font-semibold mb-4 text-white">HodinovÁ aktivita (konkrétní den)</h2>
                                 <div className="flex flex-wrap items-center gap-4 mb-4">
-                                    <select value={activityView} onChange={e => setActivityView(e.target.value)} className="p-2 bg-slate-700 border border-slate-600 rounded-md text-white">
-                                        <option value="daily">Denní přehled</option>
-                                        <option value="weekly">Týdenní přehled</option>
-                                    </select>
                                     <input type="date" value={format(activityDate, 'yyyy-MM-dd')} onChange={e => setActivityDate(e.target.valueAsDate || new Date())} className="p-2 bg-slate-700 border border-slate-600 rounded-md text-white"/>
-                                    <select multiple value={selectedUsers} onChange={e => setSelectedUsers(Array.from(e.target.selectedOptions, option => option.value))} className="p-2 bg-slate-700 border border-slate-600 rounded-md text-white h-24 w-48">
-                                        {allPickers.map(p => <option key={p} value={p}>{p}</option>)}
-                                    </select>
-                                    <button onClick={() => setSelectedUsers([])} className="p-2 bg-slate-600 rounded-md text-white self-start">Všichni</button>
-                                </div>
-                                <div className="text-xs text-slate-400 mb-2 p-2 bg-slate-700/50 rounded">
-                                    Souhrn pro {selectedUsers.length > 0 ? selectedUsers.join(', ') : 'všechny'}: 
-                                    <b> Celkem:</b> {activityChartSummary.totalPicks} picků / {activityChartSummary.totalQty} ks.
-                                    <b> Ranní:</b> {activityChartSummary.morningPicks} picků / {activityChartSummary.morningQty} ks.
-                                    <b> Odpolední:</b> {activityChartSummary.afternoonPicks} picků / {activityChartSummary.afternoonQty} ks.
                                 </div>
                                 <ResponsiveContainer width="100%" height={350}>
-                                    <LineChart data={activityChartData}>
+                                    <AreaChart data={activityChartData}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
                                         <XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/>
                                         <YAxis tick={{fontSize: 12, fill: '#94a3b8'}}/>
-                                        <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}/>
-                                        <Legend />
-                                        { (selectedUsers.length > 0 ? selectedUsers : allPickers).slice(0, 5).map((user, i) => <Line key={user} type="monotone" dataKey={user} name={user} stroke={['#38bdf8', '#4ade80', '#facc15', '#a78bfa', '#f472b6'][i % 5]} strokeWidth={2} />)}
-                                    </LineChart>
+                                        <Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }}/>
+                                        <Area type="monotone" dataKey="Celkem operací" stroke="#38bdf8" fill="#38bdf8" fillOpacity={0.2} />
+                                    </AreaChart>
                                 </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+                            <div className="p-6">
+                                <h2 className="text-xl font-semibold text-white">Detailní přehled operací</h2>
+                                <div className="mt-4"><input type="text" placeholder="Hledat..." value={filters.global} onChange={(e) => { setFilters({global: e.target.value}); setCurrentPage(1); }} className="p-2 bg-slate-700 border border-slate-600 rounded-md w-full md:w-1/3 text-white placeholder-slate-400" /></div>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-slate-700">
+                                    <thead className="bg-slate-700/50"><tr>
+                                        <SortableHeader label="Picker" columnKey="user_name" />
+                                        <SortableHeader label="Zakázka" columnKey="delivery_no" />
+                                        <SortableHeader label="Pozice" columnKey="source_storage_bin" />
+                                        <SortableHeader label="Množství" columnKey="source_actual_qty" />
+                                        <SortableHeader label="Váha (kg)" columnKey="weight" />
+                                        <SortableHeader label="Datum" columnKey="confirmation_date" />
+                                        <SortableHeader label="Čas" columnKey="confirmation_time" />
+                                    </tr></thead>
+                                    <tbody className="bg-slate-800 divide-y divide-slate-700">
+                                        {paginatedData.map((row) => (
+                                            <tr key={row.id} className="hover:bg-slate-700/50">
+                                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-slate-300">{row.user_name}</td>
+                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-sky-400 font-semibold hover:underline cursor-pointer" onClick={() => handleDeliveryClick(row.delivery_no)}>{row.delivery_no}</td>
+                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{row.source_storage_bin}</td>
+                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{row.source_actual_qty}</td>
+                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{row.weight}</td>
+                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{row.confirmation_date ? format(parseISO(row.confirmation_date), 'dd.MM.yyyy') : ''}</td>
+                                                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{row.confirmation_time}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="p-4 flex justify-between items-center text-sm text-slate-400">
+                                <div>Strana {currentPage} z {totalPages}</div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1} className="p-2 bg-slate-700 rounded disabled:opacity-50 hover:bg-slate-600">Předchozí</button>
+                                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages} className="p-2 bg-slate-700 rounded disabled:opacity-50 hover:bg-slate-600">Další</button>
+                                </div>
                             </div>
                         </div>
                     </div>
