@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { getSupabase } from '@/lib/supabaseClient';
 import { useData } from '@/hooks/useData';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import * as XLSX from 'xlsx';
 import { Package, Truck, Weight, Users, UploadCloud, ChevronDown, ChevronUp, ArrowUpDown, Clock, UserCheck, Sunrise, Sunset } from 'lucide-react';
 import { format, startOfDay, endOfDay, eachHourOfInterval, parseISO, isWithinInterval, differenceInDays, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, getWeek, getMonth } from 'date-fns';
@@ -125,6 +125,13 @@ const PickingTab = () => {
         }
         return sortableItems;
     }, [filteredDataByDate, filters, sortConfig]);
+    
+    const paginatedData = useMemo(() => {
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        return sortedFilteredData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [sortedFilteredData, currentPage]);
+    
+    const totalPages = Math.ceil(sortedFilteredData.length / ITEMS_PER_PAGE);
 
     const stats = useMemo(() => {
         const data = filteredDataByDate;
@@ -158,17 +165,41 @@ const PickingTab = () => {
 
     const productivityChartData = useMemo(() => {
         const data = filteredDataByDate;
-        const picksByPicker = data.reduce((acc, row) => {
-            const picker = row.user_name || 'Neznámý';
-            if (!acc[picker]) {
-                acc[picker] = { name: picker, "Počet operací": 0, "Celkem kusů": 0 };
-            }
-            acc[picker]["Počet operací"] += 1;
-            acc[picker]["Celkem kusů"] += row.source_actual_qty || 0;
-            return acc;
-        }, {});
-        return Object.values(picksByPicker).sort((a,b) => b["Počet operací"] - a["Počet operací"]);
-    }, [filteredDataByDate]);
+        const diffDays = differenceInDays(dateRange.to, dateRange.from);
+        let interval, formatString, getIntervalKey;
+
+        if (diffDays <= 14) {
+            interval = eachDayOfInterval({ start: dateRange.from, end: dateRange.to });
+            formatString = 'dd.MM';
+            getIntervalKey = (date) => format(date, 'yyyy-MM-dd');
+        } else if (diffDays <= 90) {
+            interval = eachWeekOfInterval({ start: dateRange.from, end: dateRange.to }, { weekStartsOn: 1 });
+            formatString = "'T'ww";
+            getIntervalKey = (date) => `${getWeek(date, { weekStartsOn: 1, locale: cs })}-${date.getFullYear()}`;
+        } else {
+            interval = eachMonthOfInterval({ start: dateRange.from, end: dateRange.to });
+            formatString = 'MMMM yyyy';
+            getIntervalKey = (date) => `${getMonth(date) + 1}-${date.getFullYear()}`;
+        }
+
+        const pickers = [...new Set(data.map(p => p.user_name).filter(Boolean))];
+        const chartData = interval.map(date => {
+            const key = getIntervalKey(date);
+            const formattedDate = format(date, formatString, { locale: cs });
+            let periodData = { name: formattedDate };
+            pickers.forEach(picker => { periodData[picker] = 0; });
+            data.forEach(op => {
+                if(op.confirmation_date) {
+                    const opDate = parseISO(op.confirmation_date);
+                    if (getIntervalKey(opDate) === key) {
+                        periodData[op.user_name] = (periodData[op.user_name] || 0) + 1;
+                    }
+                }
+            });
+            return periodData;
+        });
+        return { data: chartData, pickers };
+    }, [filteredDataByDate, dateRange]);
     
     const activityByHourChartData = useMemo(() => {
         const start = startOfDay(activityDate);
@@ -176,22 +207,16 @@ const PickingTab = () => {
         const relevantOps = pickingData.filter(op => {
             if (!op.confirmation_date) return false;
             const opDate = parseISO(op.confirmation_date);
-            return isWithinInterval(opDate, { start, end });
+            return isWithinInterval(opDate, { start, end }) && (selectedUsers.length === 0 || selectedUsers.includes(op.user_name));
         });
-
         const hours = eachHourOfInterval({ start, end });
-        const data = hours.map(hour => {
+        return hours.map(hour => {
             const hourString = format(hour, 'HH:00');
-            let dataPoint = { name: hourString };
             const opsInHour = relevantOps.filter(op => op.confirmation_time && op.confirmation_time.startsWith(hourString.substring(0, 2)));
-            
-            opsInHour.forEach(op => {
-                dataPoint[op.user_name] = (dataPoint[op.user_name] || 0) + 1;
-            });
+            let dataPoint = { name: hourString, "Celkem operací": opsInHour.length };
             return dataPoint;
         });
-        return data;
-    }, [pickingData, activityDate]);
+    }, [pickingData, activityDate, selectedUsers]);
 
     const allPickers = useMemo(() => [...new Set(pickingData.map(p => p.user_name).filter(Boolean))].sort(), [pickingData]);
 
@@ -200,13 +225,6 @@ const PickingTab = () => {
         if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
         setSortConfig({ key, direction });
     };
-
-    const paginatedData = useMemo(() => {
-        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-        return sortedFilteredData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-    }, [sortedFilteredData, currentPage]);
-    
-    const totalPages = Math.ceil(sortedFilteredData.length / ITEMS_PER_PAGE);
 
     const handleDeliveryClick = (deliveryNo) => {
         const orderDetails = allOrdersData.find(order => order['Delivery No'] === deliveryNo);
@@ -243,40 +261,35 @@ const PickingTab = () => {
                             <KpiCard title="Nejaktivnější picker" value={stats.mostActivePicker} unit="" icon={<UserCheck size={24} className="text-pink-400"/>} color="bg-pink-900/50"/>
                         </div>
                         
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
+                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                            <div className="lg:col-span-3 bg-slate-800 p-6 rounded-lg border border-slate-700">
                                 <h2 className="text-xl font-semibold mb-4 text-white">Produktivita pickerů (dle období)</h2>
                                 <ResponsiveContainer width="100%" height={400}>
-                                    <BarChart data={productivityChartData} margin={{ top: 5, right: 20, left: 10, bottom: 80 }}>
+                                    <BarChart data={productivityChartData.data}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
-                                        <XAxis dataKey="name" angle={-45} textAnchor="end" interval={0} tick={{fontSize: 12, fill: '#94a3b8'}} />
-                                        <YAxis yAxisId="left" orientation="left" stroke="#38bdf8" tick={{fontSize: 12, fill: '#94a3b8'}}/>
-                                        <YAxis yAxisId="right" orientation="right" stroke="#4ade80" tick={{fontSize: 12, fill: '#94a3b8'}}/>
+                                        <XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/>
+                                        <YAxis tick={{fontSize: 12, fill: '#94a3b8'}}/>
                                         <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} cursor={{fill: 'rgba(148, 163, 184, 0.1)'}}/>
                                         <Legend />
-                                        <Bar yAxisId="left" dataKey="Počet operací" fill="#38bdf8" name="Počet operací" />
-                                        <Bar yAxisId="right" dataKey="Celkem kusů" fill="#4ade80" name="Celkem kusů" />
+                                        {productivityChartData.pickers.map((picker, i) => (
+                                            <Bar key={picker} dataKey={picker} name={picker} stackId="a" fill={['#38bdf8', '#4ade80', '#facc15', '#a78bfa', '#f472b6', '#2dd4bf'][i % 6]} />
+                                        ))}
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
-                            <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
+                            <div className="lg:col-span-2 bg-slate-800 p-6 rounded-lg border border-slate-700">
                                 <h2 className="text-xl font-semibold mb-4 text-white">HodinovÁ aktivita (konkrétní den)</h2>
                                 <div className="flex flex-wrap items-center gap-4 mb-4">
                                     <input type="date" value={format(activityDate, 'yyyy-MM-dd')} onChange={e => setActivityDate(e.target.valueAsDate || new Date())} className="p-2 bg-slate-700 border border-slate-600 rounded-md text-white"/>
-                                    <select multiple value={selectedUsers} onChange={e => setSelectedUsers(Array.from(e.target.selectedOptions, option => option.value))} className="p-2 bg-slate-700 border border-slate-600 rounded-md text-white h-24 w-48">
-                                        {allPickers.map(p => <option key={p} value={p}>{p}</option>)}
-                                    </select>
-                                    <button onClick={() => setSelectedUsers([])} className="p-2 bg-slate-600 rounded-md text-white self-start">Vybrat všechny</button>
                                 </div>
                                 <ResponsiveContainer width="100%" height={400}>
-                                    <LineChart data={activityByHourChartData}>
+                                    <AreaChart data={activityByHourChartData}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
                                         <XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/>
                                         <YAxis tick={{fontSize: 12, fill: '#94a3b8'}}/>
                                         <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}/>
-                                        <Legend />
-                                        { (selectedUsers.length > 0 ? selectedUsers : allPickers).map((user, i) => <Line key={user} type="monotone" dataKey={user} name={user} stroke={['#38bdf8', '#4ade80', '#facc15', '#a78bfa', '#f472b6', '#2dd4bf'][i % 6]} strokeWidth={2} />)}
-                                    </LineChart>
+                                        <Area type="monotone" dataKey="Celkem operací" stroke="#38bdf8" fill="#38bdf8" fillOpacity={0.2} />
+                                    </AreaChart>
                                 </ResponsiveContainer>
                             </div>
                         </div>
