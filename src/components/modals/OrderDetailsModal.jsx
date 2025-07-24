@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
-// ZDE JE KLÍČOVÁ OPRAVA: Používáme alias cestu, která je robustnější pro build na serveru.
+// Ponecháme alias cestu, která je v projektu standardem
 import { Button } from '@/components/ui/button';
 import { useData } from '@/hooks/useData';
 import { useAuth } from '@/hooks/useAuth';
