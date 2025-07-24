@@ -1,7 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
-// Použijeme alias cestu, která je v projektu standardem
 import { Button } from '@/components/ui/button';
 import { useData } from '@/hooks/useData';
 import { useAuth } from '@/hooks/useAuth';
@@ -15,7 +14,7 @@ const DetailRow = ({ label, value }) => (
     </div>
 );
 
-// Komponenta pro zobrazení detailů pickování
+// Nová, vylepšená komponenta pro zobrazení detailů pickování
 const PickingDetails = ({ details }) => {
     if (!details || details.length === 0) {
         return (
@@ -44,7 +43,7 @@ const PickingDetails = ({ details }) => {
                                 <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-700">{pick.user_name}</td>
                                 <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-700">
                                     <div>{pick.material}</div>
-                                    <div className="text-xs text-slate-500">{pick.material_description}</div>
+                                    <div className="text-xs text-slate-500" title={pick.material_description}>{pick.material_description}</div>
                                 </td>
                                 <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-700">{pick.source_actual_qty}</td>
                                 <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-700">{new Date(pick.confirmation_date).toLocaleDateString()} {pick.confirmation_time}</td>
