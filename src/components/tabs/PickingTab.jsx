@@ -82,13 +82,12 @@ const ImportSection = ({ onImportSuccess }) => {
 const PickingTab = () => {
     const [pickingData, setPickingData] = useState([]);
     const [loading, setLoading] = useState(true);
-    // ZDE BYLA CHYBA: Tento řádek chyběl
-    const [filters, setFilters] = useState({ global: '' });
     const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
     const [dateRange, setDateRange] = useState({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
     const [activityDate, setActivityDate] = useState(new Date());
     const [selectedUsers, setSelectedUsers] = useState([]);
     const [currentPage, setCurrentPage] = useState(1);
+    const [filters, setFilters] = useState({ global: '' });
     const ITEMS_PER_PAGE = 15;
 
     const supabase = getSupabase();
@@ -219,6 +218,13 @@ const PickingTab = () => {
         if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
         setSortConfig({ key, direction });
     };
+
+    const paginatedData = useMemo(() => {
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        return sortedFilteredData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [sortedFilteredData, currentPage]);
+    
+    const totalPages = Math.ceil(sortedFilteredData.length / ITEMS_PER_PAGE);
 
     const handleDeliveryClick = (deliveryNo) => {
         const orderDetails = allOrdersData.find(order => order['Delivery No'] === deliveryNo);
