@@ -5,7 +5,7 @@ import { useData } from '@/hooks/useData';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart, Line } from 'recharts';
 import * as XLSX from 'xlsx';
 import { Package, Truck, Weight, Users, UploadCloud, ChevronDown, ChevronUp, ArrowUpDown, Clock, UserCheck, Sunrise, Sunset } from 'lucide-react';
-import { format, startOfDay, endOfDay, eachHourOfInterval, parseISO, isWithinInterval, differenceInDays, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, getWeek, getMonth } from 'date-fns';
+import { format, startOfDay, endOfDay, eachHourOfInterval, parseISO, isWithinInterval, differenceInDays, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, getWeek, getMonth, startOfWeek, endOfWeek } from 'date-fns';
 import { cs } from 'date-fns/locale';
 
 // --- Vylepšené pomocné komponenty ---
@@ -81,8 +81,9 @@ const ImportSection = ({ onImportSuccess }) => {
 const PickingTab = () => {
     const [pickingData, setPickingData] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
+    const [sortConfig, setSortConfig] = useState({ key: 'totalPicks', direction: 'desc' });
     const [dateRange, setDateRange] = useState({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
+    const [activityView, setActivityView] = useState('daily'); // 'daily' or 'weekly'
     const [activityDate, setActivityDate] = useState(new Date());
     const [selectedUsers, setSelectedUsers] = useState([]);
     const [currentPage, setCurrentPage] = useState(1);
@@ -124,14 +125,14 @@ const PickingTab = () => {
         }
         return sortableItems;
     }, [filteredDataByDate, filters, sortConfig]);
-
+    
     const paginatedData = useMemo(() => {
         const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
         return sortedFilteredData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
     }, [sortedFilteredData, currentPage]);
     
     const totalPages = Math.ceil(sortedFilteredData.length / ITEMS_PER_PAGE);
-
+    
     const stats = useMemo(() => {
         const data = filteredDataByDate;
         if (data.length === 0) return { totalPicks: '0', totalQty: '0', morningShiftPicks: 0, morningShiftQty: 0, afternoonShiftPicks: 0, afternoonShiftQty: 0, mostActivePicker: 'N/A' };
@@ -202,7 +203,7 @@ const PickingTab = () => {
             return dataPoint;
         });
     }, [pickingData, activityDate, activityView]);
-
+    
     const allPickers = useMemo(() => [...new Set(pickingData.map(p => p.user_name).filter(Boolean))].sort(), [pickingData]);
 
     const activityChartSummary = useMemo(() => {
