@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { getSupabase } from '@/lib/supabaseClient';
 import { useData } from '@/hooks/useData';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart, Line } from 'recharts';
+// ZDE BYLA CHYBA: Přidán import pro LineChart a Line
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart, LineChart, Line } from 'recharts';
 import * as XLSX from 'xlsx';
 import { Package, Truck, Weight, Users, UploadCloud, ChevronDown, ChevronUp, ArrowUpDown, Clock, UserCheck, Sunrise, Sunset } from 'lucide-react';
 import { format, startOfDay, endOfDay, eachHourOfInterval, parseISO, isWithinInterval, differenceInDays, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, getWeek, getMonth, startOfWeek, endOfWeek } from 'date-fns';
@@ -107,6 +108,31 @@ const PickingTab = () => {
         if (!dateRange.from || !dateRange.to) return [];
         return pickingData.filter(op => op.confirmation_date && isWithinInterval(parseISO(op.confirmation_date), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) }));
     }, [pickingData, dateRange]);
+    
+    const sortedFilteredData = useMemo(() => {
+        let sortableItems = [...filteredDataByDate].filter(row => 
+            Object.values(row).some(value => 
+                String(value).toLowerCase().includes(filters.global.toLowerCase())
+            )
+        );
+        if (sortConfig.key !== null) {
+            sortableItems.sort((a, b) => {
+                const valA = a[sortConfig.key];
+                const valB = b[sortConfig.key];
+                if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+        return sortableItems;
+    }, [filteredDataByDate, filters, sortConfig]);
+
+    const paginatedData = useMemo(() => {
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        return sortedFilteredData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [sortedFilteredData, currentPage]);
+    
+    const totalPages = Math.ceil(sortedFilteredData.length / ITEMS_PER_PAGE);
 
     const stats = useMemo(() => {
         const data = filteredDataByDate;
@@ -200,31 +226,6 @@ const PickingTab = () => {
         return { morningPicks, morningQty, afternoonPicks, afternoonQty, totalPicks: data.length, totalQty: data.reduce((acc, op) => acc + (op.source_actual_qty || 0), 0) };
     }, [pickingData, activityDate, activityView, selectedUsers]);
 
-    const sortedFilteredData = useMemo(() => {
-        let sortableItems = [...filteredDataByDate].filter(row => 
-            Object.values(row).some(value => 
-                String(value).toLowerCase().includes(filters.global.toLowerCase())
-            )
-        );
-        if (sortConfig.key !== null) {
-            sortableItems.sort((a, b) => {
-                const valA = a[sortConfig.key];
-                const valB = b[sortConfig.key];
-                if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-                if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
-                return 0;
-            });
-        }
-        return sortableItems;
-    }, [filteredDataByDate, filters, sortConfig]);
-
-    const paginatedData = useMemo(() => {
-        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-        return sortedFilteredData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-    }, [sortedFilteredData, currentPage]);
-    
-    const totalPages = Math.ceil(sortedFilteredData.length / ITEMS_PER_PAGE);
-
     const requestSort = (key) => {
         let direction = 'asc';
         if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
@@ -316,7 +317,7 @@ const PickingTab = () => {
                         <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
                             <div className="p-6">
                                 <h2 className="text-xl font-semibold text-white">Detailní přehled operací</h2>
-                                <div className="mt-4"><input type="text" placeholder="Hledat..." value={filters.global} onChange={(e) => { setFilters({global: e.target.value}); setCurrentPage(1); }} className="p-2 bg-slate-700 border border-slate-600 rounded-md w-full md:w-1/3 text-white placeholder-slate-400" /></div>
+                                <div className="mt-4"><input type="text" placeholder="Hledat..." value={filters.global} onChange={(e) => { setFilters({global: e.target.value}); setCurrentPage(1); }} className="p-2 bg-slate-700 border border-slate-600 rounded-md w-full md:w-1-3 text-white placeholder-slate-400" /></div>
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="min-w-full divide-y divide-slate-700">
