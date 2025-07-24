@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { getSupabase } from '@/lib/supabaseClient';
 import { useData } from '@/hooks/useData';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart, Line } from 'recharts';
 import * as XLSX from 'xlsx';
 import { Package, Truck, Weight, Users, UploadCloud, ChevronDown, ChevronUp, ArrowUpDown, Clock, UserCheck, Sunrise, Sunset } from 'lucide-react';
 import { format, startOfDay, endOfDay, eachHourOfInterval, parseISO, isWithinInterval, differenceInDays, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, getWeek, getMonth, startOfWeek, endOfWeek } from 'date-fns';
@@ -81,7 +81,7 @@ const ImportSection = ({ onImportSuccess }) => {
 const PickingTab = () => {
     const [pickingData, setPickingData] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [sortConfig, setSortConfig] = useState({ key: 'totalPicks', direction: 'desc' });
+    const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
     const [dateRange, setDateRange] = useState({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
     const [activityDate, setActivityDate] = useState(new Date());
     const [activityView, setActivityView] = useState('daily');
@@ -107,25 +107,31 @@ const PickingTab = () => {
         if (!dateRange.from || !dateRange.to) return [];
         return pickingData.filter(op => op.confirmation_date && isWithinInterval(parseISO(op.confirmation_date), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) }));
     }, [pickingData, dateRange]);
-    
-    const paginatedAndSortedData = useMemo(() => {
-        let filteredItems = [...filteredDataByDate].filter(row => 
+
+    const sortedFilteredData = useMemo(() => {
+        let sortableItems = [...filteredDataByDate].filter(row => 
             Object.values(row).some(value => 
                 String(value).toLowerCase().includes(filters.global.toLowerCase())
             )
         );
-        if (sortConfig.key) {
-            filteredItems.sort((a, b) => {
-                if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
-                if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
+        if (sortConfig.key !== null) {
+            sortableItems.sort((a, b) => {
+                const valA = a[sortConfig.key];
+                const valB = b[sortConfig.key];
+                if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
                 return 0;
             });
         }
+        return sortableItems;
+    }, [filteredDataByDate, filters, sortConfig]);
+
+    const paginatedData = useMemo(() => {
         const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-        return filteredItems.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-    }, [filteredDataByDate, filters, sortConfig, currentPage]);
+        return sortedFilteredData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [sortedFilteredData, currentPage]);
     
-    const totalPages = Math.ceil(filteredDataByDate.filter(row => Object.values(row).some(value => String(value).toLowerCase().includes(filters.global.toLowerCase()))).length / ITEMS_PER_PAGE);
+    const totalPages = Math.ceil(sortedFilteredData.length / ITEMS_PER_PAGE);
 
     const stats = useMemo(() => {
         const data = filteredDataByDate;
@@ -299,9 +305,9 @@ const PickingTab = () => {
                                         <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
                                         <XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/>
                                         <YAxis tick={{fontSize: 12, fill: '#94a3b8'}}/>
-                                        <Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }}/>
+                                        <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}/>
                                         <Legend />
-                                        { (selectedUsers.length > 0 ? selectedUsers : allPickers).map((user, i) => <Line key={user} type="monotone" dataKey={user} name={user} stroke={['#38bdf8', '#4ade80', '#facc15', '#a78bfa', '#f472b6', '#2dd4bf'][i % 6]} strokeWidth={2} />)}
+                                        { (selectedUsers.length > 0 ? selectedUsers : allPickers).slice(0, 5).map((user, i) => <Line key={user} type="monotone" dataKey={user} name={user} stroke={['#38bdf8', '#4ade80', '#facc15', '#a78bfa', '#f472b6'][i % 5]} strokeWidth={2} />)}
                                     </LineChart>
                                 </ResponsiveContainer>
                             </div>
