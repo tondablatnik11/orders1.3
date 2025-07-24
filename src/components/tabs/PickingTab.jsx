@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { getSupabase } from '@/lib/supabaseClient';
 import { useData } from '@/hooks/useData';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart, Line } from 'recharts';
+// ZDE BYLA CHYBA: Přidán import pro LineChart a Line
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart, LineChart, Line } from 'recharts';
 import * as XLSX from 'xlsx';
 import { Package, Truck, Weight, Users, UploadCloud, ChevronDown, ChevronUp, ArrowUpDown, Clock, UserCheck, Sunrise, Sunset } from 'lucide-react';
 import { format, startOfDay, endOfDay, eachHourOfInterval, parseISO, isWithinInterval, differenceInDays, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, getWeek, getMonth, startOfWeek, endOfWeek } from 'date-fns';
@@ -81,7 +82,7 @@ const ImportSection = ({ onImportSuccess }) => {
 const PickingTab = () => {
     const [pickingData, setPickingData] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
+    const [sortConfig, setSortConfig] = useState({ key: 'totalPicks', direction: 'desc' });
     const [dateRange, setDateRange] = useState({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
     const [activityDate, setActivityDate] = useState(new Date());
     const [activityView, setActivityView] = useState('daily');
@@ -307,7 +308,7 @@ const PickingTab = () => {
                                         <YAxis tick={{fontSize: 12, fill: '#94a3b8'}}/>
                                         <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}/>
                                         <Legend />
-                                        { (selectedUsers.length > 0 ? selectedUsers : allPickers).slice(0, 5).map((user, i) => <Line key={user} type="monotone" dataKey={user} name={user} stroke={['#38bdf8', '#4ade80', '#facc15', '#a78bfa', '#f472b6'][i % 5]} strokeWidth={2} />)}
+                                        { (selectedUsers.length > 0 ? selectedUsers : allPickers).map((user, i) => <Line key={user} type="monotone" dataKey={user} name={user} stroke={['#38bdf8', '#4ade80', '#facc15', '#a78bfa', '#f472b6', '#2dd4bf'][i % 6]} strokeWidth={2} />)}
                                     </LineChart>
                                 </ResponsiveContainer>
                             </div>
