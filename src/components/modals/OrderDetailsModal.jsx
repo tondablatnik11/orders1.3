@@ -1,8 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
-// Použijeme alias cestu, která je v projektu standardem
-import { Button } from '@/components/ui/button';
+// Komponentu Button již neimportujeme, abychom předešli chybě
 import { useData } from '@/hooks/useData';
 import { useAuth } from '@/hooks/useAuth';
 import toast from 'react-hot-toast';
@@ -116,10 +115,11 @@ const OrderDetailsModal = ({ order, onClose, onShowHistory }) => {
                     ></textarea>
                 </div>
                 
+                {/* ZDE JE OPRAVA: Používáme standardní HTML tlačítka se styly */}
                 <div className="mt-6 flex justify-end gap-2">
-                    <Button onClick={() => onShowHistory(order['Delivery No'])} variant="outline">Zobrazit historii stavů</Button>
-                    <Button onClick={() => handleSaveNote(order['Delivery No'], note)}>Uložit poznámku</Button>
-                    <Button onClick={onClose}>Zavřít</Button>
+                    <button onClick={() => onShowHistory(order['Delivery No'])} className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-10 px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground">Zobrazit historii stavů</button>
+                    <button onClick={() => handleSaveNote(order['Delivery No'], note)} className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-10 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90">Uložit poznámku</button>
+                    <button onClick={onClose} className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium h-10 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90">Zavřít</button>
                 </div>
             </div>
         </Modal>
