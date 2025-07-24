@@ -82,6 +82,8 @@ const ImportSection = ({ onImportSuccess }) => {
 const PickingTab = () => {
     const [pickingData, setPickingData] = useState([]);
     const [loading, setLoading] = useState(true);
+    // ZDE BYLA CHYBA: Tento řádek chyběl
+    const [filters, setFilters] = useState({ global: '' });
     const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
     const [dateRange, setDateRange] = useState({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
     const [activityDate, setActivityDate] = useState(new Date());
@@ -106,6 +108,24 @@ const PickingTab = () => {
         if (!dateRange.from || !dateRange.to) return [];
         return pickingData.filter(op => op.confirmation_date && isWithinInterval(parseISO(op.confirmation_date), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) }));
     }, [pickingData, dateRange]);
+
+    const sortedFilteredData = useMemo(() => {
+        let sortableItems = [...filteredDataByDate].filter(row => 
+            Object.values(row).some(value => 
+                String(value).toLowerCase().includes(filters.global.toLowerCase())
+            )
+        );
+        if (sortConfig.key !== null) {
+            sortableItems.sort((a, b) => {
+                const valA = a[sortConfig.key];
+                const valB = b[sortConfig.key];
+                if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+        return sortableItems;
+    }, [filteredDataByDate, filters, sortConfig]);
 
     const stats = useMemo(() => {
         const data = filteredDataByDate;
@@ -199,27 +219,6 @@ const PickingTab = () => {
         if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
         setSortConfig({ key, direction });
     };
-
-    const sortedData = useMemo(() => {
-        let sortableItems = [...filteredDataByDate];
-        if (sortConfig.key !== null) {
-            sortableItems.sort((a, b) => {
-                const valA = a[sortConfig.key];
-                const valB = b[sortConfig.key];
-                if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-                if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
-                return 0;
-            });
-        }
-        return sortableItems;
-    }, [filteredDataByDate, sortConfig]);
-
-    const paginatedData = useMemo(() => {
-        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-        return sortedData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-    }, [sortedData, currentPage]);
-    
-    const totalPages = Math.ceil(sortedData.length / ITEMS_PER_PAGE);
 
     const handleDeliveryClick = (deliveryNo) => {
         const orderDetails = allOrdersData.find(order => order['Delivery No'] === deliveryNo);
