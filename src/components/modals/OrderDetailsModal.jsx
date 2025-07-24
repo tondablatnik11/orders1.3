@@ -1,10 +1,10 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
-import { Button } from '@/components/ui/button';
+// ZDE JE KLÍČOVÁ OPRAVA: Použití relativní cesty místo aliasu
+import { Button } from '../ui/button';
 import { useData } from '@/hooks/useData';
 import { useAuth } from '@/hooks/useAuth';
-import { getSupabase } from '@/lib/supabaseClient';
 import toast from 'react-hot-toast';
 
 // Komponenta pro zobrazení jednoho detailu objednávky
@@ -15,7 +15,7 @@ const DetailRow = ({ label, value }) => (
     </div>
 );
 
-// Nová komponenta pro zobrazení detailů pickování
+// Komponenta pro zobrazení detailů pickování
 const PickingDetails = ({ details }) => {
     if (!details || details.length === 0) {
         return (
@@ -60,7 +60,7 @@ const PickingDetails = ({ details }) => {
 const OrderDetailsModal = ({ order, onClose, onShowHistory }) => {
     if (!order) return null;
     
-    const { handleSaveNote, handleUpdateStatus, fetchOrderComments, addOrderComment } = useData();
+    const { handleSaveNote, fetchOrderComments, addOrderComment } = useData();
     const { user, userProfile } = useAuth();
     const [note, setNote] = useState(order.Note || "");
     const [comments, setComments] = useState([]);
@@ -82,7 +82,7 @@ const OrderDetailsModal = ({ order, onClose, onShowHistory }) => {
             newComment, 
             user.id, 
             userProfile.full_name,
-            [] // zde můžete přidat logiku pro zmínky
+            []
         );
 
         if (newCommentData) {
@@ -104,7 +104,6 @@ const OrderDetailsModal = ({ order, onClose, onShowHistory }) => {
                     </dl>
                 </div>
 
-                {/* Zde vložíme novou komponentu pro detaily pickování */}
                 <PickingDetails details={order.picking_details} />
 
                 <div className="mt-6">
