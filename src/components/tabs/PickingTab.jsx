@@ -77,14 +77,14 @@ const ImportSection = ({ onImportSuccess }) => {
     );
 };
 
-
 // --- Hlavní komponenta ---
 const PickingTab = () => {
     const [pickingData, setPickingData] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [sortConfig, setSortConfig] = useState({ key: 'totalPicks', direction: 'desc' });
+    const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
     const [dateRange, setDateRange] = useState({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
     const [activityDate, setActivityDate] = useState(new Date());
+    const [selectedUsers, setSelectedUsers] = useState([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [filters, setFilters] = useState({ global: '' });
     const ITEMS_PER_PAGE = 15;
@@ -106,31 +106,35 @@ const PickingTab = () => {
         if (!dateRange.from || !dateRange.to) return [];
         return pickingData.filter(op => op.confirmation_date && isWithinInterval(parseISO(op.confirmation_date), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) }));
     }, [pickingData, dateRange]);
-    
-    const paginatedAndSortedData = useMemo(() => {
-        let filteredItems = [...filteredDataByDate].filter(row => 
+
+    const sortedFilteredData = useMemo(() => {
+        let sortableItems = [...filteredDataByDate].filter(row => 
             Object.values(row).some(value => 
                 String(value).toLowerCase().includes(filters.global.toLowerCase())
             )
         );
-
-        if (sortConfig.key) {
-            filteredItems.sort((a, b) => {
-                if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
-                if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
+        if (sortConfig.key !== null) {
+            sortableItems.sort((a, b) => {
+                const valA = a[sortConfig.key];
+                const valB = b[sortConfig.key];
+                if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
                 return 0;
             });
         }
-        
-        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-        return filteredItems.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-    }, [filteredDataByDate, filters, sortConfig, currentPage]);
+        return sortableItems;
+    }, [filteredDataByDate, filters, sortConfig]);
 
-    const totalPages = Math.ceil(filteredDataByDate.filter(row => Object.values(row).some(value => String(value).toLowerCase().includes(filters.global.toLowerCase()))).length / ITEMS_PER_PAGE);
+    const paginatedData = useMemo(() => {
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        return sortedFilteredData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [sortedFilteredData, currentPage]);
+    
+    const totalPages = Math.ceil(sortedFilteredData.length / ITEMS_PER_PAGE);
 
     const stats = useMemo(() => {
         const data = filteredDataByDate;
-        if (data.length === 0) return { totalPicks: '0', morningShiftPicks: 0, morningShiftQty: 0, afternoonShiftPicks: 0, afternoonShiftQty: 0, mostActivePicker: 'N/A' };
+        if (data.length === 0) return { totalPicks: '0', totalQty: '0', morningShiftPicks: 0, morningShiftQty: 0, afternoonShiftPicks: 0, afternoonShiftQty: 0, mostActivePicker: 'N/A' };
         
         let morningShiftPicks = 0, morningShiftQty = 0, afternoonShiftPicks = 0, afternoonShiftQty = 0;
         const picksByUser = data.reduce((acc, op) => {
@@ -175,16 +179,50 @@ const PickingTab = () => {
     }, [filteredDataByDate]);
     
     const activityChartData = useMemo(() => {
-        const start = startOfDay(activityDate);
-        const end = endOfDay(activityDate);
+        const start = activityView === 'daily' ? startOfDay(activityDate) : startOfWeek(activityDate, { weekStartsOn: 1 });
+        const end = activityView === 'daily' ? endOfDay(activityDate) : endOfWeek(activityDate, { weekStartsOn: 1 });
+        const interval = activityView === 'daily' ? eachHourOfInterval({ start, end }) : eachDayOfInterval({ start, end });
+        const formatString = activityView === 'daily' ? 'HH:00' : 'dd.MM';
+
         const relevantOps = pickingData.filter(op => op.confirmation_date && isWithinInterval(parseISO(op.confirmation_date), { start, end }));
-        const hours = eachHourOfInterval({ start, end });
-        return hours.map(hour => {
-            const hourString = format(hour, 'HH:00');
-            const opsInHour = relevantOps.filter(op => op.confirmation_time && op.confirmation_time.startsWith(hourString.substring(0, 2)));
-            return { name: hourString, "Celkem operací": opsInHour.length };
+
+        return interval.map(date => {
+            let dataPoint = { name: format(date, formatString, { locale: cs }) };
+            const opsInInterval = relevantOps.filter(op => {
+                const opDate = parseISO(op.confirmation_date);
+                if (activityView === 'daily') {
+                    return op.confirmation_time && op.confirmation_time.startsWith(format(date, 'HH'));
+                }
+                return format(opDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
+            });
+            
+            allPickers.forEach(picker => dataPoint[picker] = 0);
+            opsInInterval.forEach(op => dataPoint[op.user_name] = (dataPoint[op.user_name] || 0) + 1);
+            
+            return dataPoint;
         });
-    }, [pickingData, activityDate]);
+    }, [pickingData, activityDate, activityView]);
+
+    const allPickers = useMemo(() => [...new Set(pickingData.map(p => p.user_name).filter(Boolean))].sort(), [pickingData]);
+
+    const activityChartSummary = useMemo(() => {
+        const start = activityView === 'daily' ? startOfDay(activityDate) : startOfWeek(activityDate, { weekStartsOn: 1 });
+        const end = activityView === 'daily' ? endOfDay(activityDate) : endOfWeek(activityDate, { weekStartsOn: 1 });
+        const data = pickingData.filter(op => 
+            op.confirmation_date && 
+            isWithinInterval(parseISO(op.confirmation_date), { start, end }) &&
+            (selectedUsers.length === 0 || selectedUsers.includes(op.user_name))
+        );
+        let morningPicks = 0, morningQty = 0, afternoonPicks = 0, afternoonQty = 0;
+        data.forEach(op => {
+            if (op.confirmation_time) {
+                const hour = parseInt(op.confirmation_time.split(':')[0], 10);
+                if (hour >= 6 && hour < 14) { morningPicks++; morningQty += op.source_actual_qty || 0; }
+                else if (hour >= 14 && hour < 22) { afternoonPicks++; afternoonQty += op.source_actual_qty || 0; }
+            }
+        });
+        return { morningPicks, morningQty, afternoonPicks, afternoonQty, totalPicks: data.length, totalQty: data.reduce((acc, op) => acc + (op.source_actual_qty || 0), 0) };
+    }, [pickingData, activityDate, activityView, selectedUsers]);
 
     const requestSort = (key) => {
         let direction = 'asc';
@@ -243,18 +281,33 @@ const PickingTab = () => {
                                 </ResponsiveContainer>
                             </div>
                             <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                                <h2 className="text-xl font-semibold mb-4 text-white">HodinovÁ aktivita (konkrétní den)</h2>
+                                <h2 className="text-xl font-semibold mb-4 text-white">Aktivita v čase</h2>
                                 <div className="flex flex-wrap items-center gap-4 mb-4">
+                                    <select value={activityView} onChange={e => setActivityView(e.target.value)} className="p-2 bg-slate-700 border border-slate-600 rounded-md text-white">
+                                        <option value="daily">Denní přehled</option>
+                                        <option value="weekly">Týdenní přehled</option>
+                                    </select>
                                     <input type="date" value={format(activityDate, 'yyyy-MM-dd')} onChange={e => setActivityDate(e.target.valueAsDate || new Date())} className="p-2 bg-slate-700 border border-slate-600 rounded-md text-white"/>
+                                    <select multiple value={selectedUsers} onChange={e => setSelectedUsers(Array.from(e.target.selectedOptions, option => option.value))} className="p-2 bg-slate-700 border border-slate-600 rounded-md text-white h-24 w-48">
+                                        {allPickers.map(p => <option key={p} value={p}>{p}</option>)}
+                                    </select>
+                                    <button onClick={() => setSelectedUsers([])} className="p-2 bg-slate-600 rounded-md text-white self-start">Všichni</button>
+                                </div>
+                                <div className="text-xs text-slate-400 mb-2 p-2 bg-slate-700/50 rounded">
+                                    Souhrn pro {selectedUsers.length > 0 ? selectedUsers.join(', ') : 'všechny'}: 
+                                    <b> Celkem:</b> {activityChartSummary.totalPicks} picků / {activityChartSummary.totalQty} ks.
+                                    <b> Ranní:</b> {activityChartSummary.morningPicks} picků / {activityChartSummary.morningQty} ks.
+                                    <b> Odpolední:</b> {activityChartSummary.afternoonPicks} picků / {activityChartSummary.afternoonQty} ks.
                                 </div>
                                 <ResponsiveContainer width="100%" height={350}>
-                                    <AreaChart data={activityChartData}>
+                                    <LineChart data={activityChartData}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
                                         <XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/>
                                         <YAxis tick={{fontSize: 12, fill: '#94a3b8'}}/>
-                                        <Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }}/>
-                                        <Area type="monotone" dataKey="Celkem operací" stroke="#38bdf8" fill="#38bdf8" fillOpacity={0.2} />
-                                    </AreaChart>
+                                        <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}/>
+                                        <Legend />
+                                        { (selectedUsers.length > 0 ? selectedUsers : allPickers).slice(0, 5).map((user, i) => <Line key={user} type="monotone" dataKey={user} name={user} stroke={['#38bdf8', '#4ade80', '#facc15', '#a78bfa', '#f472b6'][i % 5]} strokeWidth={2} />)}
+                                    </LineChart>
                                 </ResponsiveContainer>
                             </div>
                         </div>
