@@ -265,7 +265,7 @@ const PickingTab = () => {
                             <KpiCard title="Odpolední směna (14-22h)" value={stats.afternoonShiftPicks.toLocaleString()} unit="picků" subValue={stats.afternoonShiftQty.toLocaleString()} subUnit="kusů" icon={<Sunset size={24} className="text-indigo-400"/>} color="bg-indigo-900/50"/>
                             <KpiCard title="Nejaktivnější picker" value={stats.mostActivePicker} unit="" icon={<UserCheck size={24} className="text-pink-400"/>} color="bg-pink-900/50"/>
                         </div>
-                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
                             <h2 className="text-xl font-semibold mb-4 text-white">Produktivita pickerů (dle období)</h2>
                             <ResponsiveContainer width="100%" height={400}>
@@ -359,4 +359,4 @@ const PickingTab = () => {
 );
 };
 
-export default PickingTab;    
+export default PickingTab;
