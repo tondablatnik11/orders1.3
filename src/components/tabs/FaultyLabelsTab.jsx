@@ -2,38 +2,54 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getSupabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
+import { useData } from '@/hooks/useData';
 import Modal from '@/components/ui/Modal';
 import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
-
-// Definujeme klienta Supabase jednou na úrovni modulu,
-// abychom předešli jakýmkoliv problémům s opakovanou inicializací.
-const supabase = getSupabase();
 
 const FaultyLabelsTab = () => {
     const [labels, setLabels] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedLabel, setSelectedLabel] = useState(null);
     const [newComment, setNewComment] = useState('');
+    const [pickingData, setPickingData] = useState([]); // <-- Nový stav pro picking data
+    const supabase = getSupabase();
     const { userProfile } = useAuth();
+    const { allOrdersData, setSelectedOrderDetails } = useData();
 
     const fetchData = useCallback(async () => {
         setLoading(true);
-        const { data, error } = await supabase.from('faulty_labels').select('*').order('created_at', { ascending: false });
-        if (error) {
+        // Načteme jak chybné etikety, tak data o pickování
+        const { data: labelsData, error: labelsError } = await supabase.from('faulty_labels').select('*').order('created_at', { ascending: false });
+        const { data: pickingOpsData, error: pickingError } = await supabase.from('picking_operations').select('*');
+
+        if (labelsError || pickingError) {
             toast.error('Chyba při načítání dat.');
-            console.error(error);
+            console.error(labelsError || pickingError);
         } else {
-            setLabels(data || []);
+            setLabels(labelsData || []);
+            setPickingData(pickingOpsData || []);
         }
         setLoading(false);
-    }, []);
+    }, [supabase]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
 
+    // Funkce pro otevření hlavního detailu objednávky
+    const openOrderDetails = (deliveryNo) => {
+        const orderDetails = allOrdersData.find(order => order['Delivery No'] === deliveryNo);
+        const relatedPicking = pickingData.filter(p => p.delivery_no === deliveryNo);
+        
+        if (orderDetails) {
+            setSelectedOrderDetails({ ...orderDetails, picking_details: relatedPicking });
+        } else {
+            toast.error(`Zakázka ${deliveryNo} nebyla nalezena.`);
+        }
+    };
+    
     const handleAddLabel = async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -47,28 +63,27 @@ const FaultyLabelsTab = () => {
 
         const { error } = await supabase.from('faulty_labels').insert(newLabel);
         if (error) {
-            toast.error(`Nepodařilo se přidat záznam: ${error.message}`);
+            toast.error('Nepodařilo se přidat záznam.');
         } else {
             toast.success('Záznam úspěšně přidán.');
             e.target.reset();
-            await fetchData(); // Čekáme na dokončení načtení nových dat
+            fetchData();
         }
     };
     
     const handleStatusChange = async (newStatus) => {
-        if (!selectedLabel) return;
         const { error } = await supabase.from('faulty_labels').update({ status: newStatus, updated_at: new Date() }).eq('id', selectedLabel.id);
         if (error) {
             toast.error('Chyba při změně stavu.');
         } else {
             toast.success('Stav aktualizován.');
             setSelectedLabel(prev => ({...prev, status: newStatus}));
-            await fetchData();
+            fetchData();
         }
     };
 
     const handleAddComment = async () => {
-        if (!newComment.trim() || !selectedLabel) return;
+        if (!newComment.trim()) return;
         const comment = {
             label_id: selectedLabel.id,
             author_name: userProfile?.full_name || 'Neznámý',
@@ -87,7 +102,16 @@ const FaultyLabelsTab = () => {
     const openDetails = async (label) => {
         const { data: comments, error } = await supabase.from('label_comments').select('*').eq('label_id', label.id).order('created_at');
         if(error) toast.error("Chyba při načítání komentářů.");
-        setSelectedLabel({...label, comments: comments || []});
+        
+        const orderDetails = allOrdersData.find(order => order['Delivery No'] === label.delivery_no);
+        const relatedPicking = pickingData.filter(p => p.delivery_no === label.delivery_no);
+
+        setSelectedLabel({
+            ...label, 
+            comments: comments || [],
+            orderDetails: orderDetails,
+            pickingDetails: relatedPicking
+        });
     };
 
     return (
@@ -104,9 +128,7 @@ const FaultyLabelsTab = () => {
             </div>
 
             <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-                 <div className="p-6">
-                    <h2 className="text-xl font-semibold text-white">Přehled chybných etiket</h2>
-                </div>
+                 <div className="p-6"><h2 className="text-xl font-semibold text-white">Přehled chybných etiket</h2></div>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-slate-700">
                         <thead className="bg-slate-700/50">
@@ -122,22 +144,18 @@ const FaultyLabelsTab = () => {
                         <tbody className="bg-slate-800 divide-y divide-slate-700">
                             {labels.map(label => (
                                 <tr key={label.id} className="hover:bg-slate-700/50">
-                                    <td className="px-4 py-4 text-sm text-sky-400 font-semibold">{label.delivery_no}</td>
+                                    <td className="px-4 py-4 text-sm text-sky-400 font-semibold hover:underline cursor-pointer" onClick={() => openOrderDetails(label.delivery_no)}>{label.delivery_no}</td>
                                     <td className="px-4 py-4 text-sm text-slate-300">{label.error_description}</td>
                                     <td className="px-4 py-4 text-sm text-slate-300">
                                         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                                             label.status === 'Nové' ? 'bg-red-900 text-red-200' :
                                             label.status === 'V řešení' ? 'bg-amber-900 text-amber-200' :
                                             'bg-green-900 text-green-200'
-                                        }`}>
-                                            {label.status}
-                                        </span>
+                                        }`}>{label.status}</span>
                                     </td>
                                     <td className="px-4 py-4 text-sm text-slate-400">{label.reporter_name}</td>
                                     <td className="px-4 py-4 text-sm text-slate-400">{format(new Date(label.created_at), 'dd.MM.yyyy HH:mm')}</td>
-                                    <td className="px-4 py-4 text-sm">
-                                        <Button onClick={() => openDetails(label)} variant="outline">Detail</Button>
-                                    </td>
+                                    <td className="px-4 py-4 text-sm"><Button onClick={() => openDetails(label)} variant="outline">Detail chyby</Button></td>
                                 </tr>
                             ))}
                         </tbody>
@@ -146,19 +164,19 @@ const FaultyLabelsTab = () => {
             </div>
             
             {selectedLabel && (
-                <Modal isOpen={!!selectedLabel} onClose={() => setSelectedLabel(null)} title={`Detail etikety: ${selectedLabel.delivery_no}`}>
-                    <div className="p-6 space-y-4">
-                        <div><strong>Popis:</strong> {selectedLabel.error_description}</div>
-                        <div><strong>Země:</strong> {selectedLabel.country}</div>
-                        <div><strong>Umístění:</strong> {selectedLabel.location}</div>
+                <Modal isOpen={!!selectedLabel} onClose={() => setSelectedLabel(null)} title={`Detail chyby etikety: ${selectedLabel.delivery_no}`}>
+                    <div className="p-6 space-y-4 text-slate-800">
+                        <div><strong>Popis chyby:</strong> {selectedLabel.error_description}</div>
+                        {selectedLabel.pickingDetails?.map((p, i) => <div key={i}><strong>Picker:</strong> {p.user_name} ({new Date(p.confirmation_date).toLocaleDateString()} {p.confirmation_time})</div>)}
+                        {selectedLabel.orderDetails && <div><strong>Příjemce:</strong> {selectedLabel.orderDetails['Name of ship-to party']} ({selectedLabel.orderDetails['Country ship-to prty']})</div>}
                         <div className="flex items-center gap-4">
                             <strong>Stav:</strong>
                             <Button onClick={() => handleStatusChange('V řešení')} variant={selectedLabel.status === 'V řešení' ? 'default' : 'secondary'}>V řešení</Button>
                             <Button onClick={() => handleStatusChange('Vyřešeno')} variant={selectedLabel.status === 'Vyřešeno' ? 'default' : 'secondary'}>Vyřešeno</Button>
                         </div>
-                        <hr className="border-slate-200"/>
+                        <hr/>
                         <h4 className="font-semibold">Komentáře:</h4>
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                        <div className="space-y-2 max-h-48 overflow-y-auto bg-slate-50 p-2 rounded">
                             {selectedLabel.comments.map(c => (
                                 <div key={c.id} className="text-sm bg-slate-100 p-2 rounded">
                                     <span className="font-semibold">{c.author_name}:</span> {c.comment_text}
