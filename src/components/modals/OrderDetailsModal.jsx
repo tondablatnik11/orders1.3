@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useUI } from '@/hooks/useUI';
 import { useData } from '@/hooks/useData';
 import { useAuth } from '@/hooks/useAuth';
-import { Modal } from '@/components/ui/Modal'; // Použijeme alias pro konzistenci
+// ZDE JE KLÍČOVÁ OPRAVA: Importujeme Modal jako "default"
+import Modal from '@/components/ui/Modal';
 import { History, Send, Truck, Package, User, Hash, Calendar, Globe, Weight, Box } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import AnimatedStatusIcon from '../shared/AnimatedStatusIcon';
@@ -19,18 +20,9 @@ const DetailItem = ({ icon: Icon, label, value }) => (
     </div>
 );
 
-// NOVÁ, VYLEPŠENÁ KOMPONENTA PRO ZOBRAZENÍ PICKING DAT
+// Komponenta pro zobrazení picking dat
 const PickingDetails = ({ details }) => {
-    if (!details || details.length === 0) {
-        return (
-            <div className="mt-6">
-                <h3 className="text-lg font-bold text-blue-300 border-b border-slate-700 pb-2 flex items-center gap-2">
-                    <Box className="w-5 h-5" /> Detaily Pickování
-                </h3>
-                <p className="text-sm text-slate-400 mt-3">Pro tuto zakázku nebyly nalezeny žádné záznamy o pickování.</p>
-            </div>
-        );
-    }
+    if (!details || details.length === 0) return null;
     return (
         <div className="mt-6">
             <h3 className="text-lg font-bold text-blue-300 border-b border-slate-700 pb-2 flex items-center gap-2">
@@ -64,7 +56,6 @@ const PickingDetails = ({ details }) => {
         </div>
     );
 };
-
 
 export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
     if (!order) return null;
@@ -129,9 +120,8 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
 
     return (
         <Modal title={t.deliveryDetails} onClose={onClose}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
                 
-                {/* Levý sloupec s detaily */}
                 <div className="md:col-span-2 space-y-4 text-gray-200 border-r border-slate-700 pr-6">
                     <h3 className="text-lg font-bold text-blue-300 border-b border-slate-700 pb-2">Informace o objednávce</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -145,17 +135,14 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
                         <DetailItem icon={Hash} label={t.billOfLading} value={order["Bill of lading"]} />
                     </div>
 
-                    {/* Zde vložíme novou komponentu pro detaily pickování */}
                     <PickingDetails details={order.picking_details} />
                 </div>
 
-                {/* Pravý sloupec se statusem a komentáři */}
                 <div className="md:col-span-1 flex flex-col">
                     <div className="text-center mb-4">
                         <h3 className="text-lg font-bold text-blue-300 mb-4">{t.status}</h3>
                         <AnimatedStatusIcon status={order.Status} size="large" />
                     </div>
-
                     <div className="flex flex-col flex-grow h-64 bg-slate-900 rounded-lg p-3">
                          <h4 className="font-semibold mb-2 flex-shrink-0">Komentáře</h4>
                         <div className="flex-grow overflow-y-auto space-y-3 pr-2">
@@ -186,7 +173,7 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
                 </div>
             </div>
             
-            <div className="mt-6 flex justify-end gap-2 border-t border-slate-700 pt-4">
+            <div className="flex justify-end gap-2 border-t border-slate-700 p-4">
                 {order["Bill of lading"] && (
                     <button
                         onClick={handleTrackShipment}
