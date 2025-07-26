@@ -1,4 +1,3 @@
-// src/components/tabs/DashboardTab.jsx
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { useData } from '@/hooks/useData';
@@ -19,7 +18,8 @@ import { countryCodeMap } from '@/lib/dataProcessor';
 const SummaryCardSkeleton = () => <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 skeleton h-[88px]"></div>;
 
 export default function DashboardTab({ setActiveTab }) {
-    const { summary, previousSummary, allOrdersData, setSelectedOrderDetails, isLoadingData } = useData();
+    // 1. ZÍSKÁME VŠECHNA POTŘEBNÁ DATA, VČETNĚ PICKING DAT
+    const { summary, previousSummary, allOrdersData, setSelectedOrderDetails, isLoadingData, pickingData } = useData();
     const { t } = useUI();
     const [modalState, setModalState] = useState({ isOpen: false, title: '', orders: [] });
     const scrollContainerRef = useRef(null);
@@ -38,29 +38,31 @@ export default function DashboardTab({ setActiveTab }) {
         if (previousSummary === null || currentValue === undefined || previousValue === undefined) return undefined;
         return currentValue - previousValue;
     };
+    
+    // 2. OPRAVENÁ A FUNKČNÍ VERZE PRO OTEVŘENÍ DETAILU
+    const handleOrderClick = (deliveryNo) => {
+        const orderDetails = allOrdersData.find(order => order['Delivery No'] === deliveryNo);
+        const relatedPicking = pickingData.filter(p => p.delivery_no === deliveryNo);
+        
+        if (orderDetails) {
+            // Spojíme data dohromady a předáme je do modálního okna
+            setSelectedOrderDetails({ ...orderDetails, picking_details: relatedPicking });
+        } else {
+            console.error(`Objednávka ${deliveryNo} nebyla nalezena.`);
+        }
+    };
 
-    if (isLoadingData) {
+    if (isLoadingData || !summary) {
         return (
              <div className="space-y-8">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                    <SummaryCardSkeleton />
-                    <SummaryCardSkeleton />
-                    <SummaryCardSkeleton />
-                    <SummaryCardSkeleton />
-                    <SummaryCardSkeleton />
-                </div>
-            </div>
-        );
-    }
-    
-    if (!summary) {
-        return (
-            <Card>
-                <CardContent className="text-center p-12">
-                    <h3 className="text-xl font-semibold text-slate-300">Data se nepodařilo načíst</h3>
-                    <p className="text-slate-500 mt-2">Zkontrolujte připojení nebo zkuste nahrát soubor s daty. Ověřte také správnost nastavení JWT Secret v Supabase.</p>
-                </CardContent>
-            </Card>
+                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                     <SummaryCardSkeleton />
+                     <SummaryCardSkeleton />
+                     <SummaryCardSkeleton />
+                     <SummaryCardSkeleton />
+                     <SummaryCardSkeleton />
+                 </div>
+             </div>
         );
     }
 
@@ -188,14 +190,14 @@ export default function DashboardTab({ setActiveTab }) {
                     <DonutChartCard title="Typy objednávek" data={summary?.orderTypesOEM} />
                     <DonutChartCard title="Podíl typů dodávek" data={summary?.deliveryTypes} />
                  </div>
-            </div>
+             </div>
             
             <OrderListModal 
                 isOpen={modalState.isOpen}
                 onClose={() => setModalState({ isOpen: false, title: '', orders: [] })}
                 title={modalState.title}
                 orders={modalState.orders}
-                onSelectOrder={setSelectedOrderDetails}
+                onSelectOrder={(order) => handleOrderClick(order['Delivery No'])}
                 t={t}
             />
         </div>
