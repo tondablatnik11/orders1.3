@@ -7,22 +7,16 @@ import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 
+// Definujeme klienta Supabase jednou na úrovni modulu,
+// abychom předešli jakýmkoliv problémům s opakovanou inicializací.
+const supabase = getSupabase();
+
 const FaultyLabelsTab = () => {
     const [labels, setLabels] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedLabel, setSelectedLabel] = useState(null);
     const [newComment, setNewComment] = useState('');
-    const supabase = getSupabase();
     const { userProfile } = useAuth();
-
-    // --- KONTROLNÍ KROK ---
-    // Tento kód se spustí jen jednou a vypíše nám do konzole prohlížeče,
-    // jestli se klíče správně načetly.
-    useEffect(() => {
-        console.log("KONTROLA HODNOT Z .ENV.LOCAL");
-        console.log("Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-        console.log("Supabase Anon Key:", !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "NAČTEN" : "CHYBÍ NEBO JE PRAZDNÝ");
-    }, []);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -31,10 +25,10 @@ const FaultyLabelsTab = () => {
             toast.error('Chyba při načítání dat.');
             console.error(error);
         } else {
-            setLabels(data);
+            setLabels(data || []);
         }
         setLoading(false);
-    }, [supabase]);
+    }, []);
 
     useEffect(() => {
         fetchData();
@@ -53,27 +47,28 @@ const FaultyLabelsTab = () => {
 
         const { error } = await supabase.from('faulty_labels').insert(newLabel);
         if (error) {
-            toast.error('Nepodařilo se přidat záznam.');
+            toast.error(`Nepodařilo se přidat záznam: ${error.message}`);
         } else {
             toast.success('Záznam úspěšně přidán.');
             e.target.reset();
-            fetchData();
+            await fetchData(); // Čekáme na dokončení načtení nových dat
         }
     };
     
     const handleStatusChange = async (newStatus) => {
+        if (!selectedLabel) return;
         const { error } = await supabase.from('faulty_labels').update({ status: newStatus, updated_at: new Date() }).eq('id', selectedLabel.id);
         if (error) {
             toast.error('Chyba při změně stavu.');
         } else {
             toast.success('Stav aktualizován.');
             setSelectedLabel(prev => ({...prev, status: newStatus}));
-            fetchData();
+            await fetchData();
         }
     };
 
     const handleAddComment = async () => {
-        if (!newComment.trim()) return;
+        if (!newComment.trim() || !selectedLabel) return;
         const comment = {
             label_id: selectedLabel.id,
             author_name: userProfile?.full_name || 'Neznámý',
@@ -85,7 +80,7 @@ const FaultyLabelsTab = () => {
         } else {
             setNewComment('');
             const { data } = await supabase.from('label_comments').select('*').eq('label_id', selectedLabel.id).order('created_at');
-            setSelectedLabel(prev => ({...prev, comments: data}));
+            setSelectedLabel(prev => ({...prev, comments: data || []}));
         }
     };
 
