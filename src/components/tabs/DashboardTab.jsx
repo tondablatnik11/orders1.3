@@ -15,6 +15,7 @@ import DonutChartCard from '@/components/charts/DonutChartCard';
 import D3GeoChart from '../charts/D3GeoChart';
 import { countryCodeMap } from '@/lib/dataProcessor';
 
+// Kostra pro načítání
 const SkeletonLoader = () => (
     <div className="space-y-8">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -34,6 +35,7 @@ const SkeletonLoader = () => (
 
 
 export default function DashboardTab({ setActiveTab }) {
+    // ZÍSKÁME VŠECHNA POTŘEBNÁ DATA, VČETNĚ PICKING DAT
     const { summary, previousSummary, allOrdersData, setSelectedOrderDetails, isLoadingData, pickingData } = useData();
     const { t } = useUI();
     const [modalState, setModalState] = useState({ isOpen: false, title: '', orders: [] });
@@ -52,7 +54,6 @@ export default function DashboardTab({ setActiveTab }) {
     // OPRAVENÁ FUNKCE PRO OTEVŘENÍ DETAILU OBJEDNÁVKY
     const handleOrderClick = (deliveryNo) => {
         const orderDetails = allOrdersData.find(order => order['Delivery No'] === deliveryNo);
-        // Najdeme všechny související picking operace
         const relatedPicking = pickingData.filter(p => p.delivery_no === deliveryNo);
         
         if (orderDetails) {
