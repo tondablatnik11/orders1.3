@@ -8,7 +8,6 @@ import { CheckCircle, Clock, Hourglass, Info, AlertTriangle, ClipboardList } fro
 import { OrderListModal } from '@/components/modals/OrderListModal';
 import { DailyOverviewCard } from '@/components/shared/DailyOverviewCard';
 import { SummaryCard, FeaturedKPICard } from '@/components/shared/SummaryCard';
-import { Card, CardContent } from '@/components/ui/Card';
 import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
 import StatusDistributionChart from '@/components/charts/StatusDistributionChart';
 import DonutChartCard from '@/components/charts/DonutChartCard';
@@ -18,7 +17,6 @@ import { countryCodeMap } from '@/lib/dataProcessor';
 const SummaryCardSkeleton = () => <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 skeleton h-[88px]"></div>;
 
 export default function DashboardTab({ setActiveTab }) {
-    // 1. ZÍSKÁME VŠECHNA POTŘEBNÁ DATA, VČETNĚ PICKING DAT
     const { summary, previousSummary, allOrdersData, setSelectedOrderDetails, isLoadingData, pickingData } = useData();
     const { t } = useUI();
     const [modalState, setModalState] = useState({ isOpen: false, title: '', orders: [] });
@@ -38,14 +36,12 @@ export default function DashboardTab({ setActiveTab }) {
         if (previousSummary === null || currentValue === undefined || previousValue === undefined) return undefined;
         return currentValue - previousValue;
     };
-    
-    // 2. OPRAVENÁ A FUNKČNÍ VERZE PRO OTEVŘENÍ DETAILU
+
     const handleOrderClick = (deliveryNo) => {
         const orderDetails = allOrdersData.find(order => order['Delivery No'] === deliveryNo);
-        const relatedPicking = pickingData.filter(p => p.delivery_no === deliveryNo);
+        const relatedPicking = (pickingData || []).filter(p => p.delivery_no === deliveryNo);
         
         if (orderDetails) {
-            // Spojíme data dohromady a předáme je do modálního okna
             setSelectedOrderDetails({ ...orderDetails, picking_details: relatedPicking });
         } else {
             console.error(`Objednávka ${deliveryNo} nebyla nalezena.`);
@@ -56,11 +52,7 @@ export default function DashboardTab({ setActiveTab }) {
         return (
              <div className="space-y-8">
                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                     <SummaryCardSkeleton />
-                     <SummaryCardSkeleton />
-                     <SummaryCardSkeleton />
-                     <SummaryCardSkeleton />
-                     <SummaryCardSkeleton />
+                    {Array.from({length: 5}).map((_, i) => <SummaryCardSkeleton key={i} />)}
                  </div>
              </div>
         );
@@ -92,13 +84,11 @@ export default function DashboardTab({ setActiveTab }) {
         const dateObj = summary.dailySummaries.find(d => format(parseISO(d.date), 'dd/MM') === dateLabel);
         if (!dateObj) return;
         const dateStr = dateObj.date;
-
         const filteredOrders = allOrdersData.filter(order => {
              if (!order["Loading Date"] || format(parseISO(order["Loading Date"]), 'yyyy-MM-dd') !== dateStr) return false;
              const status = statusKey.replace('status', '');
              return String(order.Status) === status;
         });
-        
         const statusName = clickedBar.name || statusKey;
         setModalState({ isOpen: true, title: `${statusName} - ${format(parseISO(dateStr), 'dd.MM.yyyy')}`, orders: filteredOrders });
     };
@@ -159,7 +149,6 @@ export default function DashboardTab({ setActiveTab }) {
                             inProgress: getDailyChange(d.date, 'inProgress'), 
                             new: getDailyChange(d.date, 'new') 
                         };
-
                         return (
                             <DailyOverviewCard 
                                 ref={isToday ? todayCardRef : null} 
@@ -176,12 +165,10 @@ export default function DashboardTab({ setActiveTab }) {
                     })}
                 </div>
             </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <StatusDistributionChart onBarClick={handleBarClick} />
                 <OrdersOverTimeChart summary={summary} />
             </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                  <div className="lg:col-span-8">
                     <D3GeoChart data={summary?.ordersByCountry || []} onCountryClick={handleCountryClick} />

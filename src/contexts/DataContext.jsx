@@ -1,9 +1,9 @@
 'use client';
 import React, { createContext, useState, useEffect, useCallback, useMemo, useContext } from 'react';
-import { getSupabase } from '@/lib/supabaseClient'; // Používáme alias cestu
+import { getSupabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
-import { processData } from '@/lib/dataProcessor'; // Používáme alias cestu
-import { processArrayForDisplay, processErrorDataForSupabase } from '@/lib/errorMonitorProcessor'; // Používáme alias cestu
+import { processData } from '@/lib/dataProcessor';
+import { processArrayForDisplay, processErrorDataForSupabase } from '@/lib/errorMonitorProcessor';
 import toast from 'react-hot-toast';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -24,10 +24,11 @@ export const DataProvider = ({ children }) => {
     const { user, loading: authLoading, db, appId } = useAuth();
     const supabase = getSupabase();
 
-    // UPRAVENÁ FUNKCE: Načte VŠECHNA potřebná data pro aplikaci najednou
+    // PŘEJMENOVÁNO A ROZŠÍŘENO: Načte VŠECHNA potřebná data pro aplikaci
     const fetchAllApplicationData = useCallback(async () => {
         setIsLoadingData(true);
         try {
+            // Paralelně načteme data o zakázkách, pickování i chybách
             const [deliveriesResult, pickingResult, errorsResult, snapshotResult] = await Promise.all([
                 supabase.from("deliveries").select('*').limit(20000),
                 supabase.from('picking_dashboard_data').select('*'),
@@ -39,6 +40,7 @@ export const DataProvider = ({ children }) => {
             if (pickingResult.error) throw pickingResult.error;
             if (errorsResult.error) throw errorsResult.error;
 
+            // Zpracování dat o zakázkách
             const currentOrders = deliveriesResult.data || [];
             const currentSummary = processData(currentOrders);
             setAllOrdersData(currentOrders);
@@ -47,6 +49,7 @@ export const DataProvider = ({ children }) => {
                 setPreviousSummary(snapshotResult.data.summary_data);
             }
 
+            // Zpracování ostatních dat
             setPickingData(pickingResult.data || []);
             setErrorData(processArrayForDisplay(errorsResult.data || []));
 
@@ -127,7 +130,10 @@ export const DataProvider = ({ children }) => {
     }, [supabase, sendNotification]);
 
     const handleFileUpload = useCallback(async (file) => {
-        if (!file || !user) return;
+        if (!file || !user) {
+            toast.error("Pro nahrání souboru musíte být přihlášen.");
+            return;
+        }
         toast.loading('Zpracovávám soubor...');
         const XLSX = await import('xlsx');
         const reader = new FileReader();
@@ -144,7 +150,7 @@ export const DataProvider = ({ children }) => {
                     await supabase.from('deliveries').upsert(transformedData, { onConflict: 'Delivery No' });
                     toast.dismiss();
                     toast.success('Data byla úspěšně nahrána! Obnovuji přehled...');
-                    await fetchAllApplicationData(); // Obnoví všechna data
+                    await fetchAllApplicationData();
                 } else {
                     toast.dismiss();
                     toast.error('Nenalezena žádná platná data v souboru.');
@@ -158,7 +164,10 @@ export const DataProvider = ({ children }) => {
     }, [supabase, user, fetchAllApplicationData]);
     
     const handleErrorLogUpload = useCallback(async (file) => {
-        if (!file || !user) return;
+        if (!file || !user) {
+            toast.error("Pro nahrání souboru musíte být přihlášen.");
+            return;
+        }
         toast.loading('Zpracovávám soubor...');
         try {
             const dataForSupabase = await processErrorDataForSupabase(file);
@@ -169,7 +178,7 @@ export const DataProvider = ({ children }) => {
             }
             toast.dismiss();
             toast.success('Log chyb byl úspěšně nahrán!');
-            await fetchAllApplicationData(); // Obnoví všechna data
+            await fetchAllApplicationData();
         } catch (error) {
             toast.dismiss();
             toast.error(`Chyba při nahrávání logu: ${error.message}`);
@@ -184,7 +193,7 @@ export const DataProvider = ({ children }) => {
         }
         if (data && data.length > 0) {
             toast.success(`Status pro zakázku ${deliveryNo} byl aktualizován.`);
-            fetchAllApplicationData(); // Obnoví všechna data
+            fetchAllApplicationData();
             return { success: true };
         }
         return { success: false };

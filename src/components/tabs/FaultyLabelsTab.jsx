@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { getSupabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
 import { useData } from '@/hooks/useData';
-import Modal from '@/components/ui/Modal';
+import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -13,41 +13,41 @@ const FaultyLabelsTab = () => {
     const [loading, setLoading] = useState(true);
     const [selectedLabel, setSelectedLabel] = useState(null);
     const [newComment, setNewComment] = useState('');
-    const [pickingData, setPickingData] = useState([]); // <-- Nový stav pro picking data
     const supabase = getSupabase();
     const { userProfile } = useAuth();
-    const { allOrdersData, setSelectedOrderDetails } = useData();
+    // ZÍSKÁME DATA Z KONTEXTU
+    const { allOrdersData, pickingData, setSelectedOrderDetails } = useData();
 
     const fetchData = useCallback(async () => {
         setLoading(true);
-        // Načteme jak chybné etikety, tak data o pickování
-        const { data: labelsData, error: labelsError } = await supabase.from('faulty_labels').select('*').order('created_at', { ascending: false });
-        const { data: pickingOpsData, error: pickingError } = await supabase.from('picking_operations').select('*');
-
-        if (labelsError || pickingError) {
-            toast.error('Chyba při načítání dat.');
-            console.error(labelsError || pickingError);
-        } else {
-            setLabels(labelsData || []);
-            setPickingData(pickingOpsData || []);
-        }
+        const { data, error } = await supabase.from('faulty_labels').select('*').order('created_at', { ascending: false });
+        if (error) { toast.error('Chyba při načítání dat.'); } 
+        else { setLabels(data || []); }
         setLoading(false);
     }, [supabase]);
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    useEffect(() => { fetchData(); }, [fetchData]);
 
-    // Funkce pro otevření hlavního detailu objednávky
     const openOrderDetails = (deliveryNo) => {
         const orderDetails = allOrdersData.find(order => order['Delivery No'] === deliveryNo);
-        const relatedPicking = pickingData.filter(p => p.delivery_no === deliveryNo);
-        
+        const relatedPicking = (pickingData || []).filter(p => p.delivery_no === deliveryNo);
         if (orderDetails) {
             setSelectedOrderDetails({ ...orderDetails, picking_details: relatedPicking });
         } else {
             toast.error(`Zakázka ${deliveryNo} nebyla nalezena.`);
         }
+    };
+    
+    const openDetails = async (label) => {
+        const { data: comments } = await supabase.from('label_comments').select('*').eq('label_id', label.id).order('created_at');
+        const orderDetails = allOrdersData.find(order => order['Delivery No'] === label.delivery_no);
+        const relatedPicking = (pickingData || []).filter(p => p.delivery_no === label.delivery_no);
+        setSelectedLabel({
+            ...label, 
+            comments: comments || [],
+            orderDetails: orderDetails,
+            pickingDetails: relatedPicking
+        });
     };
     
     const handleAddLabel = async (e) => {
@@ -60,11 +60,9 @@ const FaultyLabelsTab = () => {
             location: formData.get('location'),
             reporter_name: userProfile?.full_name || 'Neznámý',
         };
-
         const { error } = await supabase.from('faulty_labels').insert(newLabel);
-        if (error) {
-            toast.error('Nepodařilo se přidat záznam.');
-        } else {
+        if (error) { toast.error('Nepodařilo se přidat záznam.'); } 
+        else {
             toast.success('Záznam úspěšně přidán.');
             e.target.reset();
             fetchData();
@@ -73,9 +71,8 @@ const FaultyLabelsTab = () => {
     
     const handleStatusChange = async (newStatus) => {
         const { error } = await supabase.from('faulty_labels').update({ status: newStatus, updated_at: new Date() }).eq('id', selectedLabel.id);
-        if (error) {
-            toast.error('Chyba při změně stavu.');
-        } else {
+        if (error) toast.error('Chyba při změně stavu.');
+        else {
             toast.success('Stav aktualizován.');
             setSelectedLabel(prev => ({...prev, status: newStatus}));
             fetchData();
@@ -90,28 +87,12 @@ const FaultyLabelsTab = () => {
             comment_text: newComment
         };
         const { error } = await supabase.from('label_comments').insert(comment);
-        if (error) {
-            toast.error('Nepodařilo se přidat komentář.');
-        } else {
+        if (error) toast.error('Nepodařilo se přidat komentář.');
+        else {
             setNewComment('');
             const { data } = await supabase.from('label_comments').select('*').eq('label_id', selectedLabel.id).order('created_at');
             setSelectedLabel(prev => ({...prev, comments: data || []}));
         }
-    };
-
-    const openDetails = async (label) => {
-        const { data: comments, error } = await supabase.from('label_comments').select('*').eq('label_id', label.id).order('created_at');
-        if(error) toast.error("Chyba při načítání komentářů.");
-        
-        const orderDetails = allOrdersData.find(order => order['Delivery No'] === label.delivery_no);
-        const relatedPicking = pickingData.filter(p => p.delivery_no === label.delivery_no);
-
-        setSelectedLabel({
-            ...label, 
-            comments: comments || [],
-            orderDetails: orderDetails,
-            pickingDetails: relatedPicking
-        });
     };
 
     return (
@@ -165,7 +146,7 @@ const FaultyLabelsTab = () => {
             
             {selectedLabel && (
                 <Modal isOpen={!!selectedLabel} onClose={() => setSelectedLabel(null)} title={`Detail chyby etikety: ${selectedLabel.delivery_no}`}>
-                    <div className="p-6 space-y-4 text-slate-800">
+                    <div className="p-6 space-y-4 text-white bg-slate-800">
                         <div><strong>Popis chyby:</strong> {selectedLabel.error_description}</div>
                         {selectedLabel.pickingDetails?.map((p, i) => <div key={i}><strong>Picker:</strong> {p.user_name} ({new Date(p.confirmation_date).toLocaleDateString()} {p.confirmation_time})</div>)}
                         {selectedLabel.orderDetails && <div><strong>Příjemce:</strong> {selectedLabel.orderDetails['Name of ship-to party']} ({selectedLabel.orderDetails['Country ship-to prty']})</div>}
@@ -174,18 +155,18 @@ const FaultyLabelsTab = () => {
                             <Button onClick={() => handleStatusChange('V řešení')} variant={selectedLabel.status === 'V řešení' ? 'default' : 'secondary'}>V řešení</Button>
                             <Button onClick={() => handleStatusChange('Vyřešeno')} variant={selectedLabel.status === 'Vyřešeno' ? 'default' : 'secondary'}>Vyřešeno</Button>
                         </div>
-                        <hr/>
+                        <hr className="border-slate-700"/>
                         <h4 className="font-semibold">Komentáře:</h4>
-                        <div className="space-y-2 max-h-48 overflow-y-auto bg-slate-50 p-2 rounded">
+                        <div className="space-y-2 max-h-48 overflow-y-auto bg-slate-900 p-2 rounded">
                             {selectedLabel.comments.map(c => (
-                                <div key={c.id} className="text-sm bg-slate-100 p-2 rounded">
+                                <div key={c.id} className="text-sm bg-slate-700 p-2 rounded">
                                     <span className="font-semibold">{c.author_name}:</span> {c.comment_text}
-                                    <div className="text-xs text-slate-500">{format(new Date(c.created_at), 'dd.MM.yyyy HH:mm')}</div>
+                                    <div className="text-xs text-slate-400">{format(new Date(c.created_at), 'dd.MM.yyyy HH:mm')}</div>
                                 </div>
                             ))}
                         </div>
                         <div className="flex gap-2">
-                            <input value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Napište komentář..." className="flex-grow p-2 border rounded"/>
+                            <input value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Napište komentář..." className="flex-grow p-2 border rounded bg-slate-700 border-slate-600"/>
                             <Button onClick={handleAddComment}>Přidat</Button>
                         </div>
                     </div>
