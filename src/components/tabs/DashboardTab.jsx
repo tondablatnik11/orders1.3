@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { format, startOfDay, addDays, subDays, parseISO } from 'date-fns';
@@ -32,12 +32,7 @@ export default function DashboardTab({ setActiveTab }) {
         }
     }, [summary]);
 
-    const getChange = (currentValue, previousValue) => {
-        if (previousSummary === null || currentValue === undefined || previousValue === undefined) return undefined;
-        return currentValue - previousValue;
-    };
-
-    const handleOrderClick = (deliveryNo) => {
+    const handleOrderClick = useCallback((deliveryNo) => {
         const orderDetails = allOrdersData.find(order => order['Delivery No'] === deliveryNo);
         const relatedPicking = (pickingData || []).filter(p => p.delivery_no === deliveryNo);
         
@@ -46,7 +41,7 @@ export default function DashboardTab({ setActiveTab }) {
         } else {
             console.error(`Objednávka ${deliveryNo} nebyla nalezena.`);
         }
-    };
+    }, [allOrdersData, pickingData, setSelectedOrderDetails]);
 
     if (isLoadingData || !summary) {
         return (
@@ -101,22 +96,18 @@ export default function DashboardTab({ setActiveTab }) {
         setModalState({ isOpen: true, title: `${t.orderListFor} ${countryCode3}`, orders: filteredOrders });
     };
 
-    const summaryCardsData = [
+    const getChange = useCallback((currentValue, previousValue) => {
+        if (previousSummary === null || currentValue === undefined || previousValue === undefined) return undefined;
+        return currentValue - previousValue;
+    }, [previousSummary]);
+
+    const summaryCardsData = useMemo(() => [
         { labelKey: 'total', value: summary.total, change: getChange(summary.total, previousSummary?.total), icon: Info, color: 'blue' },
         { labelKey: 'done', value: summary.doneTotal, change: getChange(summary.doneTotal, previousSummary?.doneTotal), icon: CheckCircle, color: 'green' },
         { labelKey: 'remaining', value: summary.remainingTotal, change: getChange(summary.remainingTotal, previousSummary?.remainingTotal), icon: Clock, color: 'yellow' },
         { labelKey: 'inProgress', value: summary.inProgressTotal, change: getChange(summary.inProgressTotal, previousSummary?.inProgressTotal), icon: Hourglass, color: 'orange' },
-    ];
+    ], [summary, previousSummary, getChange, t]);
     
-    const getDailyChange = (date, metric) => {
-        if (!previousSummary?.dailySummaries) return undefined;
-        const dateStr = format(date, 'yyyy-MM-dd');
-        const prevDayStats = previousSummary.dailySummaries.find(d => d.date === dateStr);
-        const currentDayStats = summary.dailySummaries.find(d => d.date === dateStr);
-        if (prevDayStats && currentDayStats) return currentDayStats[metric] - prevDayStats[metric];
-        return undefined;
-    };
-
     return (
         <div className="space-y-8">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -142,13 +133,7 @@ export default function DashboardTab({ setActiveTab }) {
                         const isToday = format(d.date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
                         const dailyStats = summary.dailySummaries.find(s => s.date === dateStr);
                         const displayLabel = `${d.label} (${format(d.date, 'dd.MM.')})`;
-                        const dailyChanges = { 
-                            total: getDailyChange(d.date, 'total'), 
-                            done: getDailyChange(d.date, 'done'), 
-                            remaining: getDailyChange(d.date, 'remaining'), 
-                            inProgress: getDailyChange(d.date, 'inProgress'), 
-                            new: getDailyChange(d.date, 'new') 
-                        };
+                        
                         return (
                             <DailyOverviewCard 
                                 ref={isToday ? todayCardRef : null} 
@@ -159,7 +144,6 @@ export default function DashboardTab({ setActiveTab }) {
                                 onStatClick={handleStatClick} 
                                 date={d.date}
                                 isToday={isToday}
-                                changes={dailyChanges}
                             />
                         );
                     })}
