@@ -32,7 +32,11 @@ export default function DashboardTab({ setActiveTab }) {
         }
     }, [summary]);
 
-    // OPRAVENÁ FUNKCE PRO OTEVŘENÍ DETAILU OBJEDNÁVKY
+    const getChange = (currentValue, previousValue) => {
+        if (previousSummary === null || currentValue === undefined || previousValue === undefined) return undefined;
+        return currentValue - previousValue;
+    };
+    
     const handleOrderClick = (deliveryNo) => {
         const orderDetails = allOrdersData.find(order => order['Delivery No'] === deliveryNo);
         const relatedPicking = (pickingData || []).filter(p => p.delivery_no === deliveryNo);
@@ -53,11 +57,6 @@ export default function DashboardTab({ setActiveTab }) {
              </div>
         );
     }
-    
-    const getChange = (currentValue, previousValue) => {
-        if (previousSummary === null || currentValue === undefined || previousValue === undefined) return undefined;
-        return currentValue - previousValue;
-    };
 
     const today = startOfDay(new Date());
     const datesForOverview = Array.from({ length: 20 }).map((_, i) => {

@@ -15,7 +15,6 @@ const FaultyLabelsTab = () => {
     const [newComment, setNewComment] = useState('');
     const supabase = getSupabase();
     const { userProfile } = useAuth();
-    // ZÍSKÁME DATA Z KONTEXTU
     const { allOrdersData, pickingData, setSelectedOrderDetails } = useData();
 
     const fetchData = useCallback(async () => {

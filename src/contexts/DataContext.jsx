@@ -1,9 +1,9 @@
 'use client';
 import React, { createContext, useState, useEffect, useCallback, useMemo, useContext } from 'react';
-import { getSupabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient'; // Opravená cesta
 import { useAuth } from '@/hooks/useAuth';
-import { processData } from '@/lib/dataProcessor';
-import { processArrayForDisplay, processErrorDataForSupabase } from '@/lib/errorMonitorProcessor';
+import { processData } from '@/lib/dataProcessor'; // Opravená cesta
+import { processArrayForDisplay, processErrorDataForSupabase } from '@/lib/errorMonitorProcessor'; // Opravená cesta
 import toast from 'react-hot-toast';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
