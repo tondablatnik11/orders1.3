@@ -6,40 +6,42 @@ import { useData } from '@/hooks/useData';
 import { Truck } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// Komponenta pro zobrazení jednoho řádku s detailem (tmavá verze)
+// Komponenta pro zobrazení jednoho řádku s detailem
 const DetailRow = ({ label, value }) => (
-    <div className="py-3 sm:grid sm:grid-cols-3 sm:gap-4 px-6 border-b border-slate-700 last:border-b-0">
-        <dt className="text-sm font-medium text-slate-400">{label}</dt>
-        <dd className="mt-1 text-sm text-white sm:mt-0 sm:col-span-2 font-medium">{value || '-'}</dd>
+    <div className="py-3 sm:grid sm:grid-cols-3 sm:gap-4 px-6 border-b border-slate-100 last:border-b-0">
+        <dt className="text-sm font-medium text-slate-500">{label}</dt>
+        <dd className="mt-1 text-sm text-slate-900 sm:mt-0 sm:col-span-2 font-medium">{value || '-'}</dd>
     </div>
 );
 
-// Komponenta pro zobrazení tabulky s detaily o pickování (tmavá verze)
+// Komponenta pro zobrazení tabulky s detaily o pickování
 const PickingDetails = ({ details }) => {
-    if (!details || details.length === 0) return null;
+    if (!details || details.length === 0) {
+        return null;
+    }
     return (
         <div className="px-6 mt-4">
-            <h4 className="font-semibold text-lg text-white mb-2">Detaily Pickování</h4>
-            <div className="border border-slate-700 rounded-lg overflow-hidden">
-                <table className="min-w-full divide-y divide-slate-700">
-                    <thead className="bg-slate-700/50">
+            <h4 className="font-semibold text-lg text-slate-800 mb-2">Detaily Pickování</h4>
+            <div className="border rounded-lg overflow-hidden">
+                <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-slate-50">
                         <tr>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-slate-400 uppercase">Picker</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-slate-400 uppercase">Materiál</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-slate-400 uppercase">Množství</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-slate-400 uppercase">Čas</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Picker</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Materiál</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Množství</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Čas</th>
                         </tr>
                     </thead>
-                    <tbody className="bg-slate-800 divide-y divide-slate-700">
+                    <tbody className="bg-white divide-y divide-slate-200">
                         {details.map((pick, index) => (
                             <tr key={index}>
-                                <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-300">{pick.user_name}</td>
-                                <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-300">
+                                <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-700">{pick.user_name}</td>
+                                <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-700">
                                     <div>{pick.material}</div>
                                     <div className="text-xs text-slate-500" title={pick.material_description}>{pick.material_description}</div>
                                 </td>
-                                <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-300">{pick.source_actual_qty}</td>
-                                <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-300">{new Date(pick.confirmation_date).toLocaleDateString()} {pick.confirmation_time}</td>
+                                <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-700">{pick.source_actual_qty}</td>
+                                <td className="px-4 py-2 whitespace-nowrap text-sm text-slate-700">{new Date(pick.confirmation_date).toLocaleDateString()} {pick.confirmation_time}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -49,63 +51,78 @@ const PickingDetails = ({ details }) => {
     );
 };
 
-// Hlavní komponenta modálního okna
 const OrderDetailsModal = ({ order, onClose, onShowHistory }) => {
     if (!order) return null;
     
     const { handleSaveNote } = useData();
     const [note, setNote] = useState(order.Note || "");
 
-    useEffect(() => { setNote(order.Note || ""); }, [order]);
+    useEffect(() => {
+        setNote(order.Note || "");
+    }, [order]);
     
     const handleTrackShipment = () => {
         const trackingNumber = order['Bill of lading'];
         const agent = (order['Forwarding agent name'] || '').toLowerCase();
+
         if (!trackingNumber) {
             toast.error('Sledovací číslo není k dispozici.');
             return;
         }
+
         let url = '';
-        if (agent.includes('ups')) url = `https://www.ups.com/track?loc=cs_CZ&tracknum=${trackingNumber}`;
-        else if (agent.includes('fedex')) url = `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`;
-        else if (agent.includes('dhl')) url = `https://www.dhl.com/cz-en/home/tracking/tracking-express.html?submit=1&tracking-id=${trackingNumber}`;
-        else {
+        if (agent.includes('ups')) {
+            url = `https://www.ups.com/track?loc=cs_CZ&tracknum=${trackingNumber}`;
+        } else if (agent.includes('fedex')) {
+            url = `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`;
+        } else if (agent.includes('dhl')) {
+            url = `https://www.dhl.com/cz-en/home/tracking/tracking-express.html?submit=1&tracking-id=${trackingNumber}`;
+        } else {
             toast.error(`Sledování pro dopravce "${order['Forwarding agent name']}" není podporováno.`);
             return;
         }
         window.open(url, '_blank');
     };
     
-    const orderEntries = Object.entries(order).filter(([key]) => !['picking_details', 'id', 'created_at', 'updated_at', 'Note', 'isDelayed'].includes(key));
+    const orderEntries = Object.entries(order).filter(([key]) => ![
+        'picking_details', 'id', 'created_at', 'updated_at', 'Note', 'isDelayed'
+    ].includes(key));
 
     return (
         <Modal isOpen={!!order} onClose={onClose} title={`Detail zakázky: ${order['Delivery No']}`}>
-            <div className="bg-slate-800 text-white p-0">
+            <div className="p-0">
                 <div className="py-4">
-                    <h4 className="font-semibold text-lg text-white mb-2 px-6">Základní informace</h4>
-                    <div className="border-t border-slate-700">
-                        <dl>{orderEntries.map(([key, value]) => (<DetailRow key={key} label={key} value={String(value)} />))}</dl>
+                    <h4 className="font-semibold text-lg text-slate-800 mb-2 px-6">Základní informace</h4>
+                    <div className="border-t border-slate-200">
+                        <dl>
+                            {orderEntries.map(([key, value]) => (
+                                 <DetailRow key={key} label={key} value={String(value)} />
+                            ))}
+                        </dl>
                     </div>
                 </div>
 
                 <PickingDetails details={order.picking_details} />
 
                 <div className="px-6 mt-4">
-                    <h4 className="font-semibold text-lg text-white mb-2">Poznámka</h4>
+                    <h4 className="font-semibold text-lg text-slate-800 mb-2">Poznámka</h4>
                     <textarea 
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
-                        className="w-full p-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-slate-400"
+                        className="w-full p-2 border rounded-md"
                         rows="3"
                     ></textarea>
                 </div>
                 
-                <div className="flex flex-wrap justify-between items-center gap-2 p-6 mt-4 bg-slate-900/50 border-t border-slate-700">
-                     <Button onClick={handleTrackShipment} variant="outline" disabled={!order['Bill of lading']}><Truck className="mr-2 h-4 w-4" />Sledovat zásilku</Button>
+                <div className="flex flex-wrap justify-between items-center gap-2 p-6 mt-4 bg-slate-50 border-t">
+                     <Button onClick={handleTrackShipment} variant="outline" disabled={!order['Bill of lading']}>
+                        <Truck className="mr-2 h-4 w-4" />
+                        Sledovat zásilku
+                    </Button>
                     <div className="flex gap-2">
                         <Button onClick={() => onShowHistory(order['Delivery No'])} variant="outline">Historie stavů</Button>
                         <Button onClick={() => handleSaveNote(order['Delivery No'], note)}>Uložit poznámku</Button>
-                        <Button onClick={onClose} variant="secondary">Zavřít</Button>
+                        <Button onClick={onClose}>Zavřít</Button>
                     </div>
                 </div>
             </div>
