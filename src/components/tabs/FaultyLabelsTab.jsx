@@ -15,6 +15,15 @@ const FaultyLabelsTab = () => {
     const supabase = getSupabase();
     const { userProfile } = useAuth();
 
+    // --- KONTROLNÍ KROK ---
+    // Tento kód se spustí jen jednou a vypíše nám do konzole prohlížeče,
+    // jestli se klíče správně načetly.
+    useEffect(() => {
+        console.log("KONTROLA HODNOT Z .ENV.LOCAL");
+        console.log("Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+        console.log("Supabase Anon Key:", !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "NAČTEN" : "CHYBÍ NEBO JE PRAZDNÝ");
+    }, []);
+
     const fetchData = useCallback(async () => {
         setLoading(true);
         const { data, error } = await supabase.from('faulty_labels').select('*').order('created_at', { ascending: false });
@@ -75,7 +84,6 @@ const FaultyLabelsTab = () => {
             toast.error('Nepodařilo se přidat komentář.');
         } else {
             setNewComment('');
-            // Znovu načteme komentáře pro zobrazení
             const { data } = await supabase.from('label_comments').select('*').eq('label_id', selectedLabel.id).order('created_at');
             setSelectedLabel(prev => ({...prev, comments: data}));
         }
