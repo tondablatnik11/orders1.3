@@ -34,28 +34,53 @@ const ImportSection = ({ onImportSuccess }) => {
     const handleFileUpload = useCallback(async (file) => {
         if (!file) return;
         setStatus({ type: 'loading', message: 'Načítám a zpracovávám soubor...' });
+        
         try {
             const data = await file.arrayBuffer();
             const workbook = XLSX.read(data, { type: "buffer" });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false, dateNF: 'yyyy-mm-dd' });
+
             if (jsonData.length === 0) throw new Error('Soubor je prázdný.');
-            const processedData = jsonData.map(row => ({
-                user_name: row['User'],
-                confirmation_date: row['Confirmation date'],
-                confirmation_time: row['Confirmation time'],
-                weight: parseFloat(String(row['Weight'] || '0').replace(/,/g, '')),
-                material: row['Material'],
-                material_description: row['Material Description'],
-                source_storage_bin: row['Source Storage Bin'],
-                source_actual_qty: parseFloat(String(row['Source actual qty.'] || '0').replace(/,/g, '')),
-                delivery_no: String(row['Dest.Storage Bin'] || '').trim(),
-            }));
+
+            const processedData = jsonData.reduce((acc, row, index) => {
+                // Klíčová validace: Zpracujeme řádek pouze, pokud obsahuje jméno uživatele A číslo zakázky.
+                // Tím odfiltrujeme prázdné nebo souhrnné řádky.
+                const userName = row['User'];
+                const deliveryNo = row['Dest.Storage Bin'];
+
+                if (userName && deliveryNo) {
+                    acc.push({
+                        user_name: String(userName).trim(),
+                        confirmation_date: row['Confirmation date'],
+                        confirmation_time: row['Confirmation time'],
+                        weight: parseFloat(String(row['Weight'] || '0').replace(/,/g, '.')), // Sjednocení desetinné tečky
+                        material: row['Material'],
+                        material_description: row['Material Description'],
+                        source_storage_bin: row['Source Storage Bin'],
+                        source_actual_qty: parseFloat(String(row['Source actual qty.'] || '0').replace(/,/g, '.')),
+                        delivery_no: String(deliveryNo).trim(),
+                    });
+                } else {
+                    // Pro ladění: Vypíšeme do konzole, který řádek jsme přeskočili.
+                    console.warn(`Přeskakuji neplatný řádek #${index + 2} v Excelu:`, row);
+                }
+                return acc;
+            }, []);
+
+            if (processedData.length === 0) {
+                 throw new Error('V souboru nebyly nalezeny žádné platné řádky k importu.');
+            }
+
             const { error } = await supabase.from('picking_operations').insert(processedData);
+            
             if (error) throw error;
-            setStatus({ type: 'success', message: `Hotovo! Naimportováno ${processedData.length} záznamů.` });
+            
+            setStatus({ type: 'success', message: `Hotovo! Naimportováno ${processedData.length} platných záznamů.` });
+            
             if (onImportSuccess) onImportSuccess();
+
         } catch (error) {
             console.error("Detail chyby při importu:", error);
             setStatus({ type: 'error', message: `Nastala chyba: ${error.message}` });
