@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { cs } from 'date-fns/locale';
-import { Package, User, Calendar, Globe, MapPin, MessageSquare, Tag, Send, PlusCircle, History, Search } from 'lucide-react';
+import { Package, User, Calendar, Globe, MapPin, MessageSquare, Tag, Send, PlusCircle, History, Info, Search } from 'lucide-react';
 
 // --- Vylepšené modální okno ---
 const DetailItem = ({ icon: Icon, label, value }) => (
@@ -97,10 +97,11 @@ const FaultyLabelDetailsModal = ({ label, onClose }) => {
                         </div>
                         <div className="space-y-4">
                             <h3 className="text-lg font-bold text-sky-300">Detaily o chybě</h3>
-                            <DetailItem icon={Tag} label="Chybná etiketa" value={label.label_number} />
+                            <DetailItem icon={Tag} label="Typ zakázky" value={label.order_type} />
                             <DetailItem icon={MapPin} label="Umístění" value={label.location} />
                             <DetailItem icon={User} label="Vytvořil" value={label.created_by_name} />
                             <DetailItem icon={Calendar} label="Vytvořeno" value={format(new Date(label.created_at), 'dd.MM.yyyy HH:mm')} />
+                            <DetailItem icon={MessageSquare} label="Poznámka" value={label.notes} />
                              <div>
                                 <h4 className="font-semibold text-slate-300 mb-2 mt-4">Změnit Status</h4>
                                 <div className="flex flex-wrap gap-2">
@@ -156,7 +157,7 @@ const FaultyLabelDetailsModal = ({ label, onClose }) => {
 };
 
 const NewFaultyLabelModal = ({ onClose, onCreated }) => {
-    const [formData, setFormData] = useState({ delivery_no: '', label_number: '', location: '' });
+    const [formData, setFormData] = useState({ delivery_no: '', order_type: '', country: '', location: '', notes: '' });
     const { userProfile } = useAuth();
     const supabase = getSupabase();
 
@@ -166,8 +167,8 @@ const NewFaultyLabelModal = ({ onClose, onCreated }) => {
     };
 
     const handleSubmit = async () => {
-        if (!formData.delivery_no.trim() || !formData.label_number.trim() || !formData.location.trim()) {
-            toast.error('Vyplňte prosím všechna pole.');
+        if (!formData.delivery_no.trim() || !formData.location.trim()) {
+            toast.error('Vyplňte prosím alespoň Číslo zakázky a Umístění.');
             return;
         }
 
@@ -198,13 +199,21 @@ const NewFaultyLabelModal = ({ onClose, onCreated }) => {
                     <label className="block text-sm font-medium text-slate-300 mb-1">Číslo zakázky</label>
                     <input name="delivery_no" value={formData.delivery_no} onChange={handleChange} className="w-full p-2 rounded-lg bg-slate-700 border border-slate-600" />
                 </div>
-                 <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Číslo etikety</label>
-                    <input name="label_number" value={formData.label_number} onChange={handleChange} className="w-full p-2 rounded-lg bg-slate-700 border border-slate-600" />
+                <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Typ zakázky</label>
+                    <input name="order_type" value={formData.order_type} onChange={handleChange} className="w-full p-2 rounded-lg bg-slate-700 border border-slate-600" />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Země doručení</label>
+                    <input name="country" value={formData.country} onChange={handleChange} className="w-full p-2 rounded-lg bg-slate-700 border border-slate-600" />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1">Umístění</label>
                     <input name="location" value={formData.location} onChange={handleChange} className="w-full p-2 rounded-lg bg-slate-700 border border-slate-600" />
+                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Poznámka</label>
+                    <textarea name="notes" value={formData.notes} onChange={handleChange} className="w-full p-2 rounded-lg bg-slate-700 border border-slate-600" rows="3" />
                 </div>
                 <div className="flex justify-end gap-2 pt-4">
                     <Button onClick={onClose} variant="secondary">Zrušit</Button>
