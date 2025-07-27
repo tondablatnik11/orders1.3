@@ -77,7 +77,7 @@ const FaultyLabelDetailsModal = ({ label, onClose }) => {
     };
 
     return (
-        <Modal title={`Detail chyby: ${label.label_number}`} onClose={() => onClose(false)}>
+        <Modal title={`Detail chyby pro zakázku ${label.delivery_no}`} onClose={() => onClose(false)}>
             <div className="flex border-b border-slate-700">
                 <button onClick={() => setActiveTab('details')} className={`px-4 py-2 text-sm font-medium ${activeTab === 'details' ? 'border-b-2 border-sky-400 text-white' : 'text-slate-400'}`}>Detaily</button>
                 <button onClick={() => setActiveTab('comments')} className={`px-4 py-2 text-sm font-medium ${activeTab === 'comments' ? 'border-b-2 border-sky-400 text-white' : 'text-slate-400'}`}>Komentáře</button>
@@ -97,7 +97,7 @@ const FaultyLabelDetailsModal = ({ label, onClose }) => {
                         <div className="space-y-4">
                             <h3 className="text-lg font-bold text-sky-300">Detaily o chybě</h3>
                             <DetailItem icon={MapPin} label="Umístění" value={label.location} />
-                            <DetailItem icon={User} label="Vytvořil" value={label.profiles?.full_name || label.created_by_name} />
+                            <DetailItem icon={User} label="Vytvořil" value={label.created_by_name} />
                             <DetailItem icon={Calendar} label="Vytvořeno" value={format(new Date(label.created_at), 'dd.MM.yyyy HH:mm')} />
                              <div>
                                 <h4 className="font-semibold text-slate-300 mb-2 mt-4">Změnit Status</h4>
@@ -176,7 +176,6 @@ const NewFaultyLabelModal = ({ onClose, onCreated }) => {
         if (error) {
             toast.error('Chyba při vytváření záznamu.');
         } else {
-            // Log a comment for creation
             await supabase.from('faulty_label_logs').insert({
                 faulty_label_id: data.id,
                 user_name: userProfile.full_name,
@@ -221,7 +220,7 @@ const FaultyLabelsTab = () => {
         setLoading(true);
         const { data, error } = await supabase
             .from('faulty_labels')
-            .select(`*, comments:label_comments(*), profiles(full_name)`)
+            .select(`*, comments:label_comments(*)`)
             .order('created_at', { ascending: false });
         
         if (error) { toast.error('Chyba při načítání dat.'); console.error(error); } 
@@ -241,15 +240,15 @@ const FaultyLabelsTab = () => {
     
     const filteredLabels = useMemo(() => {
         return labels.filter(label => {
-            const queryMatch = label.delivery_no.toLowerCase().includes(filters.query.toLowerCase()) ||
-                               label.profiles?.full_name?.toLowerCase().includes(filters.query.toLowerCase());
+            const query = filters.query.toLowerCase();
+            const queryMatch = label.delivery_no.toLowerCase().includes(query) ||
+                               label.order_details?.["Country ship-to prty"]?.toLowerCase().includes(query) ||
+                               label.location?.toLowerCase().includes(query) ||
+                               label.created_by_name?.toLowerCase().includes(query);
             const statusMatch = filters.status === 'all' || label.status === filters.status;
-            const locationMatch = filters.location === 'all' || label.location === filters.location;
-            return queryMatch && statusMatch && locationMatch;
+            return queryMatch && statusMatch;
         });
     }, [labels, filters]);
-
-    const uniqueLocations = useMemo(() => [...new Set(labels.map(l => l.location).filter(Boolean))], [labels]);
 
     const handleCloseModal = (refresh) => {
         setSelectedLabel(null);
@@ -259,7 +258,8 @@ const FaultyLabelsTab = () => {
     const handleOpenOrderDetails = (deliveryNo) => {
         const orderDetails = allOrdersData.find(order => String(order['Delivery No']) === String(deliveryNo));
         if (orderDetails) {
-            setSelectedOrderDetails(orderDetails);
+            const relatedPicking = pickingData.filter(p => String(p.delivery_no) === String(deliveryNo));
+            setSelectedOrderDetails({ ...orderDetails, picking_details: relatedPicking });
         } else {
             toast.error(`Zakázka ${deliveryNo} nenalezena.`);
         }
@@ -281,14 +281,18 @@ const FaultyLabelsTab = () => {
                 <Button onClick={() => setShowNewModal(true)}><PlusCircle size={16} className="mr-2" />Přidat chybějící etiketu</Button>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-slate-800 border border-slate-700 rounded-lg">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-slate-800 border border-slate-700 rounded-lg">
                 <div className="md:col-span-2">
-                    <label className="text-sm font-medium text-slate-400">Hledat (zakázka, vytvořil)</label>
-                    <input 
-                        value={filters.query}
-                        onChange={e => setFilters(prev => ({...prev, query: e.target.value}))}
-                        className="w-full mt-1 p-2 bg-slate-700 border border-slate-600 rounded-md text-white" 
-                    />
+                    <label className="text-sm font-medium text-slate-400">Hledat...</label>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <input 
+                            value={filters.query}
+                            onChange={e => setFilters(prev => ({...prev, query: e.target.value}))}
+                            className="w-full mt-1 p-2 pl-10 bg-slate-700 border border-slate-600 rounded-md text-white" 
+                            placeholder="Zakázka, země, umístění, vytvořil..."
+                        />
+                    </div>
                 </div>
                 <div>
                      <label className="text-sm font-medium text-slate-400">Status</label>
@@ -297,13 +301,6 @@ const FaultyLabelsTab = () => {
                         <option value="Nové">Nové</option>
                         <option value="V řešení">V řešení</option>
                         <option value="Vyřešeno">Vyřešeno</option>
-                    </select>
-                </div>
-                 <div>
-                     <label className="text-sm font-medium text-slate-400">Umístění</label>
-                    <select value={filters.location} onChange={e => setFilters(prev => ({...prev, location: e.target.value}))} className="w-full mt-1 p-2 bg-slate-700 border border-slate-600 rounded-md text-white">
-                        <option value="all">Všechna</option>
-                        {uniqueLocations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
                     </select>
                 </div>
             </div>
@@ -335,7 +332,7 @@ const FaultyLabelsTab = () => {
                                     <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-sky-400 hover:underline cursor-pointer" onClick={() => handleOpenOrderDetails(label.delivery_no)}>{label.delivery_no}</td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-300">{label.order_details?.["Country ship-to prty"] || 'N/A'}</td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-300">{label.location || 'N/A'}</td>
-                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-300">{label.profiles?.full_name || label.created_by_name}</td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-300">{label.created_by_name}</td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-300">{format(new Date(label.created_at), 'dd.MM.yyyy HH:mm')}</td>
                                     <td className="px-4 py-3 whitespace-nowrap text-sm">
                                         <Button onClick={() => setSelectedLabel(label)} size="sm">Detail</Button>
