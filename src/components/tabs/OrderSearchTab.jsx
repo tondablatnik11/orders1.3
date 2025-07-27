@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Search, FileDown, XCircle } from 'lucide-react';
 import OrderDetailsModal from '@/components/modals/OrderDetailsModal';
 import OrderListTable from '../shared/OrderListTable';
+import { format } from 'date-fns';
 
 export default function OrderSearchTab({ initialQuery, clearInitialQuery }) {
     const { t } = useUI();
@@ -18,27 +19,40 @@ export default function OrderSearchTab({ initialQuery, clearInitialQuery }) {
         status: "all",
         shipToPartyName: "all",
         forwardingAgentName: "all",
+        country: "all",
+        deliveryType: "all",
     });
     const [searchResult, setSearchResult] = useState(null);
 
     const uniqueValues = useMemo(() => {
-        if (!allOrdersData) return { statuses: [], shipToParties: [], forwardingAgents: [] };
+        if (!allOrdersData) return { statuses: [], shipToParties: [], forwardingAgents: [], countries: [], deliveryTypes: [] };
         const statuses = [...new Set(allOrdersData.map(row => Number(row.Status)))].sort((a, b) => a - b);
         const shipToParties = [...new Set(allOrdersData.map(row => row["Name of ship-to party"]))].sort();
         const forwardingAgents = [...new Set(allOrdersData.map(row => row["Forwarding agent name"]))].sort();
-        return { statuses, shipToParties, forwardingAgents };
+        const countries = [...new Set(allOrdersData.map(row => row["Country ship-to prty"]))].sort();
+        const deliveryTypes = [...new Set(allOrdersData.map(row => row["del.type"]))].sort();
+        return { statuses, shipToParties, forwardingAgents, countries, deliveryTypes };
     }, [allOrdersData]);
 
     const handleSearch = useCallback(() => {
         let results = [...allOrdersData];
         if (searchParams.deliveryNo) {
-            results = results.filter(row => String(row["Delivery No"]).includes(searchParams.deliveryNo));
+            const deliveryNumbers = searchParams.deliveryNo.split(/[\s,]+/).map(n => n.trim()).filter(Boolean);
+            if(deliveryNumbers.length > 0) {
+                results = results.filter(row => deliveryNumbers.includes(String(row["Delivery No"])));
+            }
+        }
+        if (searchParams.loadingDate) {
+             results = results.filter(row => row["Loading Date"] && format(new Date(row["Loading Date"]), 'yyyy-MM-dd') === searchParams.loadingDate);
         }
         if (searchParams.status !== "all") {
             results = results.filter(row => String(row.Status) === searchParams.status);
         }
-        if (searchParams.shipToPartyName !== "all") {
-            results = results.filter(row => row["Name of ship-to party"] === searchParams.shipToPartyName);
+        if (searchParams.country !== "all") {
+             results = results.filter(row => row["Country ship-to prty"] === searchParams.country);
+        }
+        if (searchParams.deliveryType !== "all") {
+             results = results.filter(row => row["del.type"] === searchParams.deliveryType);
         }
         if (searchParams.forwardingAgentName !== "all") {
             results = results.filter(row => row["Forwarding agent name"] === searchParams.forwardingAgentName);
@@ -61,20 +75,14 @@ export default function OrderSearchTab({ initialQuery, clearInitialQuery }) {
     const handleSelectOrder = useCallback((order) => {
         const deliveryNo = order["Delivery No"];
         const relatedPicking = pickingData.filter(p => String(p.delivery_no) === String(deliveryNo));
-        const fullOrderDetails = {
-            ...order,
-            picking_details: relatedPicking
-        };
+        const fullOrderDetails = { ...order, picking_details: relatedPicking };
         setSelectedOrderDetails(fullOrderDetails);
     }, [pickingData, setSelectedOrderDetails]);
 
     const clearFilters = () => {
         setSearchParams({
-            deliveryNo: "",
-            loadingDate: "",
-            status: "all",
-            shipToPartyName: "all",
-            forwardingAgentName: "all",
+            deliveryNo: "", loadingDate: "", status: "all", shipToPartyName: "all",
+            forwardingAgentName: "all", country: "all", deliveryType: "all",
         });
         setSearchResult(null);
     };
@@ -88,10 +96,14 @@ export default function OrderSearchTab({ initialQuery, clearInitialQuery }) {
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-slate-800/30 border border-slate-700 rounded-lg">
-                    <div className="lg:col-span-3">
-                        <label className="text-sm font-medium text-slate-400">Číslo zakázky</label>
-                        <input type="text" name="deliveryNo" value={searchParams.deliveryNo} onChange={handleInputChange} className="w-full mt-1 p-2 bg-slate-700 border border-slate-600 rounded-md text-white" placeholder="Zadejte číslo..." />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-slate-800/30 border border-slate-700 rounded-lg">
+                    <div className="lg:col-span-4">
+                        <label className="text-sm font-medium text-slate-400">Číslo zakázky (lze vložit více čísel)</label>
+                        <textarea name="deliveryNo" value={searchParams.deliveryNo} onChange={handleInputChange} rows="2" className="w-full mt-1 p-2 bg-slate-700 border border-slate-600 rounded-md text-white" placeholder="Vložte jedno nebo více čísel (čárka, mezera, nový řádek)..." />
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium text-slate-400">Datum nakládky</label>
+                        <input type="date" name="loadingDate" value={searchParams.loadingDate} onChange={handleInputChange} className="w-full mt-1 p-2 bg-slate-700 border border-slate-600 rounded-md text-white" />
                     </div>
                     <div>
                         <label className="text-sm font-medium text-slate-400">Status</label>
@@ -101,17 +113,17 @@ export default function OrderSearchTab({ initialQuery, clearInitialQuery }) {
                         </select>
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-slate-400">Příjemce</label>
-                        <select name="shipToPartyName" value={searchParams.shipToPartyName} onChange={handleInputChange} className="w-full mt-1 p-2 bg-slate-700 border border-slate-600 rounded-md text-white">
-                            <option value="all">Všichni</option>
-                            {uniqueValues.shipToParties.map(name => <option key={name} value={name}>{name}</option>)}
+                        <label className="text-sm font-medium text-slate-400">Země</label>
+                        <select name="country" value={searchParams.country} onChange={handleInputChange} className="w-full mt-1 p-2 bg-slate-700 border border-slate-600 rounded-md text-white">
+                            <option value="all">Všechny</option>
+                            {uniqueValues.countries.map(name => <option key={name} value={name}>{name}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-slate-400">Dopravce</label>
-                        <select name="forwardingAgentName" value={searchParams.forwardingAgentName} onChange={handleInputChange} className="w-full mt-1 p-2 bg-slate-700 border border-slate-600 rounded-md text-white">
-                            <option value="all">Všichni</option>
-                            {uniqueValues.forwardingAgents.map(name => <option key={name} value={name}>{name}</option>)}
+                        <label className="text-sm font-medium text-slate-400">Typ dodávky</label>
+                        <select name="deliveryType" value={searchParams.deliveryType} onChange={handleInputChange} className="w-full mt-1 p-2 bg-slate-700 border border-slate-600 rounded-md text-white">
+                            <option value="all">Všechny</option>
+                            {uniqueValues.deliveryTypes.map(name => <option key={name} value={name}>{name === 'P' ? 'Paleta' : 'Karton'}</option>)}
                         </select>
                     </div>
                 </div>
@@ -130,26 +142,23 @@ export default function OrderSearchTab({ initialQuery, clearInitialQuery }) {
                             <h3 className="text-xl font-semibold text-white">
                                 Výsledky hledání ({searchResult.length})
                             </h3>
-                            <button
-                                onClick={() => exportSearchResultsToXLSX(searchResult, t)}
-                                className="flex items-center gap-2 bg-slate-700 text-white px-4 py-2 rounded-lg shadow hover:bg-slate-600 transition-colors text-sm"
-                            >
-                                <FileDown className="w-4 h-4" /> Exportovat výsledky
-                            </button>
+                            {searchResult.length > 0 && (
+                                <button onClick={() => exportSearchResultsToXLSX(searchResult, t)} className="flex items-center gap-2 bg-slate-700 text-white px-4 py-2 rounded-lg shadow hover:bg-slate-600 transition-colors text-sm">
+                                    <FileDown className="w-4 h-4" /> Exportovat výsledky
+                                </button>
+                            )}
                         </div>
                          <OrderListTable
                             orders={searchResult}
                             onSelectOrder={handleSelectOrder}
                             useStaticIcons={true}
+                            rowsPerPage={500}
                         />
                     </div>
                 )}
 
                 {selectedOrderDetails && ( 
-                    <OrderDetailsModal
-                        order={selectedOrderDetails}
-                        onClose={() => setSelectedOrderDetails(null)}
-                    />
+                    <OrderDetailsModal order={selectedOrderDetails} onClose={() => setSelectedOrderDetails(null)} />
                 )}
             </CardContent>
         </Card>
