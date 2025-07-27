@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { cs } from 'date-fns/locale';
-import { Package, User, Calendar, Globe, MapPin, MessageSquare, Tag, Send, PlusCircle, History, Info, Search } from 'lucide-react';
+import { Package, User, Calendar, Globe, MapPin, MessageSquare, Tag, Send, PlusCircle, History, Search } from 'lucide-react';
 
 // --- Vylepšené modální okno ---
 const DetailItem = ({ icon: Icon, label, value }) => (
@@ -29,17 +29,18 @@ const FaultyLabelDetailsModal = ({ label, onClose }) => {
     const [comments, setComments] = useState(label.comments || []);
     const [logs, setLogs] = useState([]);
 
-    useEffect(() => {
-        const fetchLogs = async () => {
-            const { data, error } = await supabase
-                .from('faulty_label_logs')
-                .select('*')
-                .eq('faulty_label_id', label.id)
-                .order('created_at', { ascending: false });
-            if (!error) setLogs(data);
-        };
-        fetchLogs();
+    const fetchLogs = useCallback(async () => {
+        const { data, error } = await supabase
+            .from('faulty_label_logs')
+            .select('*')
+            .eq('faulty_label_id', label.id)
+            .order('created_at', { ascending: false });
+        if (!error) setLogs(data);
     }, [label.id, supabase]);
+
+    useEffect(() => {
+        fetchLogs();
+    }, [fetchLogs]);
 
     const createLog = async (description) => {
         await supabase.from('faulty_label_logs').insert({
@@ -70,7 +71,7 @@ const FaultyLabelDetailsModal = ({ label, onClose }) => {
         } else {
             await createLog(`Přidal komentář: "${newComment}"`);
             setComments(prev => [...prev, data]);
-            setLogs(prev => [{ created_at: new Date().toISOString(), user_name: userProfile.full_name, change_description: `Přidal komentář: "${newComment}"` }, ...prev]);
+            fetchLogs(); // Refresh logs to show new comment log
             setNewComment('');
             toast.success('Komentář byl přidán.');
         }
@@ -96,6 +97,7 @@ const FaultyLabelDetailsModal = ({ label, onClose }) => {
                         </div>
                         <div className="space-y-4">
                             <h3 className="text-lg font-bold text-sky-300">Detaily o chybě</h3>
+                            <DetailItem icon={Tag} label="Chybná etiketa" value={label.label_number} />
                             <DetailItem icon={MapPin} label="Umístění" value={label.location} />
                             <DetailItem icon={User} label="Vytvořil" value={label.created_by_name} />
                             <DetailItem icon={Calendar} label="Vytvořeno" value={format(new Date(label.created_at), 'dd.MM.yyyy HH:mm')} />
@@ -154,20 +156,23 @@ const FaultyLabelDetailsModal = ({ label, onClose }) => {
 };
 
 const NewFaultyLabelModal = ({ onClose, onCreated }) => {
-    const [deliveryNo, setDeliveryNo] = useState('');
-    const [location, setLocation] = useState('');
+    const [formData, setFormData] = useState({ delivery_no: '', label_number: '', location: '' });
     const { userProfile } = useAuth();
     const supabase = getSupabase();
 
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
     const handleSubmit = async () => {
-        if (!deliveryNo.trim() || !location.trim()) {
+        if (!formData.delivery_no.trim() || !formData.label_number.trim() || !formData.location.trim()) {
             toast.error('Vyplňte prosím všechna pole.');
             return;
         }
 
         const { data, error } = await supabase.from('faulty_labels').insert({
-            delivery_no: deliveryNo.trim(),
-            location: location.trim(),
+            ...formData,
             status: 'Nové',
             created_by: userProfile.id,
             created_by_name: userProfile.full_name || 'Uživatel'
@@ -191,11 +196,15 @@ const NewFaultyLabelModal = ({ onClose, onCreated }) => {
             <div className="p-6 space-y-4">
                 <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1">Číslo zakázky</label>
-                    <input value={deliveryNo} onChange={e => setDeliveryNo(e.target.value)} className="w-full p-2 rounded-lg bg-slate-700 border border-slate-600" />
+                    <input name="delivery_no" value={formData.delivery_no} onChange={handleChange} className="w-full p-2 rounded-lg bg-slate-700 border border-slate-600" />
+                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Číslo etikety</label>
+                    <input name="label_number" value={formData.label_number} onChange={handleChange} className="w-full p-2 rounded-lg bg-slate-700 border border-slate-600" />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1">Umístění</label>
-                    <input value={location} onChange={e => setLocation(e.target.value)} className="w-full p-2 rounded-lg bg-slate-700 border border-slate-600" />
+                    <input name="location" value={formData.location} onChange={handleChange} className="w-full p-2 rounded-lg bg-slate-700 border border-slate-600" />
                 </div>
                 <div className="flex justify-end gap-2 pt-4">
                     <Button onClick={onClose} variant="secondary">Zrušit</Button>
@@ -212,9 +221,9 @@ const FaultyLabelsTab = () => {
     const [loading, setLoading] = useState(true);
     const [selectedLabel, setSelectedLabel] = useState(null);
     const [showNewModal, setShowNewModal] = useState(false);
-    const [filters, setFilters] = useState({ query: '', status: 'all', location: 'all' });
+    const [filters, setFilters] = useState({ query: '', status: 'all' });
     const supabase = getSupabase();
-    const { allOrdersData, setSelectedOrderDetails } = useData();
+    const { allOrdersData, pickingData, setSelectedOrderDetails } = useData();
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -241,7 +250,8 @@ const FaultyLabelsTab = () => {
     const filteredLabels = useMemo(() => {
         return labels.filter(label => {
             const query = filters.query.toLowerCase();
-            const queryMatch = label.delivery_no.toLowerCase().includes(query) ||
+            const queryMatch = !query ||
+                               label.delivery_no.toLowerCase().includes(query) ||
                                label.order_details?.["Country ship-to prty"]?.toLowerCase().includes(query) ||
                                label.location?.toLowerCase().includes(query) ||
                                label.created_by_name?.toLowerCase().includes(query);
@@ -255,7 +265,7 @@ const FaultyLabelsTab = () => {
         if (refresh) fetchData();
     };
 
-    const handleOpenOrderDetails = (deliveryNo) => {
+    const handleOpenOrderDetails = useCallback((deliveryNo) => {
         const orderDetails = allOrdersData.find(order => String(order['Delivery No']) === String(deliveryNo));
         if (orderDetails) {
             const relatedPicking = pickingData.filter(p => String(p.delivery_no) === String(deliveryNo));
@@ -263,7 +273,7 @@ const FaultyLabelsTab = () => {
         } else {
             toast.error(`Zakázka ${deliveryNo} nenalezena.`);
         }
-    };
+    }, [allOrdersData, pickingData, setSelectedOrderDetails]);
     
     const getStatusColorClass = (status) => {
         switch(status) {
