@@ -2,16 +2,16 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { getSupabase } from '@/lib/supabaseClient';
 import { useData } from '@/hooks/useData';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, AreaChart, Area, LabelList } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, LabelList } from 'recharts';
 import * as XLSX from 'xlsx';
-import { UploadCloud, ChevronDown, ChevronUp, ArrowUpDown, UserCheck, Users, X, BarChart2, Warehouse, Component, BarChartHorizontal, GitCompare, Percent, Calendar } from 'lucide-react';
-import { format, startOfDay, endOfDay, parseISO, isWithinInterval, startOfWeek, endOfWeek, eachDayOfInterval, getWeek, eachWeekOfInterval, startOfMonth, endOfMonth, eachMonthOfInterval, eachHourOfInterval } from 'date-fns';
+import { UploadCloud, ChevronDown, ChevronUp, ArrowUpDown, UserCheck, Users, X, BarChart2, Warehouse, Component, BarChartHorizontal, Info, Calendar } from 'lucide-react';
+import { format, startOfDay, endOfDay, parseISO, isWithinInterval, startOfWeek, endOfWeek, eachDayOfInterval, getWeek, eachWeekOfInterval, eachHourOfInterval } from 'date-fns';
 import { cs } from 'date-fns/locale';
 
 // --- POMOCNÉ KOMPONENTY ---
 
 const KpiCard = ({ title, value, unit, icon, color, subValue, subUnit }) => (
-    <div className="bg-slate-800 p-5 rounded-lg border border-slate-700 flex">
+    <div className="bg-slate-800 p-5 rounded-lg border border-slate-700 flex transition-all hover:border-slate-600 hover:shadow-lg">
         <div className={`p-3 rounded-lg mr-4 self-start ${color}`}>{icon}</div>
         <div className="flex flex-col">
             <h3 className="text-sm font-medium text-slate-400">{title}</h3>
@@ -22,6 +22,25 @@ const KpiCard = ({ title, value, unit, icon, color, subValue, subUnit }) => (
                 <p className="text-sm font-medium text-slate-400 mt-1">
                     {subValue} <span className="text-xs">{subUnit}</span>
                 </p>
+            )}
+        </div>
+    </div>
+);
+
+const ChartContainer = ({ title, controls, children, data }) => (
+    <div className="bg-slate-800 p-6 rounded-lg border border-slate-700 flex flex-col">
+        <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
+            <h2 className="text-xl font-semibold text-white">{title}</h2>
+            {controls && <div className="flex items-center gap-2 flex-wrap">{controls}</div>}
+        </div>
+        <div className="flex-grow h-[350px]">
+            {data && data.length > 0 ? (
+                children
+            ) : (
+                <div className="flex items-center justify-center h-full text-slate-500">
+                    <Info size={18} className="mr-2"/>
+                    <span>Nedostatek dat pro zobrazení</span>
+                </div>
             )}
         </div>
     </div>
@@ -75,7 +94,7 @@ const ImportSection = ({ onImportSuccess }) => {
             const deliveryNoIndex = headers.indexOf('Dest.Storage Bin');
 
             if (userIndex === -1 || deliveryNoIndex === -1 || dateIndex === -1 || timeIndex === -1) {
-                throw new Error('V souboru chybí klíčové sloupce: User, Dest.Storage Bin, Confirmation date nebo Confirmation time.');
+                throw new Error('V souboru chybí klíčové sloupce.');
             }
 
             const processedData = dataRows.reduce((acc, row) => {
@@ -150,55 +169,23 @@ const ImportSection = ({ onImportSuccess }) => {
 
 const PickerDetailModal = ({ pickerName, data, onClose }) => {
     if (!pickerName) return null;
-
     const pickerStats = useMemo(() => {
         const pickerData = data.filter(p => p.user_name === pickerName);
         const totalPicks = pickerData.length;
         const totalQty = pickerData.reduce((sum, p) => sum + (p.source_actual_qty || 0), 0);
         const totalWeight = pickerData.reduce((sum, p) => sum + (p.weight || 0), 0);
-
-        const activityByDay = pickerData.reduce((acc, p) => {
-            const day = p.confirmation_date;
-            if (!acc[day]) acc[day] = 0;
-            acc[day]++;
-            return acc;
-        }, {});
-
-        const activityChartData = Object.entries(activityByDay)
-            .map(([date, picks]) => ({ date, picks }))
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-        const topMaterials = pickerData.reduce((acc, p) => {
-            const material = p.material_description || 'Neznámý';
-            if (!acc[material]) acc[material] = { name: material, picks: 0, qty: 0 };
-            acc[material].picks++;
-            acc[material].qty += p.source_actual_qty || 0;
-            return acc;
-        }, {});
-
-        const topBins = pickerData.reduce((acc, p) => {
-            const bin = p.source_storage_bin || 'Neznámá';
-            if (!acc[bin]) acc[bin] = { name: bin, picks: 0 };
-            acc[bin].picks++;
-            return acc;
-        }, {});
-        
-        return {
-            totalPicks, totalQty, totalWeight,
-            activityChartData,
-            topMaterials: Object.values(topMaterials).sort((a,b) => b.picks - a.picks).slice(0, 5),
-            topBins: Object.values(topBins).sort((a,b) => b.picks - a.picks).slice(0, 5)
-        };
+        const activityByDay = pickerData.reduce((acc, p) => { const day = p.confirmation_date; if (!acc[day]) acc[day] = 0; acc[day]++; return acc; }, {});
+        const activityChartData = Object.entries(activityByDay).map(([date, picks]) => ({ date, picks })).sort((a, b) => new Date(a.date) - new Date(b.date));
+        const topMaterials = pickerData.reduce((acc, p) => { const material = p.material_description || 'Neznámý'; if (!acc[material]) acc[material] = { name: material, picks: 0, qty: 0 }; acc[material].picks++; acc[material].qty += p.source_actual_qty || 0; return acc; }, {});
+        const topBins = pickerData.reduce((acc, p) => { const bin = p.source_storage_bin || 'Neznámá'; if (!acc[bin]) acc[bin] = { name: bin, picks: 0 }; acc[bin].picks++; return acc; }, {});
+        return { totalPicks, totalQty, totalWeight, activityChartData, topMaterials: Object.values(topMaterials).sort((a,b) => b.picks - a.picks).slice(0, 5), topBins: Object.values(topBins).sort((a,b) => b.picks - a.picks).slice(0, 5) };
     }, [pickerName, data]);
 
     return (
         <div className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center" onClick={onClose}>
             <div className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b border-slate-700 sticky top-0 bg-slate-800/80 backdrop-blur-sm z-10">
-                    <div className="flex justify-between items-center">
-                        <h2 className="text-2xl font-bold text-white">Detail pickera: <span className="text-sky-400">{pickerName}</span></h2>
-                        <button onClick={onClose} className="text-slate-400 hover:text-white"><X size={28} /></button>
-                    </div>
+                    <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Detail pickera: <span className="text-sky-400">{pickerName}</span></h2><button onClick={onClose} className="text-slate-400 hover:text-white"><X size={28} /></button></div>
                 </div>
                 <div className="p-6 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
@@ -208,25 +195,11 @@ const PickerDetailModal = ({ pickerName, data, onClose }) => {
                     </div>
                     <div>
                         <h3 className="text-lg font-semibold text-white mb-3">Produktivita v čase (operace/den)</h3>
-                        <ResponsiveContainer width="100%" height={250}>
-                            <BarChart data={pickerStats.activityChartData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
-                                <XAxis dataKey="date" tickFormatter={(date) => format(parseISO(date), 'dd.MM')} />
-                                <YAxis />
-                                <Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }}/>
-                                <Bar dataKey="picks" fill="#38bdf8" name="Počet operací" />
-                            </BarChart>
-                        </ResponsiveContainer>
+                        <ResponsiveContainer width="100%" height={250}><BarChart data={pickerStats.activityChartData}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="date" tickFormatter={(date) => format(parseISO(date), 'dd.MM')} /><YAxis /><Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }}/><Bar dataKey="picks" fill="#38bdf8" name="Počet operací" /></BarChart></ResponsiveContainer>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <h3 className="text-lg font-semibold text-white mb-3">Top 5 materiálů</h3>
-                            <ul className="space-y-2">{pickerStats.topMaterials.map(m => <li key={m.name} className="bg-slate-700/50 p-3 rounded-md flex justify-between items-center text-sm"><span className="font-medium text-slate-300 truncate pr-4">{m.name}</span> <span className="text-sky-400 font-semibold">{m.picks} picků / {m.qty} ks</span></li>)}</ul>
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-semibold text-white mb-3">Top 5 pozic</h3>
-                             <ul className="space-y-2">{pickerStats.topBins.map(b => <li key={b.name} className="bg-slate-700/50 p-3 rounded-md flex justify-between items-center text-sm"><span className="font-medium text-slate-300">{b.name}</span> <span className="text-teal-400 font-semibold">{b.picks} picků</span></li>)}</ul>
-                        </div>
+                        <div><h3 className="text-lg font-semibold text-white mb-3">Top 5 materiálů</h3><ul className="space-y-2">{pickerStats.topMaterials.map(m => <li key={m.name} className="bg-slate-700/50 p-3 rounded-md flex justify-between items-center text-sm"><span className="font-medium text-slate-300 truncate pr-4">{m.name}</span> <span className="text-sky-400 font-semibold">{m.picks} picků / {m.qty} ks</span></li>)}</ul></div>
+                        <div><h3 className="text-lg font-semibold text-white mb-3">Top 5 pozic</h3><ul className="space-y-2">{pickerStats.topBins.map(b => <li key={b.name} className="bg-slate-700/50 p-3 rounded-md flex justify-between items-center text-sm"><span className="font-medium text-slate-300">{b.name}</span> <span className="text-teal-400 font-semibold">{b.picks} picků</span></li>)}</ul></div>
                     </div>
                 </div>
             </div>
@@ -234,45 +207,45 @@ const PickerDetailModal = ({ pickerName, data, onClose }) => {
     );
 };
 
-const CustomActivityTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-        const activePickers = payload.filter(p => p.value > 0);
-        if (activePickers.length === 0) return null;
+const CustomActivityTooltip = ({ active, payload, label }) => { if (active && payload && payload.length) { const activePickers = payload.filter(p => p.value > 0); if (activePickers.length === 0) return null; return ( <div className="p-4 bg-slate-900/80 backdrop-blur-sm border border-slate-700 rounded-lg text-sm"><p className="font-bold text-slate-300 mb-2">{label}</p><ul className="space-y-1">{activePickers.map(entry => ( <li key={entry.dataKey} style={{ color: entry.color }}><span className="font-semibold">{entry.dataKey}:</span> {entry.value} operací</li> ))}</ul></div> ); } return null; };
+const CustomizedLineLabel = (props) => { const { x, y, value } = props; if (value > 0) { return ( <text x={x} y={y} dy={-8} fill="#94a3b8" fontSize={10} textAnchor="middle">{value}</text> ); } return null; };
 
-        return (
-            <div className="p-4 bg-slate-900/80 backdrop-blur-sm border border-slate-700 rounded-lg text-sm">
-                <p className="font-bold text-slate-300 mb-2">{label}</p>
-                <ul className="space-y-1">
-                    {activePickers.map(entry => (
-                        <li key={entry.dataKey} style={{ color: entry.color }}>
-                            <span className="font-semibold">{entry.dataKey}:</span> {entry.value} operací
-                        </li>
-                    ))}
-                </ul>
+const CustomShiftLegend = ({ payload, data }) => (
+    <div className="text-center mt-4">
+        <div className="flex justify-center items-center gap-4">
+            {payload.map((entry, index) => ( <div key={`item-${index}`} className="flex items-center text-sm text-slate-300"><div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: entry.color }} /><span>{entry.value}</span></div> ))}
+        </div>
+        <div className="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-700 max-h-20 overflow-y-auto">
+            {data.map(d => ( <span key={d.name} className="mr-4"><span className="font-semibold">{d.name}:</span> A: {d['Směna A']}, B: {d['Směna B']}</span> ))}
+        </div>
+    </div>
+);
+
+const CustomActivityLegend = ({ payload, data }) => {
+    const totals = useMemo(() => {
+        const pickerTotals = data.reduce((acc, op) => { acc[op.user_name] = (acc[op.user_name] || 0) + 1; return acc; }, {});
+        return Object.entries(pickerTotals).sort((a, b) => b[1] - a[1]);
+    }, [data]);
+    return (
+         <div className="text-center mt-4">
+            <div className="flex justify-center items-center gap-4 flex-wrap">
+                {payload.map((entry, index) => ( <div key={`item-${index}`} className="flex items-center text-sm text-slate-300"><div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: entry.color }} /><span>{entry.value}</span></div> ))}
             </div>
-        );
-    }
-    return null;
+            <div className="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-700">
+                <span className="font-semibold">Celkem v období: </span>
+                {totals.map(([name, total]) => ( <span key={name} className="mr-3">{name}: <span className="font-bold">{total}</span></span> ))}
+            </div>
+        </div>
+    );
 };
 
-const CustomizedLineLabel = (props) => {
-    const { x, y, value } = props;
-    if (value > 0) {
-        return (
-            <text x={x} y={y} dy={-8} fill="#94a3b8" fontSize={10} textAnchor="middle">
-                {value}
-            </text>
-        );
-    }
-    return null;
-};
 
 // --- Hlavní komponenta ---
 const PickingTab = () => {
     // Stavy
     const [pickingData, setPickingData] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [dateRange, setDateRange] = useState({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
+    const [dateRange, setDateRange] = useState({ from: startOfWeek(new Date(), { weekStartsOn: 1 }), to: endOfWeek(new Date(), { weekStartsOn: 1 }) });
     const [sortConfig, setSortConfig] = useState({ key: 'user_name', direction: 'asc' });
     const [currentPage, setCurrentPage] = useState(1);
     const [tableFilter, setTableFilter] = useState('');
@@ -290,15 +263,10 @@ const PickingTab = () => {
     const fetchData = useCallback(async () => {
         setLoading(true);
         const { data, error } = await supabase.from('picking_dashboard_data').select('*').order('created_at', { ascending: false });
-        if (error) {
-            console.error("Chyba při načítání dat o pickování:", error);
-            setPickingData([]);
-        } else {
+        if (error) { console.error("Chyba při načítání dat o pickování:", error); setPickingData([]); }
+        else {
             const uniquePicks = new Map();
-            (data || []).forEach(pick => {
-                const key = `${pick.confirmation_date}|${pick.confirmation_time}|${pick.user_name}|${pick.delivery_no}|${pick.source_storage_bin}|${pick.material}`;
-                if (!uniquePicks.has(key)) uniquePicks.set(key, pick);
-            });
+            (data || []).forEach(pick => { const key = `${pick.confirmation_date}|${pick.confirmation_time}|${pick.user_name}|${pick.delivery_no}|${pick.source_storage_bin}|${pick.material}`; if (!uniquePicks.has(key)) uniquePicks.set(key, pick); });
             const finalData = Array.from(uniquePicks.values()).filter(p => p.user_name && p.user_name.startsWith('UIH'));
             setPickingData(finalData);
         }
@@ -311,14 +279,10 @@ const PickingTab = () => {
         if (!dateRange.from || !dateRange.to) return [];
         return pickingData.filter(op => op.confirmation_date && isWithinInterval(parseISO(op.confirmation_date), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) }));
     }, [pickingData, dateRange]);
-
-    
-    // --- VÝPOČTY PRO STATISTIKY A GRAFY ---
     
     const stats = useMemo(() => {
         const data = filteredDataByDate;
         if (data.length === 0) return { totalPicks: '0', totalQty: '0', shiftAPicks: 0, shiftAQty: 0, shiftBPicks: 0, shiftBQty: 0, mostActivePicker: 'N/A' };
-        
         let shiftAPicks = 0, shiftAQty = 0, shiftBPicks = 0, shiftBQty = 0;
         const picksByUser = data.reduce((acc, op) => {
             acc[op.user_name] = (acc[op.user_name] || 0) + 1;
@@ -326,42 +290,25 @@ const PickingTab = () => {
                 const hour = parseInt(op.confirmation_time.split(':')[0], 10);
                 const weekNumber = getWeek(parseISO(op.confirmation_date), { weekStartsOn: 1 });
                 const isEvenWeek = weekNumber % 2 === 0;
-                
                 if (hour >= 6 && hour < 14) {
-                    if (isEvenWeek) { shiftAPicks++; shiftAQty += op.source_actual_qty || 0; }
-                    else { shiftBPicks++; shiftBQty += op.source_actual_qty || 0; }
+                    if (isEvenWeek) { shiftAPicks++; shiftAQty += op.source_actual_qty || 0; } else { shiftBPicks++; shiftBQty += op.source_actual_qty || 0; }
                 } else if (hour >= 14 && hour < 22) {
-                    if (isEvenWeek) { shiftBPicks++; shiftBQty += op.source_actual_qty || 0; }
-                    else { shiftAPicks++; shiftAQty += op.source_actual_qty || 0; }
+                    if (isEvenWeek) { shiftBPicks++; shiftBQty += op.source_actual_qty || 0; } else { shiftAPicks++; shiftAQty += op.source_actual_qty || 0; }
                 }
-            }
-            return acc;
+            } return acc;
         }, {});
-        
         const mostActivePicker = Object.keys(picksByUser).length > 0 ? Object.keys(picksByUser).reduce((a, b) => picksByUser[a] > picksByUser[b] ? a : b) : 'N/A';
-        return {
-            totalPicks: data.length.toLocaleString(),
-            totalQty: data.reduce((acc, row) => acc + (row.source_actual_qty || 0), 0).toLocaleString(),
-            shiftAPicks, shiftAQty, shiftBPicks, shiftBQty,
-            mostActivePicker
-        };
+        return { totalPicks: data.length.toLocaleString(), totalQty: data.reduce((acc, row) => acc + (row.source_actual_qty || 0), 0).toLocaleString(), shiftAPicks, shiftAQty, shiftBPicks, shiftBQty, mostActivePicker };
     }, [filteredDataByDate]);
 
     const shiftChartData = useMemo(() => {
         const data = filteredDataByDate;
         let interval, formatStr;
         switch(shiftChartInterval) {
-            case 'week':
-                interval = eachWeekOfInterval({ start: dateRange.from, end: dateRange.to }, { weekStartsOn: 1 });
-                formatStr = (date) => `T${getWeek(date, { weekStartsOn: 1 })}`; break;
-            case 'month':
-                interval = eachMonthOfInterval({ start: dateRange.from, end: dateRange.to });
-                formatStr = (date) => format(date, 'LLLL yyyy', { locale: cs }); break;
-            default:
-                interval = eachDayOfInterval({ start: dateRange.from, end: dateRange.to });
-                formatStr = (date) => format(date, 'dd.MM');
+            case 'week': interval = eachWeekOfInterval({ start: dateRange.from, end: dateRange.to }, { weekStartsOn: 1 }); formatStr = (date) => `T${getWeek(date, { weekStartsOn: 1 })}`; break;
+            case 'month': interval = eachMonthOfInterval({ start: dateRange.from, end: dateRange.to }); formatStr = (date) => format(date, 'LLLL yyyy', { locale: cs }); break;
+            default: interval = eachDayOfInterval({ start: dateRange.from, end: dateRange.to }); formatStr = (date) => format(date, 'dd.MM');
         }
-
         return interval.map(date => {
             const point = { name: formatStr(date), 'Směna A': 0, 'Směna B': 0 };
             const opsInInterval = data.filter(op => {
@@ -372,7 +319,6 @@ const PickingTab = () => {
                     default: return format(opDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
                  }
             });
-
             opsInInterval.forEach(op => {
                 const hour = parseInt(op.confirmation_time.split(':')[0], 10);
                 const weekNumber = getWeek(parseISO(op.confirmation_date), { weekStartsOn: 1 });
@@ -386,7 +332,6 @@ const PickingTab = () => {
 
     const activityChartData = useMemo(() => {
         let data, interval, formatStr, isSameInterval;
-        
         if (activityChartInterval === 'hour') {
             data = pickingData.filter(op => op.confirmation_date && format(parseISO(op.confirmation_date), 'yyyy-MM-dd') === format(activityChartDate, 'yyyy-MM-dd'));
             interval = eachHourOfInterval({ start: startOfDay(activityChartDate), end: endOfDay(activityChartDate) });
@@ -404,9 +349,7 @@ const PickingTab = () => {
                 isSameInterval = (opDate, intDate) => getWeek(opDate, { weekStartsOn: 1 }) === getWeek(intDate, { weekStartsOn: 1 });
             }
         }
-        
         const allPickers = [...new Set(data.map(p => p.user_name).filter(Boolean))];
-        
         return interval.map(intDate => {
             const point = { name: formatStr(intDate) };
             allPickers.forEach(p => point[p] = 0);
@@ -417,95 +360,43 @@ const PickingTab = () => {
     }, [pickingData, filteredDataByDate, dateRange, activityChartInterval, activityChartDate]);
     
     const topPickersData = useMemo(() => {
-        const pickerCounts = filteredDataByDate.reduce((acc, op) => {
-            acc[op.user_name] = (acc[op.user_name] || 0) + 1;
-            return acc;
-        }, {});
-        return Object.entries(pickerCounts)
-            .map(([name, picks]) => ({ name, picks }))
-            .sort((a,b) => b.picks - a.picks)
-            .slice(0, 10);
+        const pickerCounts = filteredDataByDate.reduce((acc, op) => { acc[op.user_name] = (acc[op.user_name] || 0) + 1; return acc; }, {});
+        return Object.entries(pickerCounts).map(([name, picks]) => ({ name, picks })).sort((a,b) => b.picks - a.picks).slice(0, 10);
     }, [filteredDataByDate]);
     
     const warehouseChartData = useMemo(() => {
         const data = filteredDataByDate;
         const key = warehouseChartType === 'bins' ? 'source_storage_bin' : 'material_description';
-        const counts = data.reduce((acc, op) => {
-            const name = op[key] || 'Neznámý';
-            acc[name] = (acc[name] || 0) + 1;
-            return acc;
-        }, {});
-        return Object.entries(counts)
-            .map(([name, picks]) => ({ name, picks }))
-            .sort((a,b) => b.picks - a.picks)
-            .slice(0, 10);
+        const counts = data.reduce((acc, op) => { const name = op[key] || 'Neznámý'; acc[name] = (acc[name] || 0) + 1; return acc; }, {});
+        return Object.entries(counts).map(([name, picks]) => ({ name, picks })).sort((a,b) => b.picks - a.picks).slice(0, 10);
     }, [filteredDataByDate, warehouseChartType]);
 
     const sortedFilteredData = useMemo(() => {
-        let sortableItems = [...filteredDataByDate].filter(row => 
-            Object.values(row).some(value => String(value).toLowerCase().includes(tableFilter.toLowerCase()))
-        );
-        if (sortConfig.key !== null) {
-            sortableItems.sort((a, b) => {
-                const valA = a[sortConfig.key];
-                const valB = b[sortConfig.key];
-                if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-                if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
-                return 0;
-            });
-        }
+        let sortableItems = [...filteredDataByDate].filter(row => Object.values(row).some(value => String(value).toLowerCase().includes(tableFilter.toLowerCase())) );
+        if (sortConfig.key !== null) { sortableItems.sort((a, b) => { const valA = a[sortConfig.key]; const valB = b[sortConfig.key]; if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1; if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1; return 0; }); }
         return sortableItems;
     }, [filteredDataByDate, tableFilter, sortConfig]);
 
-    const paginatedData = useMemo(() => {
-        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-        return sortedFilteredData.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-    }, [sortedFilteredData, currentPage]);
-    
+    const paginatedData = useMemo(() => { const startIndex = (currentPage - 1) * ITEMS_PER_PAGE; return sortedFilteredData.slice(startIndex, startIndex + ITEMS_PER_PAGE); }, [sortedFilteredData, currentPage]);
     const totalPages = Math.ceil(sortedFilteredData.length / ITEMS_PER_PAGE);
 
-    const requestSort = (key) => {
-        let direction = 'asc';
-        if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
-        setSortConfig({ key, direction });
-    };
-
+    const requestSort = (key) => { let direction = 'asc'; if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc'; setSortConfig({ key, direction }); };
     const handleDeliveryClick = useCallback((deliveryNo) => {
         const orderDetails = allOrdersData.find(order => String(order['Delivery No']) === String(deliveryNo));
         const relatedPicking = pickingData.filter(p => p.delivery_no === deliveryNo);
-        
-        if (orderDetails) {
-            setSelectedOrderDetails({ 
-                ...orderDetails, 
-                picking_details: relatedPicking 
-            });
-        } else {
-            setSelectedOrderDetails({ 
-                "Delivery No": deliveryNo, 
-                picking_details: relatedPicking 
-            });
-        }
+        if (orderDetails) { setSelectedOrderDetails({ ...orderDetails, picking_details: relatedPicking }); }
+        else { setSelectedOrderDetails({ "Delivery No": deliveryNo, picking_details: relatedPicking }); }
     }, [allOrdersData, pickingData, setSelectedOrderDetails]);
-    
-    const SortableHeader = ({ label, columnKey }) => (
-        <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase cursor-pointer hover:bg-slate-700/50 transition-all" onClick={() => requestSort(columnKey)}>
-            <div className="flex items-center group">{label} <ArrowUpDown className={`w-4 h-4 ml-2 transition-opacity ${sortConfig.key === columnKey ? 'opacity-100' : 'opacity-30 group-hover:opacity-70'}`} /></div>
-        </th>
-    );
-    
-    // --- RENDER ---
+    const SortableHeader = ({ label, columnKey }) => ( <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase cursor-pointer hover:bg-slate-700/50 transition-all" onClick={() => requestSort(columnKey)}><div className="flex items-center group">{label} <ArrowUpDown className={`w-4 h-4 ml-2 transition-opacity ${sortConfig.key === columnKey ? 'opacity-100' : 'opacity-30 group-hover:opacity-70'}`} /></div></th> );
     
     return (
         <div className="space-y-8">
             {selectedPicker && <PickerDetailModal pickerName={selectedPicker} data={pickingData} onClose={() => setSelectedPicker(null)} />}
-
             <ImportSection onImportSuccess={fetchData} />
-            
             <hr className="border-slate-700"/>
             
             <div>
                 <h1 className="text-3xl font-bold text-white mb-6">Přehled a Analýza Pickování</h1>
-                
                 <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 mb-8 flex flex-wrap items-center gap-4">
                     <label className="text-slate-300 font-medium">Období:</label>
                     <input type="date" value={format(dateRange.from, 'yyyy-MM-dd')} onChange={e => setDateRange(prev => ({...prev, from: e.target.valueAsDate || new Date()}))} className="p-2 bg-slate-700 border border-slate-600 rounded-md text-white"/>
@@ -521,82 +412,100 @@ const PickingTab = () => {
                             <KpiCard title="Směna B" value={stats.shiftBPicks.toLocaleString()} unit="picků" subValue={stats.shiftBQty.toLocaleString()} subUnit="kusů" icon={<Users size={24} className="text-indigo-300"/>} color="bg-indigo-900/50"/>
                             <KpiCard title="Nejaktivnější picker" value={stats.mostActivePicker} unit="" icon={<UserCheck size={24} className="text-pink-300"/>} color="bg-pink-900/50"/>
                         </div>
-
                         <hr className="border-slate-700/50"/>
-
-                        <div className="space-y-8">
-                            <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                                <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
-                                    <h2 className="text-xl font-semibold text-white">Srovnání směn</h2>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <div className="text-sm text-slate-400 mr-2">Zobrazení:</div>
-                                        <button onClick={() => setShiftChartDisplay('grouped')} className={`px-3 py-1 text-sm rounded-md flex items-center gap-2 ${shiftChartDisplay === 'grouped' ? 'bg-sky-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}><BarChartHorizontal size={16}/> Seskupený</button>
-                                        <button onClick={() => setShiftChartDisplay('stacked')} className={`px-3 py-1 text-sm rounded-md flex items-center gap-2 ${shiftChartDisplay === 'stacked' ? 'bg-sky-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}><BarChart2 size={16}/> Skládaný</button>
-                                        <button onClick={() => setShiftChartDisplay('line')} className={`px-3 py-1 text-sm rounded-md flex items-center gap-2 ${shiftChartDisplay === 'line' ? 'bg-sky-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}><GitCompare size={16}/> Spojnicový</button>
-                                        <button onClick={() => setShiftChartDisplay('percent')} className={`px-3 py-1 text-sm rounded-md flex items-center gap-2 ${shiftChartDisplay === 'percent' ? 'bg-sky-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}><Percent size={16}/> Procenta</button>
-                                        <div className="w-px h-6 bg-slate-600 mx-2"></div>
-                                        <button onClick={() => setShiftChartInterval('day')} className={`px-3 py-1 text-sm rounded-md ${shiftChartInterval === 'day' ? 'bg-sky-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}>Dny</button>
-                                        <button onClick={() => setShiftChartInterval('week')} className={`px-3 py-1 text-sm rounded-md ${shiftChartInterval === 'week' ? 'bg-sky-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}>Týdny</button>
-                                        <button onClick={() => setShiftChartInterval('month')} className={`px-3 py-1 text-sm rounded-md ${shiftChartInterval === 'month' ? 'bg-sky-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}>Měsíce</button>
+                        
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                             <ChartContainer 
+                                title="Srovnání směn" 
+                                data={shiftChartData}
+                                controls={<>
+                                    <div className="flex items-center gap-1 bg-slate-700/50 p-1 rounded-md">
+                                        <button onClick={() => setShiftChartDisplay('grouped')} title="Seskupený pohled" className={`p-1.5 rounded ${shiftChartDisplay === 'grouped' ? 'bg-sky-600 text-white' : 'text-slate-400 hover:bg-slate-600'}`}><BarChartHorizontal size={16}/></button>
+                                        <button onClick={() => setShiftChartDisplay('stacked')} title="Skládaný pohled" className={`p-1.5 rounded ${shiftChartDisplay === 'stacked' ? 'bg-sky-600 text-white' : 'text-slate-400 hover:bg-slate-600'}`}><BarChart2 size={16}/></button>
                                     </div>
-                                </div>
-                                <ResponsiveContainer width="100%" height={300}>
-                                    {shiftChartDisplay === 'percent' ? (
-                                        <AreaChart data={shiftChartData} stackOffset="expand"><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/><YAxis tickFormatter={(tick) => `${(tick * 100).toFixed(0)}%`} tick={{fontSize: 12, fill: '#94a3b8'}}/><Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }} formatter={(value, name, props) => `${(props.payload[name] / (props.payload['Směna A'] + props.payload['Směna B']) * 100).toFixed(1)}%`} /><Legend /><Area type="monotone" dataKey="Směna A" stackId="1" stroke="#f59e0b" fill="#f59e0b" /><Area type="monotone" dataKey="Směna B" stackId="1" stroke="#6366f1" fill="#6366f1" /></AreaChart>
-                                    ) : shiftChartDisplay === 'line' ? (
-                                         <LineChart data={shiftChartData}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/><YAxis tick={{fontSize: 12, fill: '#94a3b8'}} allowDecimals={false}/><Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }}/><Legend /><Line type="monotone" dataKey="Směna A" stroke="#f59e0b" strokeWidth={2}><LabelList dataKey="Směna A" position="top" fontSize={10} fill="#f59e0b" formatter={(v) => v > 0 ? v : ''} /></Line><Line type="monotone" dataKey="Směna B" stroke="#6366f1" strokeWidth={2}><LabelList dataKey="Směna B" position="top" fontSize={10} fill="#6366f1" formatter={(v) => v > 0 ? v : ''} /></Line></LineChart>
-                                    ) : (
-                                        <BarChart data={shiftChartData}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/><YAxis tick={{fontSize: 12, fill: '#94a3b8'}} allowDecimals={false}/><Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }}/><Legend /><Bar dataKey="Směna A" fill="#f59e0b" stackId={shiftChartDisplay === 'stacked' ? 'a' : undefined}><LabelList dataKey="Směna A" position="top" fontSize={10} fill="#f59e0b" formatter={(v) => v > 0 ? v : ''} /></Bar><Bar dataKey="Směna B" fill="#6366f1" stackId={shiftChartDisplay === 'stacked' ? 'a' : undefined}><LabelList dataKey="Směna B" position="top" fontSize={10} fill="#6366f1" formatter={(v) => v > 0 ? v : ''} /></Bar></BarChart>
-                                    )}
+                                    <div className="w-px h-6 bg-slate-600 mx-1"></div>
+                                    <div className="flex items-center gap-1 bg-slate-700/50 p-1 rounded-md">
+                                        <button onClick={() => setShiftChartInterval('day')} className={`px-2 py-1 text-sm rounded ${shiftChartInterval === 'day' ? 'bg-sky-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>Dny</button>
+                                        <button onClick={() => setShiftChartInterval('week')} className={`px-2 py-1 text-sm rounded ${shiftChartInterval === 'week' ? 'bg-sky-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>Týdny</button>
+                                    </div>
+                                </>}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={shiftChartData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
+                                        <XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/>
+                                        <YAxis tick={{fontSize: 12, fill: '#94a3b8'}} allowDecimals={false}/>
+                                        <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}/>
+                                        <Legend content={<CustomShiftLegend data={shiftChartData} />} verticalAlign="bottom" wrapperStyle={{paddingTop: '20px'}} />
+                                        <Bar dataKey="Směna A" fill="#f59e0b" stackId={shiftChartDisplay === 'stacked' ? 'a' : undefined}><LabelList dataKey="Směna A" position="top" style={{ fill: '#f59e0b', fontSize: 12 }} formatter={(v) => v > 0 ? v : ''} /></Bar>
+                                        <Bar dataKey="Směna B" fill="#6366f1" stackId={shiftChartDisplay === 'stacked' ? 'a' : undefined}><LabelList dataKey="Směna B" position="top" style={{ fill: '#6366f1', fontSize: 12 }} formatter={(v) => v > 0 ? v : ''} /></Bar>
+                                    </BarChart>
                                 </ResponsiveContainer>
-                            </div>
-                            
-                            <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                                <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
-                                    <h2 className="text-xl font-semibold text-white">Aktivita pickerů v čase</h2>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        {activityChartInterval === 'hour' && (
-                                            <div className="flex items-center gap-2 pr-2 border-r border-slate-600">
-                                                 <Calendar size={16} className="text-slate-400" />
-                                                 <input type="date" value={format(activityChartDate, 'yyyy-MM-dd')} onChange={e => setActivityChartDate(e.target.valueAsDate || new Date())} className="p-1 bg-slate-700 border border-slate-600 rounded-md text-white text-sm"/>
-                                            </div>
-                                        )}
-                                        <button onClick={() => setActivityChartInterval('hour')} className={`px-3 py-1 text-sm rounded-md ${activityChartInterval === 'hour' ? 'bg-sky-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}>Hodiny</button>
-                                        <button onClick={() => setActivityChartInterval('day')} className={`px-3 py-1 text-sm rounded-md ${activityChartInterval === 'day' ? 'bg-sky-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}>Dny</button>
-                                        <button onClick={() => setActivityChartInterval('week')} className={`px-3 py-1 text-sm rounded-md ${activityChartInterval === 'week' ? 'bg-sky-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}>Týdny</button>
+                            </ChartContainer>
+
+                            <ChartContainer 
+                                title="Aktivita pickerů v čase"
+                                data={activityChartData}
+                                controls={<>
+                                    {activityChartInterval === 'hour' && (
+                                        <div className="flex items-center gap-2 pr-2 border-r border-slate-600">
+                                            <Calendar size={16} className="text-slate-400" />
+                                            <input type="date" value={format(activityChartDate, 'yyyy-MM-dd')} onChange={e => setActivityChartDate(e.target.valueAsDate || new Date())} className="p-1 bg-slate-700 border border-slate-600 rounded-md text-white text-sm"/>
+                                        </div>
+                                    )}
+                                    <div className="flex items-center gap-1 bg-slate-700/50 p-1 rounded-md">
+                                        <button onClick={() => setActivityChartInterval('hour')} className={`px-2 py-1 text-sm rounded ${activityChartInterval === 'hour' ? 'bg-sky-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>Hodiny</button>
+                                        <button onClick={() => setActivityChartInterval('day')} className={`px-2 py-1 text-sm rounded ${activityChartInterval === 'day' ? 'bg-sky-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>Dny</button>
+                                        <button onClick={() => setActivityChartInterval('week')} className={`px-2 py-1 text-sm rounded ${activityChartInterval === 'week' ? 'bg-sky-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>Týdny</button>
                                     </div>
-                                </div>
-                                <ResponsiveContainer width="100%" height={300}>
-                                    <LineChart data={activityChartData}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/><YAxis tick={{fontSize: 12, fill: '#94a3b8'}} allowDecimals={false}/><Tooltip content={<CustomActivityTooltip />} /><Legend />
-                                     {[...new Set(filteredDataByDate.map(p => p.user_name))].map((user, i) => (
-                                        <Line key={user} type="monotone" dataKey={user} name={user} stroke={['#38bdf8', '#4ade80', '#facc15', '#a78bfa', '#f472b6', '#2dd4bf', '#fb923c'][i % 7]} strokeWidth={2} connectNulls>
-                                            <LabelList content={<CustomizedLineLabel />} />
-                                        </Line>
-                                     ))}
+                                </>}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={activityChartData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
+                                        <XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/>
+                                        <YAxis tick={{fontSize: 12, fill: '#94a3b8'}} allowDecimals={false}/>
+                                        <Tooltip content={<CustomActivityTooltip />} />
+                                        <Legend content={<CustomActivityLegend data={filteredDataByDate} />} verticalAlign="bottom" wrapperStyle={{paddingTop: '20px'}} />
+                                        {[...new Set(filteredDataByDate.map(p => p.user_name))].map((user, i) => (
+                                            <Line key={user} type="monotone" dataKey={user} name={user} stroke={['#38bdf8', '#4ade80', '#facc15', '#a78bfa', '#f472b6', '#2dd4bf', '#fb923c'][i % 7]} strokeWidth={2} connectNulls dot={false}>
+                                                <LabelList content={<CustomizedLineLabel />} />
+                                            </Line>
+                                        ))}
                                     </LineChart>
                                 </ResponsiveContainer>
-                            </div>
+                            </ChartContainer>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                                    <h2 className="text-xl font-semibold mb-4 text-white">TOP 10 Pickerů</h2>
-                                    <ResponsiveContainer width="100%" height={350}>
-                                        <BarChart data={topPickersData} layout="vertical" margin={{ left: 30 }}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis type="number" tick={{fontSize: 12, fill: '#94a3b8'}} /><YAxis type="category" dataKey="name" width={80} tick={{fontSize: 12, fill: '#94a3b8'}}/><Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }}/><Bar dataKey="picks" name="Počet operací" fill="#22c55e"><LabelList dataKey="picks" position="right" style={{ fill: '#a3a3a3', fontSize: 12 }} /></Bar></BarChart>
-                                    </ResponsiveContainer>
-                                </div>
-                                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h2 className="text-xl font-semibold text-white">Analýza skladu</h2>
-                                        <div className="flex items-center gap-2">
-                                            <button onClick={() => setWarehouseChartType('bins')} className={`px-3 py-1 text-sm rounded-md flex items-center gap-2 ${warehouseChartType === 'bins' ? 'bg-sky-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}><Warehouse size={16}/> Pozice</button>
-                                            <button onClick={() => setWarehouseChartType('materials')} className={`px-3 py-1 text-sm rounded-md flex items-center gap-2 ${warehouseChartType === 'materials' ? 'bg-sky-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}><Component size={16}/> Materiály</button>
-                                        </div>
+                             <ChartContainer 
+                                title="TOP 10 Pickerů"
+                                data={topPickersData}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={topPickersData} layout="vertical" margin={{ left: 30 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
+                                        <XAxis type="number" tick={{fontSize: 12, fill: '#94a3b8'}} />
+                                        <YAxis type="category" dataKey="name" width={80} tick={{fontSize: 12, fill: '#94a3b8'}}/>
+                                        <Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }}/>
+                                        <Bar dataKey="picks" name="Počet operací" fill="#22c55e"><LabelList dataKey="picks" position="right" style={{ fill: '#a3a3a3', fontSize: 12 }} /></Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </ChartContainer>
+
+                            <ChartContainer 
+                                title="Analýza skladu"
+                                data={warehouseChartData}
+                                controls={<>
+                                    <div className="flex items-center gap-1 bg-slate-700/50 p-1 rounded-md">
+                                        <button onClick={() => setWarehouseChartType('bins')} className={`px-3 py-1 text-sm rounded-md flex items-center gap-2 ${warehouseChartType === 'bins' ? 'bg-sky-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}><Warehouse size={16}/> Pozice</button>
+                                        <button onClick={() => setWarehouseChartType('materials')} className={`px-3 py-1 text-sm rounded-md flex items-center gap-2 ${warehouseChartType === 'materials' ? 'bg-sky-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}><Component size={16}/> Materiály</button>
                                     </div>
-                                    <ResponsiveContainer width="100%" height={350}>
-                                        <BarChart data={warehouseChartData} layout="vertical" margin={{ left: 30 }}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis type="number" tick={{fontSize: 12, fill: '#94a3b8'}} /><YAxis type="category" dataKey="name" width={120} tick={{fontSize: 12, fill: '#94a3b8'}} tickFormatter={(val) => val.length > 15 ? `${val.slice(0,15)}...` : val} /><Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }}/><Bar dataKey="picks" name="Počet operací" fill={warehouseChartType === 'bins' ? '#ec4899' : '#14b8a6'}><LabelList dataKey="picks" position="right" style={{ fill: '#a3a3a3', fontSize: 12 }} /></Bar></BarChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
+                                </>}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={warehouseChartData} layout="vertical" margin={{ left: 30 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
+                                        <XAxis type="number" tick={{fontSize: 12, fill: '#94a3b8'}} />
+                                        <YAxis type="category" dataKey="name" width={120} tick={{fontSize: 12, fill: '#94a3b8'}} tickFormatter={(val) => val.length > 20 ? `${val.slice(0,20)}...` : val} />
+                                        <Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }}/><Bar dataKey="picks" name="Počet operací" fill={warehouseChartType === 'bins' ? '#ec4899' : '#14b8a6'}><LabelList dataKey="picks" position="right" style={{ fill: '#a3a3a3', fontSize: 12 }} /></Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </ChartContainer>
                         </div>
                         
                         <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
@@ -606,18 +515,10 @@ const PickingTab = () => {
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="min-w-full divide-y divide-slate-700">
-                                    <thead className="bg-slate-700/50"><tr>
-                                        <SortableHeader label="Picker" columnKey="user_name" />
-                                        <SortableHeader label="Zakázka" columnKey="delivery_no" />
-                                        <SortableHeader label="Pozice" columnKey="source_storage_bin" />
-                                        <SortableHeader label="Množství" columnKey="source_actual_qty" />
-                                        <SortableHeader label="Váha (kg)" columnKey="weight" />
-                                        <SortableHeader label="Datum" columnKey="confirmation_date" />
-                                        <SortableHeader label="Čas" columnKey="confirmation_time" />
-                                    </tr></thead>
+                                    <thead className="bg-slate-700/50"><tr><SortableHeader label="Picker" columnKey="user_name" /><SortableHeader label="Zakázka" columnKey="delivery_no" /><SortableHeader label="Pozice" columnKey="source_storage_bin" /><SortableHeader label="Množství" columnKey="source_actual_qty" /><SortableHeader label="Váha (kg)" columnKey="weight" /><SortableHeader label="Datum" columnKey="confirmation_date" /><SortableHeader label="Čas" columnKey="confirmation_time" /></tr></thead>
                                     <tbody className="bg-slate-800 divide-y divide-slate-700">
                                         {paginatedData.map((row, index) => (
-                                            <tr key={`${row.id}-${index}`} className="hover:bg-slate-700/50">
+                                            <tr key={`${row.id}-${index}`} className="hover:bg-slate-700/50 transition-colors">
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-sky-400 hover:underline cursor-pointer" onClick={() => setSelectedPicker(row.user_name)}>{row.user_name}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-300 hover:underline cursor-pointer" onClick={() => handleDeliveryClick(row.delivery_no)}>{row.delivery_no}</td>
                                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">{row.source_storage_bin}</td>
