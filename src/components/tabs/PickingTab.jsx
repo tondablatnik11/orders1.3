@@ -4,7 +4,7 @@ import { getSupabase } from '@/lib/supabaseClient';
 import { useData } from '@/hooks/useData';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
 import * as XLSX from 'xlsx';
-import { UploadCloud, ChevronDown, ChevronUp, ArrowUpDown, UserCheck, Users, X, BarChart2, Warehouse, Component, BarChartHorizontal, GitCompare, Percent } from 'lucide-react';
+import { UploadCloud, ChevronDown, ChevronUp, ArrowUpDown, UserCheck, Users, X, BarChart2, Warehouse, Component, BarChartHorizontal, GitCompare, Percent, Calendar } from 'lucide-react';
 import { format, startOfDay, endOfDay, parseISO, isWithinInterval, startOfWeek, endOfWeek, eachDayOfInterval, getWeek, eachWeekOfInterval, startOfMonth, endOfMonth, eachMonthOfInterval, eachHourOfInterval } from 'date-fns';
 import { cs } from 'date-fns/locale';
 
@@ -262,6 +262,7 @@ const PickingTab = () => {
     const [pickingData, setPickingData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [dateRange, setDateRange] = useState({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
+    const [activityChartDate, setActivityChartDate] = useState(new Date());
     const [sortConfig, setSortConfig] = useState({ key: 'user_name', direction: 'asc' });
     const [currentPage, setCurrentPage] = useState(1);
     const [tableFilter, setTableFilter] = useState('');
@@ -273,7 +274,7 @@ const PickingTab = () => {
 
     const ITEMS_PER_PAGE = 15;
     const supabase = getSupabase();
-    const { setSelectedOrderDetails } = useData();
+    const { allOrdersData, setSelectedOrderDetails } = useData();
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -373,28 +374,27 @@ const PickingTab = () => {
     }, [filteredDataByDate, dateRange, shiftChartInterval]);
 
     const activityChartData = useMemo(() => {
-        const data = filteredDataByDate;
-        const allPickers = [...new Set(data.map(p => p.user_name).filter(Boolean))];
-        let interval, formatStr, isSameInterval;
-
-        const activityDate = dateRange.to && endOfDay(dateRange.to) > new Date() ? dateRange.from : dateRange.to || new Date();
-
-        switch(activityChartInterval) {
-            case 'day':
+        let data, interval, formatStr, isSameInterval;
+        
+        if (activityChartInterval === 'hour') {
+            data = pickingData.filter(op => op.confirmation_date && format(parseISO(op.confirmation_date), 'yyyy-MM-dd') === format(activityChartDate, 'yyyy-MM-dd'));
+            interval = eachHourOfInterval({ start: startOfDay(activityChartDate), end: endOfDay(activityChartDate) });
+            formatStr = date => format(date, 'HH:00');
+            isSameInterval = (opDate, intDate) => opDate.getHours() === intDate.getHours();
+        } else {
+            data = filteredDataByDate;
+            if (activityChartInterval === 'day') {
                 interval = eachDayOfInterval({ start: dateRange.from, end: dateRange.to });
                 formatStr = date => format(date, 'dd.MM');
                 isSameInterval = (opDate, intDate) => format(opDate, 'yyyy-MM-dd') === format(intDate, 'yyyy-MM-dd');
-                break;
-            case 'week':
+            } else { // week
                 interval = eachWeekOfInterval({ start: dateRange.from, end: dateRange.to }, { weekStartsOn: 1 });
                 formatStr = date => `T${getWeek(date, { weekStartsOn: 1 })}`;
                 isSameInterval = (opDate, intDate) => getWeek(opDate, { weekStartsOn: 1 }) === getWeek(intDate, { weekStartsOn: 1 });
-                break;
-            default:
-                interval = eachHourOfInterval({ start: startOfDay(activityDate), end: endOfDay(activityDate) });
-                formatStr = date => format(date, 'HH:00');
-                isSameInterval = (opDate, intDate) => format(opDate, 'yyyy-MM-dd') === format(intDate, 'yyyy-MM-dd') && opDate.getHours() === intDate.getHours();
+            }
         }
+        
+        const allPickers = [...new Set(data.map(p => p.user_name).filter(Boolean))];
         
         return interval.map(intDate => {
             const point = { name: formatStr(intDate) };
@@ -403,7 +403,7 @@ const PickingTab = () => {
             opsInInterval.forEach(op => { if(point[op.user_name] !== undefined) point[op.user_name]++; });
             return point;
         });
-    }, [filteredDataByDate, dateRange, activityChartInterval]);
+    }, [pickingData, filteredDataByDate, dateRange, activityChartInterval, activityChartDate]);
     
     const topPickersData = useMemo(() => {
         const pickerCounts = filteredDataByDate.reduce((acc, op) => {
@@ -459,10 +459,23 @@ const PickingTab = () => {
         setSortConfig({ key, direction });
     };
 
-    const handleDeliveryClick = (deliveryNo) => {
+    const handleDeliveryClick = useCallback((deliveryNo) => {
+        const orderDetails = allOrdersData.find(order => order['Delivery No'] === deliveryNo);
         const relatedPicking = pickingData.filter(p => p.delivery_no === deliveryNo);
-        setSelectedOrderDetails({ "Delivery No": deliveryNo, picking_details: relatedPicking });
-    };
+        
+        if (orderDetails) {
+            setSelectedOrderDetails({ 
+                ...orderDetails, 
+                picking_details: relatedPicking 
+            });
+        } else {
+            // Fallback, pokud zakázka není v hlavních datech
+            setSelectedOrderDetails({ 
+                "Delivery No": deliveryNo, 
+                picking_details: relatedPicking 
+            });
+        }
+    }, [allOrdersData, pickingData, setSelectedOrderDetails]);
     
     const SortableHeader = ({ label, columnKey }) => (
         <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase cursor-pointer hover:bg-slate-700/50 transition-all" onClick={() => requestSort(columnKey)}>
@@ -501,7 +514,6 @@ const PickingTab = () => {
 
                         <hr className="border-slate-700/50"/>
 
-                        {/* --- GRAFY --- */}
                         <div className="space-y-8">
                             <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
                                 <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
@@ -520,9 +532,7 @@ const PickingTab = () => {
                                 </div>
                                 <ResponsiveContainer width="100%" height={300}>
                                     {shiftChartDisplay === 'percent' ? (
-                                        <AreaChart data={shiftChartData} stackOffset="expand">
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/><YAxis tickFormatter={(tick) => `${(tick * 100).toFixed(0)}%`} tick={{fontSize: 12, fill: '#94a3b8'}}/><Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} formatter={(value, name, props) => `${(props.payload[name] / (props.payload['Směna A'] + props.payload['Směna B']) * 100).toFixed(1)}%`} /><Legend /><Area type="monotone" dataKey="Směna A" stackId="1" stroke="#f59e0b" fill="#f59e0b" /><Area type="monotone" dataKey="Směna B" stackId="1" stroke="#6366f1" fill="#6366f1" />
-                                        </AreaChart>
+                                        <AreaChart data={shiftChartData} stackOffset="expand"><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/><YAxis tickFormatter={(tick) => `${(tick * 100).toFixed(0)}%`} tick={{fontSize: 12, fill: '#94a3b8'}}/><Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} formatter={(value, name, props) => `${(props.payload[name] / (props.payload['Směna A'] + props.payload['Směna B']) * 100).toFixed(1)}%`} /><Legend /><Area type="monotone" dataKey="Směna A" stackId="1" stroke="#f59e0b" fill="#f59e0b" /><Area type="monotone" dataKey="Směna B" stackId="1" stroke="#6366f1" fill="#6366f1" /></AreaChart>
                                     ) : shiftChartDisplay === 'line' ? (
                                          <LineChart data={shiftChartData}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/><YAxis tick={{fontSize: 12, fill: '#94a3b8'}} allowDecimals={false}/><Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}/><Legend /><Line type="monotone" dataKey="Směna A" stroke="#f59e0b" strokeWidth={2} /><Line type="monotone" dataKey="Směna B" stroke="#6366f1" strokeWidth={2} /></LineChart>
                                     ) : (
@@ -532,9 +542,15 @@ const PickingTab = () => {
                             </div>
                             
                             <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                                <div className="flex justify-between items-center mb-4">
+                                <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
                                     <h2 className="text-xl font-semibold text-white">Aktivita pickerů v čase</h2>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        {activityChartInterval === 'hour' && (
+                                            <div className="flex items-center gap-2 pr-2 border-r border-slate-600">
+                                                 <Calendar size={16} className="text-slate-400" />
+                                                 <input type="date" value={format(activityChartDate, 'yyyy-MM-dd')} onChange={e => setActivityChartDate(e.target.valueAsDate || new Date())} className="p-1 bg-slate-700 border border-slate-600 rounded-md text-white text-sm"/>
+                                            </div>
+                                        )}
                                         <button onClick={() => setActivityChartInterval('hour')} className={`px-3 py-1 text-sm rounded-md ${activityChartInterval === 'hour' ? 'bg-sky-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}>Hodiny</button>
                                         <button onClick={() => setActivityChartInterval('day')} className={`px-3 py-1 text-sm rounded-md ${activityChartInterval === 'day' ? 'bg-sky-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}>Dny</button>
                                         <button onClick={() => setActivityChartInterval('week')} className={`px-3 py-1 text-sm rounded-md ${activityChartInterval === 'week' ? 'bg-sky-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}>Týdny</button>
@@ -543,7 +559,7 @@ const PickingTab = () => {
                                 <ResponsiveContainer width="100%" height={300}>
                                     <LineChart data={activityChartData}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/><YAxis tick={{fontSize: 12, fill: '#94a3b8'}} allowDecimals={false}/><Tooltip content={<CustomActivityTooltip />} /><Legend />
                                      {[...new Set(filteredDataByDate.map(p => p.user_name))].map((user, i) => (
-                                        <Line key={user} type="monotone" dataKey={user} name={user} stroke={['#38bdf8', '#4ade80', '#facc15', '#a78bfa', '#f472b6', '#2dd4bf', '#fb923c'][i % 7]} strokeWidth={2} />
+                                        <Line key={user} type="monotone" dataKey={user} name={user} stroke={['#38bdf8', '#4ade80', '#facc15', '#a78bfa', '#f472b6', '#2dd4bf', '#fb923c'][i % 7]} strokeWidth={2} connectNulls />
                                      ))}
                                     </LineChart>
                                 </ResponsiveContainer>
@@ -571,7 +587,6 @@ const PickingTab = () => {
                             </div>
                         </div>
                         
-                        {/* Detailní přehled operací */}
                         <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
                             <div className="p-6">
                                 <h2 className="text-xl font-semibold text-white">Detailní přehled operací</h2>
