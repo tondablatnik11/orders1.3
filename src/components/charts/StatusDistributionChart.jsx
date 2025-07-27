@@ -5,8 +5,9 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, Cart
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { getStatusColor } from '@/lib/utils';
-import { Card, CardContent } from '../ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { format, parseISO, isBefore, addDays, startOfToday } from 'date-fns';
+import { BarChart2 } from 'lucide-react';
 
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -60,7 +61,6 @@ export default function StatusDistributionChart({ onBarClick }) {
             return newDay;
         });
         
-        // OPRAVA: Doplnění chybějících dnů až do dneška
         if (processedData.length > 0) {
             const lastDataDate = processedData[processedData.length - 1].dateObj;
             const today = startOfToday();
@@ -96,8 +96,8 @@ export default function StatusDistributionChart({ onBarClick }) {
                 todayIndex = stackedData.length - 1;
             }
 
-            const halfRangeBefore = 4; // Zobrazit 4 dny před
-            const halfRangeAfter = 3;  // Zobrazit 3 dny po
+            const halfRangeBefore = 4;
+            const halfRangeAfter = 3;
 
             startIndex = Math.max(0, todayIndex - halfRangeBefore);
             endIndex = Math.min(stackedData.length - 1, todayIndex + halfRangeAfter);
@@ -123,8 +123,13 @@ export default function StatusDistributionChart({ onBarClick }) {
 
     return (
         <Card>
+             <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <BarChart2 className="w-6 h-6 text-sky-400" />
+                    {t.statusDistribution}
+                </CardTitle>
+            </CardHeader>
             <CardContent className="pt-6">
-                <h2 className="text-xl font-semibold mb-4">{t.statusDistribution}</h2>
                 <ResponsiveContainer width="100%" height={400}>
                     <BarChart data={stackedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }} onClick={onBarClick}>
                         <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.1}/>
@@ -135,15 +140,15 @@ export default function StatusDistributionChart({ onBarClick }) {
                         {uniqueStatuses.map((statusKey) => {
                              const status = statusKey.replace('status', '');
                              return (
-                                <Bar
-                                    key={`status-bar-${status}`}
-                                    dataKey={statusKey}
-                                    name={`Status ${status}`}
-                                    fill={getStatusColor(status)}
-                                    stackId="statusStack"
-                                    hide={hiddenStatuses[statusKey]}
-                                />
-                            )
+                                 <Bar
+                                     key={`status-bar-${status}`}
+                                     dataKey={statusKey}
+                                     name={`Status ${status}`}
+                                     fill={getStatusColor(status)}
+                                     stackId="statusStack"
+                                     hide={hiddenStatuses[statusKey]}
+                                 />
+                             )
                         })}
                         <Brush
                             dataKey="date"

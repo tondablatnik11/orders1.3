@@ -3,12 +3,12 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { FileDown, ClipboardList, AlertTriangle, Clock } from 'lucide-react';
+import { FileDown, ClipboardList, Clock } from 'lucide-react';
 import { exportDelayedOrdersXLSX } from '@/lib/exportUtils';
 import OrderDetailsModal from '@/components/modals/OrderDetailsModal';
 import OrderListTable from '../shared/OrderListTable';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, format, parseISO, getWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, format, parseISO, getWeek } from 'date-fns';
 import { cs } from 'date-fns/locale';
 
 const KpiCard = ({ title, value, icon: Icon }) => (
@@ -41,7 +41,8 @@ export default function DelayedOrdersTab() {
     }, [summary]);
     
     const chartData = useMemo(() => {
-        if (!summary || !summary.delayedOrdersList) return [];
+        if (!summary || !summary.delayedOrdersList || summary.delayedOrdersList.length === 0) return [];
+        
         const orders = summary.delayedOrdersList;
         const firstDate = new Date(Math.min(...orders.map(o => parseISO(o.loadingDate))));
         const lastDate = new Date(Math.max(...orders.map(o => parseISO(o.loadingDate))));
@@ -57,7 +58,7 @@ export default function DelayedOrdersTab() {
             case 'month':
                 interval = eachMonthOfInterval({ start: firstDate, end: lastDate });
                 formatStr = (date) => format(date, 'LLLL yyyy', { locale: cs });
-                checkInterval = (orderDate, intDate) => orderDate.getMonth() === intDate.getMonth();
+                checkInterval = (orderDate, intDate) => orderDate.getMonth() === intDate.getMonth() && orderDate.getFullYear() === intDate.getFullYear();
                 break;
             default: // day
                 interval = eachDayOfInterval({ start: firstDate, end: lastDate });
@@ -66,9 +67,12 @@ export default function DelayedOrdersTab() {
         }
 
         return interval.map(intDate => {
-            const count = orders.filter(o => checkInterval(parseISO(o.loadingDate), intDate)).length;
+            const count = orders.filter(o => {
+                const orderDate = parseISO(o.loadingDate);
+                return checkInterval(orderDate, intDate);
+            }).length;
             return { name: formatStr(intDate), 'Počet zpožděných': count };
-        });
+        }).filter(item => item['Počet zpožděných'] > 0);
 
     }, [summary, chartInterval]);
 
@@ -79,6 +83,7 @@ export default function DelayedOrdersTab() {
             "Delivery No": order.delivery,
             "del.type": order.delType,
             "Loading Date": order.loadingDate,
+            "delayDays": order.delayDays // Zajistíme, že sloupec existuje pro tabulku
         })).sort((a, b) => b.delayDays - a.delayDays);
     }, [summary]);
 
@@ -98,10 +103,7 @@ export default function DelayedOrdersTab() {
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-red-400">
-                    <AlertTriangle />
-                    {t.delayedOrders}
-                </CardTitle>
+                <CardTitle>{t.delayedOrders}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -123,7 +125,7 @@ export default function DelayedOrdersTab() {
                             <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
                             <XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}} />
                             <YAxis tick={{fontSize: 12, fill: '#94a3b8'}} allowDecimals={false} />
-                            <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} />
+                            <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} cursor={{fill: 'rgba(239, 68, 68, 0.1)'}} />
                             <Bar dataKey="Počet zpožděných" fill="#ef4444" />
                         </BarChart>
                     </ResponsiveContainer>

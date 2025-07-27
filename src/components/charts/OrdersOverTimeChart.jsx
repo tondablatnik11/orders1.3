@@ -3,14 +3,15 @@
 import React, { useState, useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, ReferenceLine } from 'recharts';
 import { useUI } from '@/hooks/useUI';
-import { Card, CardContent } from '../ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { format, parseISO } from 'date-fns';
+import { TrendingUp } from 'lucide-react';
 
 const ChartSkeleton = () => (
     <Card>
         <CardContent className="pt-6">
-            <div className="skeleton h-8 w-48 mb-4"></div>
-            <div className="skeleton h-[320px] w-full"></div>
+            <div className="animate-pulse h-8 w-48 mb-4 bg-slate-700 rounded"></div>
+            <div className="animate-pulse h-[320px] w-full bg-slate-700 rounded"></div>
         </CardContent>
     </Card>
 );
@@ -35,7 +36,6 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function OrdersOverTimeChart({ summary }) {
     const { t } = useUI();
-    // UPRAVENO: Výchozí hodnota je nyní 90
     const [timeRange, setTimeRange] = useState(90);
 
     const chartData = useMemo(() => {
@@ -70,9 +70,12 @@ export default function OrdersOverTimeChart({ summary }) {
 
     return (
         <Card>
-            <CardContent>
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold">{t.ordersOverTime}</h2>
+            <CardHeader>
+                 <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <TrendingUp className="w-6 h-6 text-green-400" />
+                        {t.ordersOverTime}
+                    </div>
                     <div className="flex items-center gap-1 bg-gray-700 p-1 rounded-md">
                         {[7, 30, 90, 0].map(range => (
                             <button 
@@ -84,7 +87,9 @@ export default function OrdersOverTimeChart({ summary }) {
                             </button>
                         ))}
                     </div>
-                </div>
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
                 <ResponsiveContainer width="100%" height={320}>
                     <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                         <defs>

@@ -17,21 +17,19 @@ export default function OrderSearchTab({ initialQuery, clearInitialQuery }) {
         deliveryNo: initialQuery || "",
         loadingDate: "",
         status: "all",
-        shipToPartyName: "all",
-        forwardingAgentName: "all",
         country: "all",
         deliveryType: "all",
+        forwardingAgentName: "all",
     });
     const [searchResult, setSearchResult] = useState(null);
 
     const uniqueValues = useMemo(() => {
-        if (!allOrdersData) return { statuses: [], shipToParties: [], forwardingAgents: [], countries: [], deliveryTypes: [] };
+        if (!allOrdersData) return { statuses: [], forwardingAgents: [], countries: [], deliveryTypes: [] };
         const statuses = [...new Set(allOrdersData.map(row => Number(row.Status)))].sort((a, b) => a - b);
-        const shipToParties = [...new Set(allOrdersData.map(row => row["Name of ship-to party"]))].sort();
         const forwardingAgents = [...new Set(allOrdersData.map(row => row["Forwarding agent name"]))].sort();
         const countries = [...new Set(allOrdersData.map(row => row["Country ship-to prty"]))].sort();
         const deliveryTypes = [...new Set(allOrdersData.map(row => row["del.type"]))].sort();
-        return { statuses, shipToParties, forwardingAgents, countries, deliveryTypes };
+        return { statuses, forwardingAgents, countries, deliveryTypes };
     }, [allOrdersData]);
 
     const handleSearch = useCallback(() => {
@@ -81,8 +79,8 @@ export default function OrderSearchTab({ initialQuery, clearInitialQuery }) {
 
     const clearFilters = () => {
         setSearchParams({
-            deliveryNo: "", loadingDate: "", status: "all", shipToPartyName: "all",
-            forwardingAgentName: "all", country: "all", deliveryType: "all",
+            deliveryNo: "", loadingDate: "", status: "all",
+            country: "all", deliveryType: "all", forwardingAgentName: "all",
         });
         setSearchResult(null);
     };
@@ -96,8 +94,8 @@ export default function OrderSearchTab({ initialQuery, clearInitialQuery }) {
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-slate-800/30 border border-slate-700 rounded-lg">
-                    <div className="lg:col-span-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-slate-800/30 border border-slate-700 rounded-lg">
+                    <div className="md:col-span-2 lg:col-span-3">
                         <label className="text-sm font-medium text-slate-400">Číslo zakázky (lze vložit více čísel)</label>
                         <textarea name="deliveryNo" value={searchParams.deliveryNo} onChange={handleInputChange} rows="2" className="w-full mt-1 p-2 bg-slate-700 border border-slate-600 rounded-md text-white" placeholder="Vložte jedno nebo více čísel (čárka, mezera, nový řádek)..." />
                     </div>
@@ -124,6 +122,13 @@ export default function OrderSearchTab({ initialQuery, clearInitialQuery }) {
                         <select name="deliveryType" value={searchParams.deliveryType} onChange={handleInputChange} className="w-full mt-1 p-2 bg-slate-700 border border-slate-600 rounded-md text-white">
                             <option value="all">Všechny</option>
                             {uniqueValues.deliveryTypes.map(name => <option key={name} value={name}>{name === 'P' ? 'Paleta' : 'Karton'}</option>)}
+                        </select>
+                    </div>
+                     <div>
+                        <label className="text-sm font-medium text-slate-400">Jméno dopravce</label>
+                        <select name="forwardingAgentName" value={searchParams.forwardingAgentName} onChange={handleInputChange} className="w-full mt-1 p-2 bg-slate-700 border border-slate-600 rounded-md text-white">
+                            <option value="all">Všichni</option>
+                            {uniqueValues.forwardingAgents.map(name => <option key={name} value={name}>{name}</option>)}
                         </select>
                     </div>
                 </div>
@@ -158,7 +163,10 @@ export default function OrderSearchTab({ initialQuery, clearInitialQuery }) {
                 )}
 
                 {selectedOrderDetails && ( 
-                    <OrderDetailsModal order={selectedOrderDetails} onClose={() => setSelectedOrderDetails(null)} />
+                    <OrderDetailsModal
+                        order={selectedOrderDetails}
+                        onClose={() => setSelectedOrderDetails(null)}
+                    />
                 )}
             </CardContent>
         </Card>
