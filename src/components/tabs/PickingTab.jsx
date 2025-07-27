@@ -30,7 +30,7 @@ const ImportSection = ({ onImportSuccess }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [status, setStatus] = useState({ type: 'info', message: 'Připraven k importu.' });
     const supabase = getSupabase();
-    
+
     const handleFileUpload = useCallback(async (file) => {
         if (!file) return;
         setStatus({ type: 'loading', message: 'Načítám a zpracovávám soubor...' });
@@ -41,21 +41,20 @@ const ImportSection = ({ onImportSuccess }) => {
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             
-            // Načteme data jako pole polí, abychom měli plnou kontrolu nad sloupci
-            const jsonDataAsArray = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-            
-            if (jsonDataAsArray.length < 2) {
+            // Načteme data jako pole polí, abychom měli plnou kontrolu nad formáty
+            const dataAsArray = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+            if (dataAsArray.length < 2) {
                 throw new Error('Soubor neobsahuje žádná data nebo záhlaví.');
             }
 
-            const headers = jsonDataAsArray[0];
-            const dataRows = jsonDataAsArray.slice(1);
+            const headers = dataAsArray[0];
+            const dataRows = dataAsArray.slice(1);
 
-            // Najdeme pozice (indexy) sloupců, které potřebujeme.
-            // Pro duplicitní název "Confirmation time" vezmeme poslední výskyt.
+            // Najdeme indexy všech potřebných sloupců
             const userIndex = headers.indexOf('User');
             const dateIndex = headers.indexOf('Confirmation date');
-            const timeIndex = headers.lastIndexOf('Confirmation time'); // <-- Klíčová změna zde
+            const timeIndex = headers.lastIndexOf('Confirmation time');
             const weightIndex = headers.indexOf('Weight');
             const materialIndex = headers.indexOf('Material');
             const materialDescIndex = headers.indexOf('Material Description');
@@ -63,21 +62,44 @@ const ImportSection = ({ onImportSuccess }) => {
             const sourceQtyIndex = headers.indexOf('Source actual qty.');
             const deliveryNoIndex = headers.indexOf('Dest.Storage Bin');
 
-            // Ověříme, že jsme našli všechny potřebné sloupce
-            if (userIndex === -1 || deliveryNoIndex === -1 || timeIndex === -1) {
-                throw new Error('V souboru chybí některé klíčové sloupce (User, Dest.Storage Bin nebo Confirmation time).');
+            if (userIndex === -1 || deliveryNoIndex === -1 || dateIndex === -1) {
+                throw new Error('V souboru chybí klíčové sloupce: User, Dest.Storage Bin nebo Confirmation date.');
             }
 
             const processedData = dataRows.reduce((acc, row) => {
                 const userName = row[userIndex];
                 const deliveryNo = row[deliveryNoIndex];
 
-                // Validace řádku - zpracujeme jen řádky s vyplněným uživatelem a zakázkou
                 if (userName && deliveryNo) {
+                    const dateValue = row[dateIndex];
+                    let finalDate = null;
+                    
+                    // Pokusíme se zpracovat datum z textu "mm/dd/yyyy"
+                    if (typeof dateValue === 'string' && dateValue.includes('/')) {
+                        const parts = dateValue.split('/');
+                        if (parts.length === 3) {
+                             // Měsíc je 0-indexovaný v JS, proto -1
+                            finalDate = new Date(Date.UTC(parts[2], parts[0] - 1, parts[1]));
+                        }
+                    } else if (typeof dateValue === 'number') {
+                        // Záložní řešení, kdyby Excel přesto poslal číslo
+                        const utc_days  = Math.floor(dateValue - 25569);
+                        const utc_value = utc_days * 86400;
+                        finalDate = new Date(utc_value * 1000);
+                    }
+                    
+                    // Zformátujeme datum pro databázi (YYYY-MM-DD)
+                    const formattedDate = finalDate ? finalDate.toISOString().split('T')[0] : null;
+
+                    if (!formattedDate) {
+                        console.warn(`Přeskakuji řádek s neplatným formátem data:`, row);
+                        return acc;
+                    }
+                    
                     acc.push({
                         user_name: String(userName).trim(),
-                        confirmation_date: row[dateIndex],
-                        confirmation_time: row[timeIndex], // <-- Používáme správný index
+                        confirmation_date: formattedDate,
+                        confirmation_time: row[timeIndex],
                         weight: parseFloat(String(row[weightIndex] || '0').replace(/,/g, '.')),
                         material: row[materialIndex],
                         material_description: row[materialDescIndex],
@@ -93,7 +115,6 @@ const ImportSection = ({ onImportSuccess }) => {
                  throw new Error('V souboru nebyly nalezeny žádné platné řádky k importu.');
             }
 
-            // Použijeme "upsert" pro vložení nových a ignorování existujících záznamů
             const { error } = await supabase
                 .from('picking_operations')
                 .upsert(processedData, {
