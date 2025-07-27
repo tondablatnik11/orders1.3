@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
-import { format, startOfDay, subDays, parseISO, endOfDay } from 'date-fns';
+import { format, startOfDay, subDays, parseISO, endOfDay, isValid } from 'date-fns';
 import { cs } from 'date-fns/locale';
 import { CheckCircle, Clock, Hourglass, Info, AlertTriangle, ClipboardList, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { OrderListModal } from '@/components/modals/OrderListModal';
@@ -41,7 +41,6 @@ const SummaryCard = ({ title, value, icon: Icon, color, change }) => {
 };
 
 const FeaturedKPICard = ({ title, value, icon: Icon, onClick, change }) => {
-    // Stejná logika pro změnu jako v SummaryCard
     const isPositive = change > 0;
     const isNegative = change < 0;
     const ChangeIcon = isPositive ? TrendingUp : isNegative ? TrendingDown : Minus;
@@ -123,7 +122,8 @@ export default function DashboardTab({ setActiveTab }) {
 
     const handleStatClick = (date, statusFilter, title) => {
         const filteredOrders = allOrdersData.filter(order => {
-            if (!order["Loading Date"] || format(parseISO(order["Loading Date"]), 'yyyy-MM-dd') !== format(date, 'yyyy-MM-dd')) return false;
+            const loadingDate = order["Loading Date"] ? parseISO(order["Loading Date"]) : null;
+            if (!loadingDate || !isValid(loadingDate) || format(loadingDate, 'yyyy-MM-dd') !== format(date, 'yyyy-MM-dd')) return false;
             if (statusFilter === 'all') return true;
             return statusFilter.includes(Number(order.Status));
         });
@@ -131,15 +131,19 @@ export default function DashboardTab({ setActiveTab }) {
     };
     
     const handleBarClick = (data) => {
-        if (!data || !data.activePayload) return;
+        if (!data || !data.activePayload || !data.activePayload.length) return;
         const clickedBar = data.activePayload[0];
         const statusKey = clickedBar.dataKey;
         const dateLabel = data.activeLabel;
-        const dateObj = summary.dailySummaries.find(d => format(parseISO(d.date), 'dd/MM') === dateLabel);
+        const dateObj = summary.dailySummaries.find(d => {
+            const parsedDate = parseISO(d.date);
+            return isValid(parsedDate) && format(parsedDate, 'dd/MM') === dateLabel;
+        });
         if (!dateObj) return;
         const dateStr = dateObj.date;
         const filteredOrders = allOrdersData.filter(order => {
-             if (!order["Loading Date"] || format(parseISO(order["Loading Date"]), 'yyyy-MM-dd') !== dateStr) return false;
+            const loadingDate = order["Loading Date"] ? parseISO(order["Loading Date"]) : null;
+            if (!loadingDate || !isValid(loadingDate) || format(loadingDate, 'yyyy-MM-dd') !== dateStr) return false;
              const status = statusKey.replace('status', '');
              return String(order.Status) === status;
         });
@@ -197,20 +201,20 @@ export default function DashboardTab({ setActiveTab }) {
                         </thead>
                         <tbody>
                             {datesForOverview.map(d => {
-                                const dateStr = format(d.date, 'yyyy-MM-dd');
+                                const dateStr = format(d, 'yyyy-MM-dd');
                                 const isToday = dateStr === format(today, 'yyyy-MM-dd');
                                 const dailyStats = summary.dailySummaries.find(s => s.date === dateStr);
                                 
                                 return (
                                     <tr key={dateStr} className={`border-b border-slate-700 ${isToday ? 'bg-sky-900/40' : 'hover:bg-slate-700/50'}`}>
                                         <th scope="row" className="px-6 py-4 font-medium text-white whitespace-nowrap">
-                                            {format(d.date, 'EEEE dd.MM.', { locale: cs })}
+                                            {format(d, 'EEEE dd.MM.', { locale: cs })}
                                         </th>
-                                        <td className="px-6 py-4 text-center cursor-pointer hover:underline" onClick={() => handleStatClick(d.date, 'all', 'Všechny zakázky')}>{dailyStats?.total || 0}</td>
-                                        <td className="px-6 py-4 text-center text-green-400 cursor-pointer hover:underline" onClick={() => handleStatClick(d.date, [50, 60, 70, 80, 90], 'Hotové zakázky')}>{dailyStats?.done || 0}</td>
+                                        <td className="px-6 py-4 text-center cursor-pointer hover:underline" onClick={() => handleStatClick(d, 'all', 'Všechny zakázky')}>{dailyStats?.total || 0}</td>
+                                        <td className="px-6 py-4 text-center text-green-400 cursor-pointer hover:underline" onClick={() => handleStatClick(d, [50, 60, 70, 80, 90], 'Hotové zakázky')}>{dailyStats?.done || 0}</td>
                                         <td className="px-6 py-4 text-center text-yellow-400">{dailyStats?.remaining || 0}</td>
-                                        <td className="px-6 py-4 text-center text-orange-400 cursor-pointer hover:underline" onClick={() => handleStatClick(d.date, [31, 35, 40], 'Zakázky v procesu')}>{dailyStats?.inProgress || 0}</td>
-                                        <td className="px-6 py-4 text-center text-blue-400 cursor-pointer hover:underline" onClick={() => handleStatClick(d.date, [10], 'Nové zakázky')}>{dailyStats?.new || 0}</td>
+                                        <td className="px-6 py-4 text-center text-orange-400 cursor-pointer hover:underline" onClick={() => handleStatClick(d, [31, 35, 40], 'Zakázky v procesu')}>{dailyStats?.inProgress || 0}</td>
+                                        <td className="px-6 py-4 text-center text-blue-400 cursor-pointer hover:underline" onClick={() => handleStatClick(d, [10], 'Nové zakázky')}>{dailyStats?.new || 0}</td>
                                     </tr>
                                 )
                             })}
@@ -233,6 +237,7 @@ export default function DashboardTab({ setActiveTab }) {
                         <BarChart data={summary.ordersByForwardingAgent} layout="vertical" margin={{right: 30}}>
                             <XAxis type="number" hide />
                             <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} width={80} />
+                            <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} cursor={{fill: '#334155'}} />
                             <Bar dataKey="Počet zakázek" fill="#8884d8" barSize={20}>
                                 <LabelList dataKey="Počet zakázek" position="right" style={{ fill: '#a3a3a3', fontSize: 12 }} />
                             </Bar>
