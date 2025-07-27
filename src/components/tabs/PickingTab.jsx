@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { getSupabase } from '@/lib/supabaseClient';
 import { useData } from '@/hooks/useData';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, AreaChart, Area, LabelList } from 'recharts';
 import * as XLSX from 'xlsx';
 import { UploadCloud, ChevronDown, ChevronUp, ArrowUpDown, UserCheck, Users, X, BarChart2, Warehouse, Component, BarChartHorizontal, GitCompare, Percent, Calendar } from 'lucide-react';
 import { format, startOfDay, endOfDay, parseISO, isWithinInterval, startOfWeek, endOfWeek, eachDayOfInterval, getWeek, eachWeekOfInterval, startOfMonth, endOfMonth, eachMonthOfInterval, eachHourOfInterval } from 'date-fns';
@@ -255,6 +255,17 @@ const CustomActivityTooltip = ({ active, payload, label }) => {
     return null;
 };
 
+const CustomizedLineLabel = (props) => {
+    const { x, y, value } = props;
+    if (value > 0) {
+        return (
+            <text x={x} y={y} dy={-8} fill="#94a3b8" fontSize={10} textAnchor="middle">
+                {value}
+            </text>
+        );
+    }
+    return null;
+};
 
 // --- Hlavní komponenta ---
 const PickingTab = () => {
@@ -262,13 +273,13 @@ const PickingTab = () => {
     const [pickingData, setPickingData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [dateRange, setDateRange] = useState({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
-    const [activityChartDate, setActivityChartDate] = useState(new Date());
     const [sortConfig, setSortConfig] = useState({ key: 'user_name', direction: 'asc' });
     const [currentPage, setCurrentPage] = useState(1);
     const [tableFilter, setTableFilter] = useState('');
     const [shiftChartInterval, setShiftChartInterval] = useState('day');
     const [shiftChartDisplay, setShiftChartDisplay] = useState('grouped');
     const [activityChartInterval, setActivityChartInterval] = useState('hour');
+    const [activityChartDate, setActivityChartDate] = useState(new Date());
     const [warehouseChartType, setWarehouseChartType] = useState('bins');
     const [selectedPicker, setSelectedPicker] = useState(null);
 
@@ -460,7 +471,7 @@ const PickingTab = () => {
     };
 
     const handleDeliveryClick = useCallback((deliveryNo) => {
-        const orderDetails = allOrdersData.find(order => order['Delivery No'] === deliveryNo);
+        const orderDetails = allOrdersData.find(order => String(order['Delivery No']) === String(deliveryNo));
         const relatedPicking = pickingData.filter(p => p.delivery_no === deliveryNo);
         
         if (orderDetails) {
@@ -469,7 +480,6 @@ const PickingTab = () => {
                 picking_details: relatedPicking 
             });
         } else {
-            // Fallback, pokud zakázka není v hlavních datech
             setSelectedOrderDetails({ 
                 "Delivery No": deliveryNo, 
                 picking_details: relatedPicking 
@@ -532,11 +542,11 @@ const PickingTab = () => {
                                 </div>
                                 <ResponsiveContainer width="100%" height={300}>
                                     {shiftChartDisplay === 'percent' ? (
-                                        <AreaChart data={shiftChartData} stackOffset="expand"><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/><YAxis tickFormatter={(tick) => `${(tick * 100).toFixed(0)}%`} tick={{fontSize: 12, fill: '#94a3b8'}}/><Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} formatter={(value, name, props) => `${(props.payload[name] / (props.payload['Směna A'] + props.payload['Směna B']) * 100).toFixed(1)}%`} /><Legend /><Area type="monotone" dataKey="Směna A" stackId="1" stroke="#f59e0b" fill="#f59e0b" /><Area type="monotone" dataKey="Směna B" stackId="1" stroke="#6366f1" fill="#6366f1" /></AreaChart>
+                                        <AreaChart data={shiftChartData} stackOffset="expand"><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/><YAxis tickFormatter={(tick) => `${(tick * 100).toFixed(0)}%`} tick={{fontSize: 12, fill: '#94a3b8'}}/><Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }} formatter={(value, name, props) => `${(props.payload[name] / (props.payload['Směna A'] + props.payload['Směna B']) * 100).toFixed(1)}%`} /><Legend /><Area type="monotone" dataKey="Směna A" stackId="1" stroke="#f59e0b" fill="#f59e0b" /><Area type="monotone" dataKey="Směna B" stackId="1" stroke="#6366f1" fill="#6366f1" /></AreaChart>
                                     ) : shiftChartDisplay === 'line' ? (
-                                         <LineChart data={shiftChartData}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/><YAxis tick={{fontSize: 12, fill: '#94a3b8'}} allowDecimals={false}/><Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}/><Legend /><Line type="monotone" dataKey="Směna A" stroke="#f59e0b" strokeWidth={2} /><Line type="monotone" dataKey="Směna B" stroke="#6366f1" strokeWidth={2} /></LineChart>
+                                         <LineChart data={shiftChartData}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/><YAxis tick={{fontSize: 12, fill: '#94a3b8'}} allowDecimals={false}/><Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }}/><Legend /><Line type="monotone" dataKey="Směna A" stroke="#f59e0b" strokeWidth={2}><LabelList dataKey="Směna A" position="top" fontSize={10} fill="#f59e0b" formatter={(v) => v > 0 ? v : ''} /></Line><Line type="monotone" dataKey="Směna B" stroke="#6366f1" strokeWidth={2}><LabelList dataKey="Směna B" position="top" fontSize={10} fill="#6366f1" formatter={(v) => v > 0 ? v : ''} /></Line></LineChart>
                                     ) : (
-                                        <BarChart data={shiftChartData}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/><YAxis tick={{fontSize: 12, fill: '#94a3b8'}} allowDecimals={false}/><Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}/><Legend /><Bar dataKey="Směna A" fill="#f59e0b" stackId={shiftChartDisplay === 'stacked' ? 'a' : undefined} /><Bar dataKey="Směna B" fill="#6366f1" stackId={shiftChartDisplay === 'stacked' ? 'a' : undefined} /></BarChart>
+                                        <BarChart data={shiftChartData}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/><YAxis tick={{fontSize: 12, fill: '#94a3b8'}} allowDecimals={false}/><Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }}/><Legend /><Bar dataKey="Směna A" fill="#f59e0b" stackId={shiftChartDisplay === 'stacked' ? 'a' : undefined}><LabelList dataKey="Směna A" position="top" fontSize={10} fill="#f59e0b" formatter={(v) => v > 0 ? v : ''} /></Bar><Bar dataKey="Směna B" fill="#6366f1" stackId={shiftChartDisplay === 'stacked' ? 'a' : undefined}><LabelList dataKey="Směna B" position="top" fontSize={10} fill="#6366f1" formatter={(v) => v > 0 ? v : ''} /></Bar></BarChart>
                                     )}
                                 </ResponsiveContainer>
                             </div>
@@ -559,7 +569,9 @@ const PickingTab = () => {
                                 <ResponsiveContainer width="100%" height={300}>
                                     <LineChart data={activityChartData}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/><YAxis tick={{fontSize: 12, fill: '#94a3b8'}} allowDecimals={false}/><Tooltip content={<CustomActivityTooltip />} /><Legend />
                                      {[...new Set(filteredDataByDate.map(p => p.user_name))].map((user, i) => (
-                                        <Line key={user} type="monotone" dataKey={user} name={user} stroke={['#38bdf8', '#4ade80', '#facc15', '#a78bfa', '#f472b6', '#2dd4bf', '#fb923c'][i % 7]} strokeWidth={2} connectNulls />
+                                        <Line key={user} type="monotone" dataKey={user} name={user} stroke={['#38bdf8', '#4ade80', '#facc15', '#a78bfa', '#f472b6', '#2dd4bf', '#fb923c'][i % 7]} strokeWidth={2} connectNulls>
+                                            <LabelList content={<CustomizedLineLabel />} />
+                                        </Line>
                                      ))}
                                     </LineChart>
                                 </ResponsiveContainer>
@@ -569,7 +581,7 @@ const PickingTab = () => {
                                 <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
                                     <h2 className="text-xl font-semibold mb-4 text-white">TOP 10 Pickerů</h2>
                                     <ResponsiveContainer width="100%" height={350}>
-                                        <BarChart data={topPickersData} layout="vertical" margin={{ left: 30 }}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis type="number" tick={{fontSize: 12, fill: '#94a3b8'}} /><YAxis type="category" dataKey="name" width={80} tick={{fontSize: 12, fill: '#94a3b8'}}/><Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }}/><Bar dataKey="picks" name="Počet operací" fill="#22c55e" /></BarChart>
+                                        <BarChart data={topPickersData} layout="vertical" margin={{ left: 30 }}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis type="number" tick={{fontSize: 12, fill: '#94a3b8'}} /><YAxis type="category" dataKey="name" width={80} tick={{fontSize: 12, fill: '#94a3b8'}}/><Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }}/><Bar dataKey="picks" name="Počet operací" fill="#22c55e"><LabelList dataKey="picks" position="right" style={{ fill: '#a3a3a3', fontSize: 12 }} /></Bar></BarChart>
                                     </ResponsiveContainer>
                                 </div>
                                 <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
@@ -581,7 +593,7 @@ const PickingTab = () => {
                                         </div>
                                     </div>
                                     <ResponsiveContainer width="100%" height={350}>
-                                        <BarChart data={warehouseChartData} layout="vertical" margin={{ left: 30 }}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis type="number" tick={{fontSize: 12, fill: '#94a3b8'}} /><YAxis type="category" dataKey="name" width={120} tick={{fontSize: 12, fill: '#94a3b8'}} tickFormatter={(val) => val.length > 15 ? `${val.slice(0,15)}...` : val} /><Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }}/><Bar dataKey="picks" name="Počet operací" fill={warehouseChartType === 'bins' ? '#ec4899' : '#14b8a6'} /></BarChart>
+                                        <BarChart data={warehouseChartData} layout="vertical" margin={{ left: 30 }}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis type="number" tick={{fontSize: 12, fill: '#94a3b8'}} /><YAxis type="category" dataKey="name" width={120} tick={{fontSize: 12, fill: '#94a3b8'}} tickFormatter={(val) => val.length > 15 ? `${val.slice(0,15)}...` : val} /><Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }}/><Bar dataKey="picks" name="Počet operací" fill={warehouseChartType === 'bins' ? '#ec4899' : '#14b8a6'}><LabelList dataKey="picks" position="right" style={{ fill: '#a3a3a3', fontSize: 12 }} /></Bar></BarChart>
                                     </ResponsiveContainer>
                                 </div>
                             </div>
