@@ -95,12 +95,33 @@ const PickingTab = () => {
     const { allOrdersData, setSelectedOrderDetails } = useData();
 
     const fetchData = useCallback(async () => {
-        setLoading(true);
-        const { data, error } = await supabase.from('picking_dashboard_data').select('*').order('created_at', { ascending: false });
-        if (error) console.error("Chyba při načítání dat o pickování:", error);
-        else setPickingData(data || []);
-        setLoading(false);
-    }, [supabase]);
+    setLoading(true);
+    const { data, error } = await supabase
+        .from('picking_dashboard_data')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error("Chyba při načítání dat o pickování:", error);
+        setPickingData([]);
+    } else {
+        // --- FILTRACE DUPLICITNÍCH ZÁZNAMŮ ---
+        const uniquePicks = new Map();
+        (data || []).forEach(pick => {
+            // Vytvoříme unikátní klíč z kombinace relevantních dat.
+            // Tím identifikujeme funkční duplicitu, i když se liší 'id' v databázi.
+            const key = `${pick.confirmation_date}|${pick.confirmation_time}|${pick.user_name}|${pick.delivery_no}|${pick.source_storage_bin}|${pick.material}`;
+            
+            // Pokud klíč v mapě ještě neexistuje, přidáme záznam.
+            if (!uniquePicks.has(key)) {
+                uniquePicks.set(key, pick);
+            }
+        });
+        // Nastavíme stav s polem unikátních hodnot z mapy.
+        setPickingData(Array.from(uniquePicks.values()));
+    }
+    setLoading(false);
+}, [supabase]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
     
