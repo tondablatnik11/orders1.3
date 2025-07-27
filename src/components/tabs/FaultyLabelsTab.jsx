@@ -25,7 +25,6 @@ const FaultyLabelDetailsModal = ({ label, onClose }) => {
     const { userProfile } = useAuth();
     const supabase = getSupabase();
 
-    // Dočasný stav pro komentáře, aby se modal aktualizoval ihned
     const [comments, setComments] = useState(label.comments || []);
 
     const handleStatusChange = async (newStatus) => {
@@ -46,11 +45,12 @@ const FaultyLabelDetailsModal = ({ label, onClose }) => {
             author_id: userProfile.id,
             author_name: userProfile.full_name || 'Uživatel'
         };
-        const { data, error } = await supabase.from('faulty_label_comments').insert(commentData).select().single();
+        // ZDE BYLA OPRAVA: Použit správný název tabulky 'label_comments'
+        const { data, error } = await supabase.from('label_comments').insert(commentData).select().single();
         if (error) {
             toast.error('Chyba při přidávání komentáře.');
         } else {
-            setComments(prev => [...prev, data]); // Přidání nového komentáře do UI
+            setComments(prev => [...prev, data]);
             setNewComment('');
             toast.success('Komentář byl přidán.');
         }
@@ -119,11 +119,12 @@ const FaultyLabelsTab = () => {
 
     const fetchData = useCallback(async () => {
         setLoading(true);
+        // ZDE BYLA OPRAVA: Použit správný název tabulky 'label_comments'
         const { data, error } = await supabase
             .from('faulty_labels')
             .select(`
                 *,
-                comments:faulty_label_comments(*)
+                comments:label_comments(*)
             `)
             .order('created_at', { ascending: false });
         
@@ -131,7 +132,6 @@ const FaultyLabelsTab = () => {
             toast.error('Chyba při načítání dat.'); 
             console.error(error);
         } else { 
-            // Připojení detailů zakázky ke každé etiketě
             const labelsWithOrderData = data.map(label => {
                 const order_details = allOrdersData.find(order => String(order['Delivery No']) === String(label.delivery_no));
                 return { ...label, order_details };
