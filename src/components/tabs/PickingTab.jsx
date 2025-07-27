@@ -31,6 +31,24 @@ const ImportSection = ({ onImportSuccess }) => {
     const [status, setStatus] = useState({ type: 'info', message: 'Připraven k importu.' });
     const supabase = getSupabase();
 
+    // --- POMOCNÉ FUNKCE PRO KONVERZI Z EXCELU ---
+
+    const excelSerialToDate = (serial) => {
+        if (typeof serial !== 'number' || isNaN(serial)) return null;
+        const utc_days = Math.floor(serial - 25569);
+        const utc_value = utc_days * 86400;
+        return new Date(utc_value * 1000);
+    };
+
+    const excelSerialToTime = (serial) => {
+        if (typeof serial !== 'number' || isNaN(serial)) return serial; // Pokud to není číslo, vrátíme původní hodnotu
+        const total_seconds = Math.round(serial * 86400);
+        const hours = String(Math.floor(total_seconds / 3600)).padStart(2, '0');
+        const minutes = String(Math.floor((total_seconds % 3600) / 60)).padStart(2, '0');
+        const seconds = String(total_seconds % 60).padStart(2, '0');
+        return `${hours}:${minutes}:${seconds}`;
+    };
+
     const handleFileUpload = useCallback(async (file) => {
         if (!file) return;
         setStatus({ type: 'loading', message: 'Načítám a zpracovávám soubor...' });
@@ -42,16 +60,13 @@ const ImportSection = ({ onImportSuccess }) => {
             const worksheet = workbook.Sheets[sheetName];
             
             // Načteme data jako pole polí, abychom měli plnou kontrolu nad formáty
-            const dataAsArray = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+            const dataAsArray = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true, defval: '' });
 
-            if (dataAsArray.length < 2) {
-                throw new Error('Soubor neobsahuje žádná data nebo záhlaví.');
-            }
+            if (dataAsArray.length < 2) throw new Error('Soubor neobsahuje žádná data nebo záhlaví.');
 
             const headers = dataAsArray[0];
             const dataRows = dataAsArray.slice(1);
 
-            // Najdeme indexy všech potřebných sloupců
             const userIndex = headers.indexOf('User');
             const dateIndex = headers.indexOf('Confirmation date');
             const timeIndex = headers.lastIndexOf('Confirmation time');
@@ -62,8 +77,8 @@ const ImportSection = ({ onImportSuccess }) => {
             const sourceQtyIndex = headers.indexOf('Source actual qty.');
             const deliveryNoIndex = headers.indexOf('Dest.Storage Bin');
 
-            if (userIndex === -1 || deliveryNoIndex === -1 || dateIndex === -1) {
-                throw new Error('V souboru chybí klíčové sloupce: User, Dest.Storage Bin nebo Confirmation date.');
+            if (userIndex === -1 || deliveryNoIndex === -1 || dateIndex === -1 || timeIndex === -1) {
+                throw new Error('V souboru chybí klíčové sloupce: User, Dest.Storage Bin, Confirmation date nebo Confirmation time.');
             }
 
             const processedData = dataRows.reduce((acc, row) => {
@@ -71,35 +86,30 @@ const ImportSection = ({ onImportSuccess }) => {
                 const deliveryNo = row[deliveryNoIndex];
 
                 if (userName && deliveryNo) {
+                    // --- ZPRACOVÁNÍ DATA ---
                     const dateValue = row[dateIndex];
                     let finalDate = null;
-                    
-                    // Pokusíme se zpracovat datum z textu "mm/dd/yyyy"
                     if (typeof dateValue === 'string' && dateValue.includes('/')) {
                         const parts = dateValue.split('/');
-                        if (parts.length === 3) {
-                             // Měsíc je 0-indexovaný v JS, proto -1
-                            finalDate = new Date(Date.UTC(parts[2], parts[0] - 1, parts[1]));
-                        }
+                        if (parts.length === 3) finalDate = new Date(Date.UTC(parts[2], parts[0] - 1, parts[1]));
                     } else if (typeof dateValue === 'number') {
-                        // Záložní řešení, kdyby Excel přesto poslal číslo
-                        const utc_days  = Math.floor(dateValue - 25569);
-                        const utc_value = utc_days * 86400;
-                        finalDate = new Date(utc_value * 1000);
+                        finalDate = excelSerialToDate(dateValue);
                     }
-                    
-                    // Zformátujeme datum pro databázi (YYYY-MM-DD)
                     const formattedDate = finalDate ? finalDate.toISOString().split('T')[0] : null;
 
-                    if (!formattedDate) {
-                        console.warn(`Přeskakuji řádek s neplatným formátem data:`, row);
+                    // --- ZPRACOVÁNÍ ČASU ---
+                    const timeValue = row[timeIndex];
+                    const formattedTime = excelSerialToTime(timeValue);
+
+                    if (!formattedDate || !formattedTime) {
+                        console.warn(`Přeskakuji řádek s neplatným datem/časem:`, row);
                         return acc;
                     }
                     
                     acc.push({
                         user_name: String(userName).trim(),
                         confirmation_date: formattedDate,
-                        confirmation_time: row[timeIndex],
+                        confirmation_time: formattedTime,
                         weight: parseFloat(String(row[weightIndex] || '0').replace(/,/g, '.')),
                         material: row[materialIndex],
                         material_description: row[materialDescIndex],
