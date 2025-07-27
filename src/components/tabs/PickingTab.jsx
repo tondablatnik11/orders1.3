@@ -73,7 +73,11 @@ const ImportSection = ({ onImportSuccess }) => {
                  throw new Error('V souboru nebyly nalezeny žádné platné řádky k importu.');
             }
 
-            const { error } = await supabase.from('picking_operations').insert(processedData);
+            const { error } = await supabase
+                .from('picking_operations')
+                .insert(processedData, { 
+                    onConflict: 'confirmation_date, confirmation_time, user_name, delivery_no, source_storage_bin, material' 
+                });
             
             if (error) throw error;
             
