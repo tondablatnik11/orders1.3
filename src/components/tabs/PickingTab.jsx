@@ -330,10 +330,17 @@ const PickingTab = () => {
         });
     }, [filteredDataByDate, dateRange, shiftChartInterval]);
 
+    const filteredDataForActivityChart = useMemo(() => {
+        if (activityChartInterval === 'hour') {
+            return pickingData.filter(op => op.confirmation_date && format(parseISO(op.confirmation_date), 'yyyy-MM-dd') === format(activityChartDate, 'yyyy-MM-dd'));
+        }
+        return filteredDataByDate;
+    }, [activityChartInterval, pickingData, filteredDataByDate, activityChartDate]);
+
     const activityChartData = useMemo(() => {
         let data, interval, formatStr, isSameInterval;
         if (activityChartInterval === 'hour') {
-            data = pickingData.filter(op => op.confirmation_date && format(parseISO(op.confirmation_date), 'yyyy-MM-dd') === format(activityChartDate, 'yyyy-MM-dd'));
+            data = filteredDataForActivityChart;
             interval = eachHourOfInterval({ start: startOfDay(activityChartDate), end: endOfDay(activityChartDate) });
             formatStr = date => format(date, 'HH:00');
             isSameInterval = (opDate, intDate) => opDate.getHours() === intDate.getHours();
@@ -357,7 +364,7 @@ const PickingTab = () => {
             opsInInterval.forEach(op => { if(point[op.user_name] !== undefined) point[op.user_name]++; });
             return point;
         });
-    }, [pickingData, filteredDataByDate, dateRange, activityChartInterval, activityChartDate]);
+    }, [pickingData, filteredDataByDate, filteredDataForActivityChart, dateRange, activityChartInterval, activityChartDate]);
     
     const topPickersData = useMemo(() => {
         const pickerCounts = filteredDataByDate.reduce((acc, op) => { acc[op.user_name] = (acc[op.user_name] || 0) + 1; return acc; }, {});
@@ -464,7 +471,7 @@ const PickingTab = () => {
                                         <XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8'}}/>
                                         <YAxis tick={{fontSize: 12, fill: '#94a3b8'}} allowDecimals={false}/>
                                         <Tooltip content={<CustomActivityTooltip />} />
-                                        <Legend content={<CustomActivityLegend data={filteredDataByDate} />} verticalAlign="bottom" wrapperStyle={{paddingTop: '20px'}} />
+                                        <Legend content={<CustomActivityLegend data={filteredDataForActivityChart} />} verticalAlign="bottom" wrapperStyle={{paddingTop: '20px'}} />
                                         {[...new Set(filteredDataByDate.map(p => p.user_name))].map((user, i) => (
                                             <Line key={user} type="monotone" dataKey={user} name={user} stroke={['#38bdf8', '#4ade80', '#facc15', '#a78bfa', '#f472b6', '#2dd4bf', '#fb923c'][i % 7]} strokeWidth={2} connectNulls dot={false}>
                                                 <LabelList content={<CustomizedLineLabel />} />
