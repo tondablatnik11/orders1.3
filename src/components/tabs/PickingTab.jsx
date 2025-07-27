@@ -2,9 +2,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { getSupabase } from '@/lib/supabaseClient';
 import { useData } from '@/hooks/useData';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import * as XLSX from 'xlsx';
-import { Package, Weight, UploadCloud, ChevronDown, ChevronUp, ArrowUpDown, Clock, UserCheck, Users, Calendar, X, BarChart2, TrendingUp, ChevronsRight, Warehouse, Component } from 'lucide-react';
+import { UploadCloud, ChevronDown, ChevronUp, ArrowUpDown, UserCheck, Users, X, BarChart2, Warehouse, Component } from 'lucide-react';
 import { format, startOfDay, endOfDay, parseISO, isWithinInterval, startOfWeek, endOfWeek, eachDayOfInterval, getWeek, eachWeekOfInterval, startOfMonth, endOfMonth, eachMonthOfInterval, eachHourOfInterval } from 'date-fns';
 import { cs } from 'date-fns/locale';
 
@@ -356,6 +356,8 @@ const PickingTab = () => {
         const allPickers = [...new Set(data.map(p => p.user_name).filter(Boolean))];
         let interval, formatStr, isSameInterval;
 
+        const activityDate = dateRange.to && endOfDay(dateRange.to) > new Date() ? dateRange.from : dateRange.to || new Date();
+
         switch(activityChartInterval) {
             case 'day':
                 interval = eachDayOfInterval({ start: dateRange.from, end: dateRange.to });
@@ -368,8 +370,7 @@ const PickingTab = () => {
                 isSameInterval = (opDate, intDate) => getWeek(opDate, { weekStartsOn: 1 }) === getWeek(intDate, { weekStartsOn: 1 });
                 break;
             default: // hour
-                const start = dateRange.to ? endOfDay(dateRange.to) > new Date() ? startOfDay(dateRange.from) : startOfDay(dateRange.to) : startOfDay(new Date());
-                interval = eachHourOfInterval({ start, end: endOfDay(start) });
+                interval = eachHourOfInterval({ start: startOfDay(activityDate), end: endOfDay(activityDate) });
                 formatStr = date => format(date, 'HH:00');
                 isSameInterval = (opDate, intDate) => format(opDate, 'yyyy-MM-dd') === format(intDate, 'yyyy-MM-dd') && opDate.getHours() === intDate.getHours();
         }
@@ -378,7 +379,7 @@ const PickingTab = () => {
             const point = { name: formatStr(intDate) };
             allPickers.forEach(p => point[p] = 0);
             const opsInInterval = data.filter(op => isSameInterval(parseISO(`${op.confirmation_date}T${op.confirmation_time}`), intDate));
-            opsInInterval.forEach(op => { point[op.user_name]++; });
+            opsInInterval.forEach(op => { if(point[op.user_name] !== undefined) point[op.user_name]++; });
             return point;
         });
     }, [filteredDataByDate, dateRange, activityChartInterval]);
@@ -482,7 +483,7 @@ const PickingTab = () => {
                             <KpiCard title="Nejaktivnější picker" value={stats.mostActivePicker} unit="" icon={<UserCheck size={24} className="text-pink-300"/>} color="bg-pink-900/50"/>
                         </div>
 
-                        {/* --- NOVÉ GRAFY --- */}
+                        {/* --- GRAFY DLE POŽADAVKŮ --- */}
 
                         <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
                              <div className="flex justify-between items-center mb-4">
