@@ -75,8 +75,9 @@ const ImportSection = ({ onImportSuccess }) => {
 
             const { error } = await supabase
                 .from('picking_operations')
-                .insert(processedData, { 
-                    onConflict: 'confirmation_date, confirmation_time, user_name, delivery_no, source_storage_bin, material' 
+                .upsert(processedData, {
+                    onConflict: 'confirmation_date, confirmation_time, user_name, delivery_no, source_storage_bin, material',
+                    ignoreDuplicates: true
                 });
             
             if (error) throw error;
