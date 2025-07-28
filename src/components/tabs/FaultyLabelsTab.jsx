@@ -45,7 +45,7 @@ const FaultyLabelDetailsModal = ({ label, onClose }) => {
     const createLog = async (description) => {
         await supabase.from('faulty_label_logs').insert({
             faulty_label_id: label.id,
-            user_name: userProfile?.full_name || 'Systém',
+            user_name: userProfile?.full_name || 'Uživatel',
             change_description: description
         });
     };
