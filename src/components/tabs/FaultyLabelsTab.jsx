@@ -43,7 +43,7 @@ const FaultyLabelDetailsModal = ({ label, onClose }) => {
             .from('label_comments')
             .select('*')
             .eq('faulty_label_id', label.id)
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: true });
         setComments(data || []);
     }, [label.id, supabase]);
 
@@ -89,7 +89,7 @@ const FaultyLabelDetailsModal = ({ label, onClose }) => {
             toast.error('Chyba při přidávání komentáře.');
         } else {
             await createLog(`Přidal komentář: "${newComment}"`);
-            setComments(prev => [data, ...prev]);
+            setComments(prev => [...prev, data]);
             fetchLogs();
             setNewComment('');
             toast.success('Komentář byl přidán.');
