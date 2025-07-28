@@ -33,7 +33,7 @@ const DetailItem = ({ icon: Icon, label, value }) => (
 const FaultyLabelDetailsModal = ({ label, onClose }) => {
     const [activeTab, setActiveTab] = useState('details');
     const [newComment, setNewComment] = useState('');
-    const [comments, setComments] = useState(label.comments || []);
+    const [comments, setComments] = useState([]);
     const [logs, setLogs] = useState([]);
     const { userProfile } = useAuth();
     const supabase = getSupabase();
