@@ -5,7 +5,7 @@ import { useData } from '@/hooks/useData';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, LabelList } from 'recharts';
 import * as XLSX from 'xlsx';
 import { UploadCloud, ChevronDown, ChevronUp, ArrowUpDown, UserCheck, Users, X, BarChart2, Warehouse, Component, BarChartHorizontal, Info, Calendar, Zap } from 'lucide-react';
-import { format, startOfDay, endOfDay, parseISO, isWithinInterval, startOfWeek, endOfWeek, eachDayOfInterval, getWeek, eachWeekOfInterval, eachHourOfInterval, setHours, setMinutes } from 'date-fns';
+import { format, startOfDay, endOfDay, parseISO, isWithinInterval, startOfWeek, endOfWeek, eachDayOfInterval, getWeek, eachWeekOfInterval, eachHourOfInterval, setHours, setMinutes, differenceInDays } from 'date-fns';
 import { cs } from 'date-fns/locale';
 
 // --- POMOCNÉ KOMPONENTY ---
