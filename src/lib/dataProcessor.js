@@ -51,12 +51,10 @@ export const processData = (allData, pickingData = []) => {
         delayedOrdersList: [],
         orderTypesOEM: {},
         ordersByForwardingAgent: {},
-        // Nové: Přidány objekty pro rozpad stavů
         doneBreakdown: {},
         inProgressBreakdown: {},
         remainingBreakdown: {},
         delayedBreakdown: {},
-        // Nové: Přidány statistiky z pickování
         totalPicksToday: 0
     };
 
@@ -66,7 +64,6 @@ export const processData = (allData, pickingData = []) => {
     const today = startOfDay(new Date());
     const todayFormatted = format(today, 'yyyy-MM-dd');
     
-    // Nové: Výpočet picků pro dnešní den
     summary.totalPicksToday = pickingData.filter(p => p.confirmation_date === todayFormatted).length;
 
     rawData.forEach(row => {
@@ -74,6 +71,7 @@ export const processData = (allData, pickingData = []) => {
         if (isNaN(status)) return;
         
         const loadingDate = parseDataDate(row["Loading Date"]);
+        const isOEM = row.order_type === 'O';
 
         if (loadingDate) {
             const delayDays = differenceInDays(today, startOfDay(loadingDate));
@@ -134,22 +132,31 @@ export const processData = (allData, pickingData = []) => {
         if (loadingDate) {
             const dateKey = format(startOfDay(loadingDate), 'yyyy-MM-dd');
 
+            // ZMĚNA: Přidány položky pro OEM
             if (!summary.dailySummaries.has(dateKey)) {
                 summary.dailySummaries.set(dateKey, {
-                    date: dateKey, total: 0, status10: 0, status31: 0,
-                    status35: 0, status40: 0, status50_60: 0, status_done_all: 0, statusCounts: {}
+                    date: dateKey, total: 0, 
+                    status10: 0, status10_oem: 0,
+                    status31: 0, status31_oem: 0,
+                    status35: 0, status35_oem: 0,
+                    status40: 0, status40_oem: 0,
+                    status50_60: 0, status50_60_oem: 0,
+                    status_done_all: 0, status_done_all_oem: 0,
+                    statusCounts: {}
                 });
             }
             const day = summary.dailySummaries.get(dateKey);
             day.total++;
             day.statusCounts[status] = (day.statusCounts[status] || 0) + 1;
 
-            if (status === 10) day.status10++;
-            if (status === 31) day.status31++;
-            if (status === 35) day.status35++;
-            if (status === 40) day.status40++;
-            if (status === 50 || status === 60) day.status50_60++;
-            if (doneStatuses.includes(status)) day.status_done_all++;
+            // ZMĚNA: Inkrementace OEM i celkových počtů
+            if (status === 10) { day.status10++; if (isOEM) day.status10_oem++; }
+            if (status === 31) { day.status31++; if (isOEM) day.status31_oem++; }
+            if (status === 35) { day.status35++; if (isOEM) day.status35_oem++; }
+            if (status === 40) { day.status40++; if (isOEM) day.status40_oem++; }
+            if (status === 50 || status === 60) { day.status50_60++; if (isOEM) day.status50_60_oem++; }
+            if (doneStatuses.includes(status)) { day.status_done_all++; if (isOEM) day.status_done_all_oem++; }
+
 
             if (!summary.statusByLoadingDate[dateKey]) {
                 summary.statusByLoadingDate[dateKey] = { date: dateKey };
