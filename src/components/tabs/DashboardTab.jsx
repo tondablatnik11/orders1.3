@@ -107,7 +107,7 @@ export default function DashboardTab({ setActiveTab }) {
     };
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 <SummaryCard title={t.total} value={summary.total} icon={Package} color="blue" breakdown={summary.statusCounts} />
                 <SummaryCard title={t.done} value={summary.doneTotal} icon={CheckCircle} color="green" breakdown={summary.doneBreakdown} />
@@ -124,11 +124,12 @@ export default function DashboardTab({ setActiveTab }) {
             </div>
             
             <div>
-                <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-slate-200">
-                    <ClipboardList className="w-6 h-6 text-cyan-400" /> Denní přehled stavu
+                {/* ZMĚNA: Velikost nadpisu zmenšena na text-xl */}
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-200">
+                    <ClipboardList className="w-5 h-5 text-cyan-400" /> Denní přehled stavu
                 </h2>
-                <div ref={scrollContainerRef} className="flex space-x-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-                    {datesForOverview.map((d) => {
+                <div ref={scrollContainerRef} className="flex space-x-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 -mx-6 px-6">
+                    {datesForOverview.map((d, index) => {
                         const dateStr = format(d.date, 'yyyy-MM-dd');
                         const isToday = format(d.date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
                         const dailyStats = summary.dailySummaries.find(s => s.date === dateStr);

@@ -43,7 +43,8 @@ const AnimatedValue = ({ end }) => {
         };
         requestAnimationFrame(animate);
     }, [end]);
-    return <p className="text-4xl font-bold text-white">{current ?? 0}</p>;
+    // ZMĚNA: Velikost fontu zmenšena na text-3xl
+    return <p className="text-3xl font-bold text-white">{current ?? 0}</p>;
 };
 
 export const SummaryCard = ({ title, value, icon: Icon, color = 'blue', change, breakdown }) => {
@@ -56,7 +57,7 @@ export const SummaryCard = ({ title, value, icon: Icon, color = 'blue', change, 
       <div>
         <div className="flex items-center justify-between">
           <p className="text-sm font-medium text-slate-400">{title}</p>
-          <Icon className={`w-6 h-6 ${styles.text}`} />
+          <Icon className={`w-5 h-5 ${styles.text}`} />
         </div>
         <div className="flex items-baseline gap-2 mt-2">
             <AnimatedValue end={value} />
@@ -64,7 +65,7 @@ export const SummaryCard = ({ title, value, icon: Icon, color = 'blue', change, 
         </div>
       </div>
       {hasBreakdown && (
-        <div className="mt-2">
+        <div className="mt-1">
           <AnimatePresence>
           {isExpanded && (
             <motion.div
@@ -74,7 +75,7 @@ export const SummaryCard = ({ title, value, icon: Icon, color = 'blue', change, 
               transition={{ duration: 0.3, ease: "easeInOut" }}
               className="overflow-hidden"
             >
-              <div className="mt-2 pt-3 border-t border-slate-700/50 space-y-1 text-sm">
+              <div className="mt-2 pt-2 border-t border-slate-700/50 space-y-1 text-xs">
                 {Object.entries(breakdown).sort(([a], [b]) => a - b).map(([status, count]) => (
                   <div key={status} className="flex justify-between text-slate-300">
                     <span>Status {status}:</span>
@@ -87,7 +88,7 @@ export const SummaryCard = ({ title, value, icon: Icon, color = 'blue', change, 
           </AnimatePresence>
           <div className="text-center h-5">
             <button onClick={() => setIsExpanded(!isExpanded)} className="text-slate-500 hover:text-white mt-1 transition-transform duration-300">
-                <ChevronDown className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
             </button>
           </div>
         </div>
@@ -105,15 +106,15 @@ export const FeaturedKPICard = ({ title, value, icon: Icon, onClick, change, bre
             <div>
               <div className="flex items-center justify-between">
                   <p className="text-sm font-medium text-red-300 uppercase tracking-wider">{title}</p>
-                  <Icon className="w-6 h-6 text-red-300" />
+                  <Icon className="w-5 h-5 text-red-300" />
               </div>
               <div className="flex items-baseline gap-2 mt-2">
                   <AnimatedValue end={value} />
                   <ChangeIndicator change={change} />
               </div>
             </div>
-            {hasBreakdown && (
-                <div className="mt-2">
+             {hasBreakdown && (
+                <div className="mt-1">
                   <AnimatePresence>
                   {isExpanded && (
                     <motion.div
@@ -123,7 +124,7 @@ export const FeaturedKPICard = ({ title, value, icon: Icon, onClick, change, bre
                       transition={{ duration: 0.3, ease: "easeInOut" }}
                       className="overflow-hidden"
                     >
-                      <div className="mt-2 pt-3 border-t border-red-500/30 space-y-1 text-sm">
+                      <div className="mt-2 pt-2 border-t border-red-500/30 space-y-1 text-xs">
                         {Object.entries(breakdown).sort(([a], [b]) => a - b).map(([status, count]) => (
                           <div key={status} className="flex justify-between text-red-200">
                             <span>Status {status}:</span>
@@ -136,7 +137,7 @@ export const FeaturedKPICard = ({ title, value, icon: Icon, onClick, change, bre
                   </AnimatePresence>
                   <div className="text-center h-5">
                     <button onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }} className="text-red-400/70 hover:text-white mt-1 transition-transform duration-300">
-                        <ChevronDown className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                     </button>
                   </div>
                 </div>
@@ -149,7 +150,7 @@ export const PickingKPICard = ({ title, value, icon: Icon }) => (
     <div className="col-span-1 flex flex-col justify-between bg-cyan-900/30 rounded-xl border border-cyan-500/30 p-4 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10 hover:-translate-y-1">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-slate-400">{title}</p>
-        <Icon className="w-6 h-6 text-cyan-400" />
+        <Icon className="w-5 h-5 text-cyan-400" />
       </div>
       <div className="flex items-baseline gap-2 mt-2">
           <AnimatedValue end={value} />
