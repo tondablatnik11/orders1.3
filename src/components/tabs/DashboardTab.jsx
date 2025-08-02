@@ -14,7 +14,7 @@ import DonutChartCard from '@/components/charts/DonutChartCard';
 import D3GeoChart from '../charts/D3GeoChart';
 import { countryCodeMap } from '@/lib/dataProcessor';
 
-const SummaryCardSkeleton = () => <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 h-[88px] animate-pulse"></div>;
+const SummaryCardSkeleton = () => <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 h-[120px] animate-pulse"></div>;
 
 export default function DashboardTab({ setActiveTab }) {
     const { summary, previousSummary, allOrdersData, setSelectedOrderDetails, isLoadingData, pickingData } = useData();
@@ -51,8 +51,8 @@ export default function DashboardTab({ setActiveTab }) {
     if (isLoadingData || !summary) {
         return (
              <div className="space-y-8">
-                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                     {Array.from({length: 5}).map((_, i) => <SummaryCardSkeleton key={i} />)}
+                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                     {Array.from({length: 6}).map((_, i) => <SummaryCardSkeleton key={i} />)}
                  </div>
              </div>
         );
