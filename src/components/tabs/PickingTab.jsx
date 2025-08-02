@@ -4,8 +4,8 @@ import { getSupabase } from '@/lib/supabaseClient';
 import { useData } from '@/hooks/useData';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, LabelList } from 'recharts';
 import * as XLSX from 'xlsx';
-import { UploadCloud, ChevronDown, ChevronUp, ArrowUpDown, UserCheck, Users, X, BarChart2, Warehouse, Component, BarChartHorizontal, Info, Calendar } from 'lucide-react';
-import { format, startOfDay, endOfDay, parseISO, isWithinInterval, startOfWeek, endOfWeek, eachDayOfInterval, getWeek, eachWeekOfInterval, eachHourOfInterval } from 'date-fns';
+import { UploadCloud, ChevronDown, ChevronUp, ArrowUpDown, UserCheck, Users, X, BarChart2, Warehouse, Component, BarChartHorizontal, Info, Calendar, Zap } from 'lucide-react';
+import { format, startOfDay, endOfDay, parseISO, isWithinInterval, startOfWeek, endOfWeek, eachDayOfInterval, getWeek, eachWeekOfInterval, eachHourOfInterval, setHours, setMinutes } from 'date-fns';
 import { cs } from 'date-fns/locale';
 
 // --- POMOCNÉ KOMPONENTY ---
@@ -282,7 +282,7 @@ const PickingTab = () => {
     
     const stats = useMemo(() => {
         const data = filteredDataByDate;
-        if (data.length === 0) return { totalPicks: '0', totalQty: '0', shiftAPicks: 0, shiftAQty: 0, shiftBPicks: 0, shiftBQty: 0, mostActivePicker: 'N/A' };
+        if (data.length === 0) return { totalPicks: '0', totalQty: '0', shiftAPicks: 0, shiftAQty: 0, shiftBPicks: 0, shiftBQty: 0, mostActivePicker: 'N/A', pph: '0.0' };
         let shiftAPicks = 0, shiftAQty = 0, shiftBPicks = 0, shiftBQty = 0;
         const picksByUser = data.reduce((acc, op) => {
             acc[op.user_name] = (acc[op.user_name] || 0) + 1;
@@ -297,9 +297,15 @@ const PickingTab = () => {
                 }
             } return acc;
         }, {});
+        
         const mostActivePicker = Object.keys(picksByUser).length > 0 ? Object.keys(picksByUser).reduce((a, b) => picksByUser[a] > picksByUser[b] ? a : b) : 'N/A';
-        return { totalPicks: data.length.toLocaleString(), totalQty: data.reduce((acc, row) => acc + (row.source_actual_qty || 0), 0).toLocaleString(), shiftAPicks, shiftAQty, shiftBPicks, shiftBQty, mostActivePicker };
-    }, [filteredDataByDate]);
+        const uniquePickers = Object.keys(picksByUser).length;
+        const shiftHours = 8;
+        const totalHours = uniquePickers * shiftHours * (differenceInDays(dateRange.to, dateRange.from) + 1);
+        const pph = totalHours > 0 ? (data.length / totalHours).toFixed(1) : '0.0';
+
+        return { totalPicks: data.length.toLocaleString(), totalQty: data.reduce((acc, row) => acc + (row.source_actual_qty || 0), 0).toLocaleString(), shiftAPicks, shiftAQty, shiftBPicks, shiftBQty, mostActivePicker, pph };
+    }, [filteredDataByDate, dateRange]);
 
     const shiftChartData = useMemo(() => {
         const data = filteredDataByDate;
@@ -415,9 +421,9 @@ const PickingTab = () => {
                     <div className="space-y-8">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                             <KpiCard title="Operací v období" value={stats.totalPicks} unit="picků" subValue={stats.totalQty} subUnit="kusů" icon={<BarChart2 size={24} className="text-sky-300"/>} color="bg-sky-900/50" />
+                            <KpiCard title="Průměrné PPH" value={stats.pph} unit="picků/hod" icon={<Zap size={24} className="text-green-300"/>} color="bg-green-900/50" />
                             <KpiCard title="Směna A" value={stats.shiftAPicks.toLocaleString()} unit="picků" subValue={stats.shiftAQty.toLocaleString()} subUnit="kusů" icon={<Users size={24} className="text-amber-300"/>} color="bg-amber-900/50"/>
                             <KpiCard title="Směna B" value={stats.shiftBPicks.toLocaleString()} unit="picků" subValue={stats.shiftBQty.toLocaleString()} subUnit="kusů" icon={<Users size={24} className="text-indigo-300"/>} color="bg-indigo-900/50"/>
-                            <KpiCard title="Nejaktivnější picker" value={stats.mostActivePicker} unit="" icon={<UserCheck size={24} className="text-pink-300"/>} color="bg-pink-900/50"/>
                         </div>
                         <hr className="border-slate-700/50"/>
                         
