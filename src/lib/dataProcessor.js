@@ -28,7 +28,7 @@ const parseDataDate = (dateInput) => {
     return null;
 };
 
-export const processData = (allData) => {
+export const processData = (allData, pickingData = []) => {
     if (!allData || allData.length === 0) {
         return null;
     }
@@ -39,13 +39,11 @@ export const processData = (allData) => {
         total: rawData.length,
         doneTotal: 0,
         inProgressTotal: 0,
-        remainingTotal: 0, // ZMĚNA: Bude se počítat explicitně
-        newOrdersTotal: 0,
+        remainingTotal: 0,
         delayed: 0,
         statusCounts: {},
         deliveryTypes: {},
         ordersByCountry: {},
-        delayedByCarrier: {},
         recentUpdates: [],
         allOrdersData: allData,
         dailySummaries: new Map(),
@@ -53,13 +51,23 @@ export const processData = (allData) => {
         delayedOrdersList: [],
         orderTypesOEM: {},
         ordersByForwardingAgent: {},
+        // Nové: Přidány objekty pro rozpad stavů
+        doneBreakdown: {},
+        inProgressBreakdown: {},
+        remainingBreakdown: {},
+        delayedBreakdown: {},
+        // Nové: Přidány statistiky z pickování
+        totalPicksToday: 0
     };
 
-    // ZMĚNA: Nové definice stavů podle zadání
     const doneStatuses = [50, 60, 70, 80, 90];
     const inProgressStatuses = [35, 40];
     const remainingStatuses = [10, 31, 35, 40];
     const today = startOfDay(new Date());
+    const todayFormatted = format(today, 'yyyy-MM-dd');
+    
+    // Nové: Výpočet picků pro dnešní den
+    summary.totalPicksToday = pickingData.filter(p => p.confirmation_date === todayFormatted).length;
 
     rawData.forEach(row => {
         const status = Number(row.Status);
@@ -67,13 +75,11 @@ export const processData = (allData) => {
         
         const loadingDate = parseDataDate(row["Loading Date"]);
 
-        // ZMĚNA: Logika pro zpožděné zakázky nyní používá `remainingStatuses`
         if (loadingDate) {
             const delayDays = differenceInDays(today, startOfDay(loadingDate));
             if (delayDays > 0 && remainingStatuses.includes(status)) {
                 summary.delayed++;
-                const carrier = row["Forwarding agent name"] || "Neznámý";
-                summary.delayedByCarrier[carrier] = (summary.delayedByCarrier[carrier] || 0) + 1;
+                summary.delayedBreakdown[status] = (summary.delayedBreakdown[status] || 0) + 1;
                 summary.delayedOrdersList.push({
                     ...row,
                     delivery: String(row["Delivery No"] || '').trim(),
@@ -97,10 +103,18 @@ export const processData = (allData) => {
 
         summary.statusCounts[status] = (summary.statusCounts[status] || 0) + 1;
         
-        // ZMĚNA: Nové výpočty pro celkové souhrny
-        if (doneStatuses.includes(status)) summary.doneTotal++;
-        if (inProgressStatuses.includes(status)) summary.inProgressTotal++;
-        if (remainingStatuses.includes(status)) summary.remainingTotal++;
+        if (doneStatuses.includes(status)) {
+            summary.doneTotal++;
+            summary.doneBreakdown[status] = (summary.doneBreakdown[status] || 0) + 1;
+        }
+        if (inProgressStatuses.includes(status)) {
+            summary.inProgressTotal++;
+            summary.inProgressBreakdown[status] = (summary.inProgressBreakdown[status] || 0) + 1;
+        }
+        if (remainingStatuses.includes(status)) {
+            summary.remainingTotal++;
+            summary.remainingBreakdown[status] = (summary.remainingBreakdown[status] || 0) + 1;
+        }
         
         const delType = row["del.type"] === 'P' ? 'Palety' : 'Kartony';
         summary.deliveryTypes[delType] = (summary.deliveryTypes[delType] || 0) + 1;
@@ -122,15 +136,8 @@ export const processData = (allData) => {
 
             if (!summary.dailySummaries.has(dateKey)) {
                 summary.dailySummaries.set(dateKey, {
-                    date: dateKey,
-                    total: 0,
-                    status10: 0,
-                    status31: 0,
-                    status35: 0,
-                    status40: 0,
-                    status50_60: 0,
-                    status_done_all: 0,
-                    statusCounts: {}
+                    date: dateKey, total: 0, status10: 0, status31: 0,
+                    status35: 0, status40: 0, status50_60: 0, status_done_all: 0, statusCounts: {}
                 });
             }
             const day = summary.dailySummaries.get(dateKey);

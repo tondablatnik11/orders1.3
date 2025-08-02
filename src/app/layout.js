@@ -2,6 +2,9 @@
 import './globals.css';
 import { AppProviders } from '@/components/layout/AppProviders';
 import { Toaster } from 'react-hot-toast';
+import { Inter } from 'next/font/google'; // <-- NOVÝ IMPORT
+
+const inter = Inter({ subsets: ['latin'] }); // <-- INICIALIZACE FONTU
 
 export const metadata = {
   title: 'Přehled zakázek',
@@ -11,7 +14,8 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="cs">
-      <body>
+      {/* APLIKACE FONTU NA CELOU STRÁNKU */}
+      <body className={inter.className}> 
         <AppProviders>
           <Toaster 
             position="top-right"
@@ -27,7 +31,6 @@ export default function RootLayout({ children }) {
           />
           {children}
         </AppProviders>
-        {/* NOVÉ: Přidán kontejner pro modální okna */}
         <div id="modal-root"></div>
       </body>
     </html>

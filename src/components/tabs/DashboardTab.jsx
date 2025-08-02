@@ -4,10 +4,10 @@ import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { format, startOfDay, addDays, subDays, parseISO, isValid } from 'date-fns';
 import { cs } from 'date-fns/locale';
-import { CheckCircle, Clock, Hourglass, Info, AlertTriangle, ClipboardList, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { CheckCircle, Clock, Hourglass, Info, AlertTriangle, ClipboardList, Package, Zap } from 'lucide-react';
 import { OrderListModal } from '@/components/modals/OrderListModal';
 import { DailyOverviewCard } from '@/components/shared/DailyOverviewCard';
-import { SummaryCard, FeaturedKPICard } from '@/components/shared/SummaryCard';
+import { SummaryCard, FeaturedKPICard, PickingKPICard } from '@/components/shared/SummaryCard';
 import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
 import StatusDistributionChart from '@/components/charts/StatusDistributionChart';
 import DonutChartCard from '@/components/charts/DonutChartCard';
@@ -74,7 +74,7 @@ export default function DashboardTab({ setActiveTab }) {
             if (statusFilter === 'all') return true;
             return statusFilter.includes(Number(order.Status));
         });
-        setModalState({ isOpen: true, title: `${title} - ${format(date, 'dd.MM.yyyy')}`, orders: filteredOrders });
+        setModalState({ isOpen: true, title: `${title}`, orders: filteredOrders });
     };
     
     const handleBarClick = (data) => {
@@ -106,42 +106,26 @@ export default function DashboardTab({ setActiveTab }) {
         setModalState({ isOpen: true, title: `${t.orderListFor} ${countryCode3}`, orders: filteredOrders });
     };
 
-    const summaryCardsData = [
-        { labelKey: 'total', value: summary.total, change: getChange(summary.total, previousSummary?.total), icon: Info, color: 'blue' },
-        { labelKey: 'done', value: summary.doneTotal, change: getChange(summary.doneTotal, previousSummary?.doneTotal), icon: CheckCircle, color: 'green' },
-        { labelKey: 'remaining', value: summary.remainingTotal, change: getChange(summary.remainingTotal, previousSummary?.remainingTotal), icon: Clock, color: 'yellow' },
-        { labelKey: 'inProgress', value: summary.inProgressTotal, change: getChange(summary.inProgressTotal, previousSummary?.inProgressTotal), icon: Hourglass, color: 'orange' },
-    ];
-    
-    const getDailyChange = (date, metric) => {
-        if (!previousSummary?.dailySummaries) return undefined;
-        const dateStr = format(date, 'yyyy-MM-dd');
-        const prevDayStats = previousSummary.dailySummaries.find(d => d.date === dateStr);
-        const currentDayStats = summary.dailySummaries.find(d => d.date === dateStr);
-        if (prevDayStats && currentDayStats && prevDayStats[metric] !== undefined && currentDayStats[metric] !== undefined) {
-            return currentDayStats[metric] - prevDayStats[metric];
-        }
-        return undefined;
-    };
-
     return (
         <div className="space-y-8">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                {summaryCardsData.map(card => (
-                    <SummaryCard key={card.labelKey} title={t[card.labelKey]} value={card.value} icon={card.icon} color={card.color} change={card.change} />
-                ))}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <SummaryCard title={t.total} value={summary.total} icon={Package} color="blue" breakdown={summary.statusCounts} />
+                <SummaryCard title={t.done} value={summary.doneTotal} icon={CheckCircle} color="green" breakdown={summary.doneBreakdown} />
+                <SummaryCard title={t.remaining} value={summary.remainingTotal} icon={Clock} color="yellow" breakdown={summary.remainingBreakdown} />
+                <SummaryCard title={t.inProgress} value={summary.inProgressTotal} icon={Hourglass} color="orange" breakdown={summary.inProgressBreakdown} />
+                <PickingKPICard title="Dnešní picky" value={summary.totalPicksToday} icon={Zap} />
                 <FeaturedKPICard 
                     title={t.delayed} 
                     value={summary.delayed} 
                     icon={AlertTriangle} 
                     onClick={() => setActiveTab('delayedOrders')}
-                    change={getChange(summary.delayed, previousSummary?.delayed)}
+                    breakdown={summary.delayedBreakdown}
                 />
             </div>
             
             <div>
                 <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-slate-200">
-                    <ClipboardList className="w-6 h-6 text-green-400" /> Denní přehled stavu
+                    <ClipboardList className="w-6 h-6 text-cyan-400" /> Denní přehled stavu
                 </h2>
                 <div ref={scrollContainerRef} className="flex space-x-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
                     {datesForOverview.map((d) => {
@@ -149,18 +133,7 @@ export default function DashboardTab({ setActiveTab }) {
                         const isToday = format(d.date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
                         const dailyStats = summary.dailySummaries.find(s => s.date === dateStr);
                         const displayLabel = `${d.label} (${format(d.date, 'dd.MM.')})`;
-
-                        // Upraveno pro nové kategorie
-                        const dailyChanges = dailyStats ? {
-                            total: getDailyChange(d.date, 'total'),
-                            status10: getDailyChange(d.date, 'status10'),
-                            status31: getDailyChange(d.date, 'status31'),
-                            status35: getDailyChange(d.date, 'status35'),
-                            status40: getDailyChange(d.date, 'status40'),
-                            status50_60: getDailyChange(d.date, 'status50_60'),
-                            status_done_all: getDailyChange(d.date, 'status_done_all'),
-                        } : {};
-
+                        
                         return (
                             <DailyOverviewCard 
                                 ref={isToday ? todayCardRef : null} 
@@ -171,7 +144,6 @@ export default function DashboardTab({ setActiveTab }) {
                                 onStatClick={handleStatClick} 
                                 date={d.date}
                                 isToday={isToday}
-                                changes={dailyChanges}
                             />
                         );
                     })}
