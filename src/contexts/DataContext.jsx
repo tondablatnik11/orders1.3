@@ -1,9 +1,9 @@
 'use client';
 import React, { createContext, useState, useEffect, useCallback, useMemo, useContext } from 'react';
-import { getSupabase } from '@/lib/supabaseClient'; // Opravená cesta
+import { getSupabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
-import { processData } from '@/lib/dataProcessor'; // Opravená cesta
-import { processArrayForDisplay, processErrorDataForSupabase } from '@/lib/errorMonitorProcessor'; // Opravená cesta
+import { processData } from '@/lib/dataProcessor';
+import { processArrayForDisplay, processErrorDataForSupabase } from '@/lib/errorMonitorProcessor';
 import toast from 'react-hot-toast';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -12,7 +12,7 @@ export const useData = () => useContext(DataContext);
 
 export const DataProvider = ({ children }) => {
     const [allOrdersData, setAllOrdersData] = useState([]);
-    const [pickingData, setPickingData] = useState([]); // <-- NOVÝ STAV PRO PICKING DATA
+    const [pickingData, setPickingData] = useState([]);
     const [summary, setSummary] = useState(null);
     const [previousSummary, setPreviousSummary] = useState(null);
     const [isLoadingData, setIsLoadingData] = useState(true);
@@ -24,13 +24,12 @@ export const DataProvider = ({ children }) => {
     const { user, loading: authLoading, db, appId } = useAuth();
     const supabase = getSupabase();
 
-    // PŘEJMENOVÁNO A ROZŠÍŘENO: Načte VŠECHNA potřebná data pro aplikaci
     const fetchAllApplicationData = useCallback(async () => {
         setIsLoadingData(true);
         try {
-            // Paralelně načteme data o zakázkách, pickování i chybách
+            // ZMĚNA: Dotaz nyní načítá pouze nearchivované zakázky
             const [deliveriesResult, pickingResult, errorsResult, snapshotResult] = await Promise.all([
-                supabase.from("deliveries").select('*').limit(20000),
+                supabase.from("deliveries").select('*').eq('is_archived', false).limit(20000),
                 supabase.from('picking_dashboard_data').select('*'),
                 supabase.from("errors").select('*').order('timestamp', { ascending: false }).limit(1000),
                 supabase.from('summary_snapshots').select('summary_data').eq('id', 1).single()
@@ -40,16 +39,15 @@ export const DataProvider = ({ children }) => {
             if (pickingResult.error) throw pickingResult.error;
             if (errorsResult.error) throw errorsResult.error;
 
-            // Zpracování dat o zakázkách
             const currentOrders = deliveriesResult.data || [];
-            const currentSummary = processData(currentOrders);
+            // ZMĚNA: Předáváme i data o pickování pro nové KPI
+            const currentSummary = processData(currentOrders, pickingResult.data || []);
             setAllOrdersData(currentOrders);
             setSummary(currentSummary);
             if (snapshotResult.data) {
                 setPreviousSummary(snapshotResult.data.summary_data);
             }
 
-            // Zpracování ostatních dat
             setPickingData(pickingResult.data || []);
             setErrorData(processArrayForDisplay(errorsResult.data || []));
 
@@ -69,7 +67,6 @@ export const DataProvider = ({ children }) => {
         }
     }, [user, authLoading, fetchAllApplicationData]);
     
-    // Zbytek vašich původních, funkčních metod
     const handleSaveNote = useCallback(async (deliveryNo, note) => {
         const { error } = await supabase.from('deliveries').update({ Note: note, updated_at: new Date().toISOString() }).eq('Delivery No', deliveryNo);
         if (error) {
@@ -134,7 +131,7 @@ export const DataProvider = ({ children }) => {
             toast.error("Pro nahrání souboru musíte být přihlášen.");
             return;
         }
-        toast.loading('Zpracovávám soubor...');
+        toast.loading('Zpracovávám soubor a porovnávám data...');
         const XLSX = await import('xlsx');
         const reader = new FileReader();
         reader.onload = async (evt) => {
@@ -145,11 +142,55 @@ export const DataProvider = ({ children }) => {
                 const ws = wb.Sheets[wsname];
                 const jsonData = XLSX.utils.sheet_to_json(ws);
                 const parseExcelDate = (excelDate) => excelDate ? new Date(excelDate).toISOString() : null;
-                const transformedData = jsonData.map(row => ({ "Delivery No": String(row["Delivery No"] || row["Delivery"] || '').trim(), "Status": Number(row["Status"]), "del.type": row["del.type"], "Loading Date": parseExcelDate(row["Loading Date"]), "Note": row["Note"] || "", "Forwarding agent name": row["Forwarding agent name"], "Name of ship-to party": row["Name of ship-to party"], "Total Weight": row["Total Weight"], "Bill of lading": row["Bill of lading"], "Country ship-to prty": row["Country ship-to prty"], "order_type": row["order type"], "updated_at": new Date().toISOString() })).filter(row => row["Delivery No"]);
+                
+                // ZMĚNA: Přidán is_archived: false pro všechny importované zakázky
+                const transformedData = jsonData.map(row => ({ 
+                    "Delivery No": String(row["Delivery No"] || row["Delivery"] || '').trim(), 
+                    "Status": Number(row["Status"]), 
+                    "del.type": row["del.type"], 
+                    "Loading Date": parseExcelDate(row["Loading Date"]), 
+                    "Note": row["Note"] || "", 
+                    "Forwarding agent name": row["Forwarding agent name"], 
+                    "Name of ship-to party": row["Name of ship-to party"], 
+                    "Total Weight": row["Total Weight"], 
+                    "Bill of lading": row["Bill of lading"], 
+                    "Country ship-to prty": row["Country ship-to prty"], 
+                    "order_type": row["order type"], 
+                    "updated_at": new Date().toISOString(),
+                    "is_archived": false // Zajištění, že nově importované/aktualizované zakázky jsou aktivní
+                })).filter(row => row["Delivery No"]);
+
                 if (transformedData.length > 0) {
+                    const deliveryNosInImport = new Set(transformedData.map(row => row["Delivery No"]));
+                    
+                    // Získání všech aktuálně aktivních zakázek z databáze
+                    const { data: existingDeliveries, error: fetchError } = await supabase
+                        .from('deliveries')
+                        .select('"Delivery No"')
+                        .eq('is_archived', false);
+
+                    if (fetchError) throw fetchError;
+                    
+                    // Identifikace zakázek, které jsou v DB, ale ne v novém importu
+                    const deliveriesToArchive = existingDeliveries
+                        .filter(d => !deliveryNosInImport.has(d["Delivery No"]))
+                        .map(d => d["Delivery No"]);
+
+                    // Archivace chybějících zakázek
+                    if (deliveriesToArchive.length > 0) {
+                        toast.loading(`Archivuji ${deliveriesToArchive.length} zmizelých zakázek...`);
+                        const { error: archiveError } = await supabase
+                            .from('deliveries')
+                            .update({ is_archived: true, updated_at: new Date().toISOString() })
+                            .in('"Delivery No"', deliveriesToArchive);
+                        if (archiveError) throw archiveError;
+                    }
+
+                    // Nahrání nových a aktualizovaných dat
                     await supabase.from('deliveries').upsert(transformedData, { onConflict: 'Delivery No' });
+                    
                     toast.dismiss();
-                    toast.success('Data byla úspěšně nahrána! Obnovuji přehled...');
+                    toast.success(`Data byla úspěšně nahrána! ${deliveriesToArchive.length} zakázek archivováno. Obnovuji přehled...`);
                     await fetchAllApplicationData();
                 } else {
                     toast.dismiss();
@@ -158,6 +199,7 @@ export const DataProvider = ({ children }) => {
             } catch (error) {
                 toast.dismiss();
                 toast.error(`Chyba při nahrávání: ${error.message}`);
+                console.error("File upload error details:", error);
             }
         };
         reader.readAsBinaryString(file);
@@ -201,7 +243,7 @@ export const DataProvider = ({ children }) => {
 
     const value = useMemo(() => ({
         allOrdersData, 
-        pickingData, // <-- PŘIDÁNO
+        pickingData,
         summary, 
         previousSummary, 
         isLoadingData, 
