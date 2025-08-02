@@ -48,7 +48,6 @@ export default function DashboardTab({ setActiveTab }) {
         }
     }, [allOrdersData, pickingData, setSelectedOrderDetails]);
     
-    // ZMĚNA: Nová funkce pro otevření modálního okna z KPI karty
     const handleKpiStatusClick = (statuses, title) => {
         const filteredOrders = allOrdersData.filter(order => statuses.includes(Number(order.Status)));
         setModalState({ isOpen: true, title: `${title}`, orders: filteredOrders });
@@ -113,7 +112,9 @@ export default function DashboardTab({ setActiveTab }) {
     };
 
     return (
-        <div className="space-y-6">
+        // ZMĚNA: Sníženy vertikální mezery
+        <div className="space-y-4">
+            {/* ZMĚNA: Sníženy mezery mezi kartami */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 <SummaryCard title={t.total} value={summary.total} icon={Package} color="blue" onStatusClick={(status) => handleKpiStatusClick([status], `Zakázky ve stavu ${status}`)} breakdown={summary.statusCounts} />
                 <SummaryCard title={t.done} value={summary.doneTotal} icon={CheckCircle} color="green" onStatusClick={(status) => handleKpiStatusClick([status], `Hotové zakázky ve stavu ${status}`)} breakdown={summary.doneBreakdown} />
@@ -131,10 +132,11 @@ export default function DashboardTab({ setActiveTab }) {
             </div>
             
             <div>
-                <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-200">
+                <h2 className="text-xl font-bold mb-3 flex items-center gap-2 text-slate-200">
                     <ClipboardList className="w-5 h-5 text-cyan-400" /> Denní přehled stavu
                 </h2>
-                <div ref={scrollContainerRef} className="flex space-x-3 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 -mx-4 px-4">
+                {/* ZMĚNA: Sníženy mezery a upraven padding pro lepší zobrazení */}
+                <div ref={scrollContainerRef} className="flex space-x-3 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 -mx-2 px-2">
                     {datesForOverview.map((d) => {
                         const dateStr = format(d.date, 'yyyy-MM-dd');
                         const isToday = format(d.date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
@@ -156,15 +158,15 @@ export default function DashboardTab({ setActiveTab }) {
                     })}
                 </div>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <StatusDistributionChart onBarClick={handleBarClick} />
                 <OrdersOverTimeChart summary={summary} />
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                  <div className="lg:col-span-8">
                      <D3GeoChart data={summary?.ordersByCountry || []} onCountryClick={handleCountryClick} />
                  </div>
-                 <div className="lg:col-span-4 space-y-6">
+                 <div className="lg:col-span-4 space-y-4">
                      <DonutChartCard title="Typy objednávek" data={summary?.orderTypesOEM} />
                      <DonutChartCard title="Podíl typů dodávek" data={summary?.deliveryTypes} />
                  </div>
