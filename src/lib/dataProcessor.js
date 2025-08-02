@@ -1,5 +1,5 @@
 // src/lib/dataProcessor.js
-import { startOfDay, format, isBefore, parseISO, differenceInDays } from 'date-fns';
+import { startOfDay, format, isBefore, parseISO, differenceInDays, subDays } from 'date-fns';
 
 export const countryCodeMap = { 'AF': 'AFG', 'AX': 'ALA', 'AL': 'ALB', 'DZ': 'DZA', 'AS': 'ASM', 'AD': 'AND', 'AO': 'AGO', 'AI': 'AIA', 'AQ': 'ATA', 'AG': 'ATG', 'AR': 'ARG', 'AM': 'ARM', 'AW': 'ABW', 'AU': 'AUS', 'AT': 'AUT', 'AZ': 'AZE', 'BS': 'BHS', 'BH': 'BHR', 'BD': 'BGD', 'BB': 'BRB', 'BY': 'BLR', 'BE': 'BEL', 'BZ': 'BLZ', 'BJ': 'BEN', 'BM': 'BMU', 'BT': 'BTN', 'BO': 'BOL', 'BQ': 'BES', 'BA': 'BIH', 'BW': 'BWA', 'BV': 'BVT', 'BR': 'BRA', 'IO': 'IOT', 'BN': 'BRN', 'BG': 'BGR', 'BF': 'BFA', 'BI': 'BDI', 'CV': 'CPV', 'KH': 'KHM', 'CM': 'CMR', 'CA': 'CAN', 'KY': 'CYM', 'CF': 'CAF', 'TD': 'TCD', 'CL': 'CHL', 'CN': 'CHN', 'CX': 'CXR', 'CC': 'CCK', 'CO': 'COL', 'KM': 'COM', 'CG': 'COG', 'CD': 'COD', 'CK': 'COK', 'CR': 'CRI', 'CI': 'CIV', 'HR': 'HRV', 'CU': 'CUB', 'CW': 'CUW', 'CY': 'CYP', 'CZ': 'CZE', 'DK': 'DNK', 'DJ': 'DJI', 'DM': 'DMA', 'DO': 'DOM', 'EC': 'ECU', 'EG': 'EGY', 'SV': 'SLV', 'GQ': 'GNQ', 'ER': 'ERI', 'EE': 'EST', 'SZ': 'SWZ', 'ET': 'ETH', 'FK': 'FLK', 'FO': 'FRO', 'FJ': 'FJI', 'FI': 'FIN', 'FR': 'FRA', 'GF': 'GUF', 'PF': 'PYF', 'TF': 'ATF', 'GA': 'GAB', 'GM': 'GMB', 'GE': 'GEO', 'DE': 'DEU', 'GH': 'GHA', 'GI': 'GIB', 'GR': 'GRC', 'GL': 'GRL', 'GD': 'GRD', 'GP': 'GLP', 'GU': 'GUM', 'GT': 'GTM', 'GG': 'GGY', 'GN': 'GIN', 'GW': 'GNB', 'GY': 'GUY', 'HT': 'HTI', 'HM': 'HMD', 'VA': 'VAT', 'HN': 'HND', 'HK': 'HKG', 'HU': 'HUN', 'IS': 'ISL', 'IN': 'IND', 'ID': 'IDN', 'IR': 'IRN', 'IQ': 'IRQ', 'IE': 'IRL', 'IM': 'IMN', 'IL': 'ISR', 'IT': 'ITA', 'JM': 'JAM', 'JP': 'JPN', 'JE': 'JEY', 'JO': 'JOR', 'KZ': 'KAZ', 'KE': 'KEN', 'KI': 'KIR', 'KP': 'PRK', 'KR': 'KOR', 'KW': 'KWT', 'KG': 'KGZ', 'LA': 'LAO', 'LV': 'LVA', 'LB': 'LBN', 'LS': 'LSO', 'LR': 'LBR', 'LY': 'LBY', 'LI': 'LIE', 'LT': 'LTU', 'LU': 'LUX', 'MO': 'MAC', 'MG': 'MDG', 'MW': 'MWI', 'MY': 'MYS', 'MV': 'MDV', 'ML': 'MLI', 'MT': 'MLT', 'MH': 'MHL', 'MQ': 'MTQ', 'MR': 'MRT', 'MU': 'MUS', 'YT': 'MYT', 'MX': 'MEX', 'FM': 'FSM', 'MD': 'MDA', 'MC': 'MCO', 'MN': 'MNG', 'ME': 'MNE', 'MS': 'MSR', 'MA': 'MAR', 'MZ': 'MOZ', 'MM': 'MMR', 'NA': 'NAM', 'NR': 'NRU', 'NP': 'NPL', 'NL': 'NLD', 'NC': 'NCL', 'NZ': 'NZL', 'NI': 'NIC', 'NE': 'NER', 'NG': 'NGA', 'NU': 'NIU', 'NF': 'NFK', 'MK': 'MKD', 'MP': 'MNP', 'NO': 'NOR', 'OM': 'OMN', 'PK': 'PAK', 'PW': 'PLW', 'PS': 'PSE', 'PA': 'PAN', 'PG': 'PNG', 'PY': 'PRY', 'PE': 'PER', 'PH': 'PHL', 'PN': 'PCN', 'PL': 'POL', 'PT': 'PRT', 'PR': 'PRI', 'QA': 'QAT', 'RE': 'REU', 'RO': 'ROU', 'RU': 'RUS', 'RW': 'RWA', 'BL': 'BLM', 'SH': 'SHN', 'KN': 'KNA', 'LC': 'LCA', 'MF': 'MAF', 'PM': 'SPM', 'VC': 'VCT', 'WS': 'WSM', 'SM': 'SMR', 'ST': 'STP', 'SA': 'SAU', 'SN': 'SEN', 'RS': 'SRB', 'SC': 'SYC', 'SL': 'SLE', 'SG': 'SGP', 'SX': 'SXM', 'SK': 'SVK', 'SI': 'SVN', 'SB': 'SLB', 'SO': 'SOM', 'ZA': 'ZAF', 'GS': 'SGS', 'SS': 'SSD', 'ES': 'ESP', 'LK': 'LKA', 'SD': 'SDN', 'SR': 'SUR', 'SJ': 'SJM', 'SE': 'SWE', 'CH': 'CHE', 'SY': 'SYR', 'TW': 'TWN', 'TJ': 'TJK', 'TZ': 'TZA', 'TH': 'THA', 'TL': 'TLS', 'TG': 'TGO', 'TK': 'TKL', 'TO': 'TON', 'TT': 'TTO', 'TN': 'TUN', 'TR': 'TUR', 'TM': 'TKM', 'TC': 'TCA', 'TV': 'TUV', 'UG': 'UGA', 'UA': 'UKR', 'AE': 'ARE', 'GB': 'GBR', 'US': 'USA', 'UM': 'UMI', 'UY': 'URY', 'UZ': 'UZB', 'VU': 'VUT', 'VE': 'VEN', 'VN': 'VNM', 'VG': 'VGB', 'VI': 'VIR', 'WF': 'WLF', 'EH': 'ESH', 'YE': 'YEM', 'ZM': 'ZMB', 'ZW': 'ZWE' };
 
@@ -55,16 +55,29 @@ export const processData = (allData, pickingData = []) => {
         inProgressBreakdown: {},
         remainingBreakdown: {},
         delayedBreakdown: {},
-        totalPicksToday: 0
+        yesterdayPicksByShift: { shiftA: 0, shiftB: 0 } // ZMĚNA: Nový objekt pro picky
     };
 
     const doneStatuses = [50, 60, 70, 80, 90];
     const inProgressStatuses = [35, 40];
     const remainingStatuses = [10, 31, 35, 40];
     const today = startOfDay(new Date());
-    const todayFormatted = format(today, 'yyyy-MM-dd');
+    const yesterdayFormatted = format(subDays(today, 1), 'yyyy-MM-dd');
     
-    summary.totalPicksToday = pickingData.filter(p => p.confirmation_date === todayFormatted).length;
+    // ZMĚNA: Výpočet picků za včerejší den
+    const yesterdayPicks = pickingData.filter(p => p.confirmation_date === yesterdayFormatted);
+    yesterdayPicks.forEach(pick => {
+        if (pick.confirmation_time && pick.confirmation_date) {
+            const hour = parseInt(pick.confirmation_time.split(':')[0], 10);
+            const weekNumber = getWeek(parseISO(pick.confirmation_date), { weekStartsOn: 1 });
+            const isEvenWeek = weekNumber % 2 === 0;
+            if (hour >= 6 && hour < 14) {
+                if (isEvenWeek) summary.yesterdayPicksByShift.shiftA++; else summary.yesterdayPicksByShift.shiftB++;
+            } else if (hour >= 14 && hour < 22) {
+                if (isEvenWeek) summary.yesterdayPicksByShift.shiftB++; else summary.yesterdayPicksByShift.shiftA++;
+            }
+        }
+    });
 
     rawData.forEach(row => {
         const status = Number(row.Status);
@@ -132,7 +145,6 @@ export const processData = (allData, pickingData = []) => {
         if (loadingDate) {
             const dateKey = format(startOfDay(loadingDate), 'yyyy-MM-dd');
 
-            // ZMĚNA: Přidány položky pro OEM
             if (!summary.dailySummaries.has(dateKey)) {
                 summary.dailySummaries.set(dateKey, {
                     date: dateKey, total: 0, 
@@ -149,14 +161,12 @@ export const processData = (allData, pickingData = []) => {
             day.total++;
             day.statusCounts[status] = (day.statusCounts[status] || 0) + 1;
 
-            // ZMĚNA: Inkrementace OEM i celkových počtů
             if (status === 10) { day.status10++; if (isOEM) day.status10_oem++; }
             if (status === 31) { day.status31++; if (isOEM) day.status31_oem++; }
             if (status === 35) { day.status35++; if (isOEM) day.status35_oem++; }
             if (status === 40) { day.status40++; if (isOEM) day.status40_oem++; }
             if (status === 50 || status === 60) { day.status50_60++; if (isOEM) day.status50_60_oem++; }
             if (doneStatuses.includes(status)) { day.status_done_all++; if (isOEM) day.status_done_all_oem++; }
-
 
             if (!summary.statusByLoadingDate[dateKey]) {
                 summary.statusByLoadingDate[dateKey] = { date: dateKey };

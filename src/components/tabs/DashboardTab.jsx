@@ -47,6 +47,12 @@ export default function DashboardTab({ setActiveTab }) {
             console.error(`Objednávka ${deliveryNo} nebyla nalezena.`);
         }
     }, [allOrdersData, pickingData, setSelectedOrderDetails]);
+    
+    // ZMĚNA: Nová funkce pro otevření modálního okna z KPI karty
+    const handleKpiStatusClick = (statuses, title) => {
+        const filteredOrders = allOrdersData.filter(order => statuses.includes(Number(order.Status)));
+        setModalState({ isOpen: true, title: `${title}`, orders: filteredOrders });
+    };
 
     if (isLoadingData || !summary) {
         return (
@@ -108,24 +114,23 @@ export default function DashboardTab({ setActiveTab }) {
 
     return (
         <div className="space-y-6">
-            {/* ZMĚNA: Sníženy mezery mezi kartami */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                <SummaryCard title={t.total} value={summary.total} icon={Package} color="blue" breakdown={summary.statusCounts} />
-                <SummaryCard title={t.done} value={summary.doneTotal} icon={CheckCircle} color="green" breakdown={summary.doneBreakdown} />
-                <SummaryCard title={t.remaining} value={summary.remainingTotal} icon={Clock} color="yellow" breakdown={summary.remainingBreakdown} />
-                <SummaryCard title={t.inProgress} value={summary.inProgressTotal} icon={Hourglass} color="orange" breakdown={summary.inProgressBreakdown} />
-                <PickingKPICard title="Dnešní picky" value={summary.totalPicksToday} icon={Zap} />
+                <SummaryCard title={t.total} value={summary.total} icon={Package} color="blue" onStatusClick={(status) => handleKpiStatusClick([status], `Zakázky ve stavu ${status}`)} breakdown={summary.statusCounts} />
+                <SummaryCard title={t.done} value={summary.doneTotal} icon={CheckCircle} color="green" onStatusClick={(status) => handleKpiStatusClick([status], `Hotové zakázky ve stavu ${status}`)} breakdown={summary.doneBreakdown} />
+                <SummaryCard title={t.remaining} value={summary.remainingTotal} icon={Clock} color="yellow" onStatusClick={(status) => handleKpiStatusClick([status], `Zbývající zakázky ve stavu ${status}`)} breakdown={summary.remainingBreakdown} />
+                <SummaryCard title={t.inProgress} value={summary.inProgressTotal} icon={Hourglass} color="orange" onStatusClick={(status) => handleKpiStatusClick([status], `Zakázky v procesu ve stavu ${status}`)} breakdown={summary.inProgressBreakdown} />
+                <PickingKPICard title="Včerejší picky" shifts={summary.yesterdayPicksByShift} icon={Zap} />
                 <FeaturedKPICard 
                     title={t.delayed} 
                     value={summary.delayed} 
                     icon={AlertTriangle} 
                     onClick={() => setActiveTab('delayedOrders')}
+                    onStatusClick={(status) => handleKpiStatusClick([status], `Zpožděné zakázky ve stavu ${status}`)}
                     breakdown={summary.delayedBreakdown}
                 />
             </div>
             
             <div>
-                {/* ZMĚNA: Zmenšen nadpis */}
                 <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-200">
                     <ClipboardList className="w-5 h-5 text-cyan-400" /> Denní přehled stavu
                 </h2>

@@ -5,11 +5,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowUp, ArrowDown, Minus, ChevronDown, Package, Zap } from 'lucide-react';
 
 const colorClasses = {
-  blue: { text: 'text-blue-400', bg: 'bg-gradient-to-br from-blue-900/40 to-slate-900/50', border: 'border-blue-500/30', shadow: 'hover:shadow-blue-500/10' },
-  green: { text: 'text-green-400', bg: 'bg-gradient-to-br from-green-900/40 to-slate-900/50', border: 'border-green-500/30', shadow: 'hover:shadow-green-500/10' },
-  yellow: { text: 'text-yellow-400', bg: 'bg-gradient-to-br from-yellow-900/40 to-slate-900/50', border: 'border-yellow-500/30', shadow: 'hover:shadow-yellow-500/10' },
-  orange: { text: 'text-orange-400', bg: 'bg-gradient-to-br from-orange-900/40 to-slate-900/50', border: 'border-orange-500/30', shadow: 'hover:shadow-orange-500/10' },
-  cyan: { text: 'text-cyan-400', bg: 'bg-gradient-to-br from-cyan-900/40 to-slate-900/50', border: 'border-cyan-500/30', shadow: 'hover:shadow-cyan-500/10' },
+  blue: { text: 'text-blue-400', bg: 'bg-gradient-to-br from-slate-800 to-slate-900', border: 'border-slate-700', shadow: 'hover:shadow-blue-500/10' },
+  green: { text: 'text-green-400', bg: 'bg-gradient-to-br from-slate-800 to-slate-900', border: 'border-slate-700', shadow: 'hover:shadow-green-500/10' },
+  yellow: { text: 'text-yellow-400', bg: 'bg-gradient-to-br from-slate-800 to-slate-900', border: 'border-slate-700', shadow: 'hover:shadow-yellow-500/10' },
+  orange: { text: 'text-orange-400', bg: 'bg-gradient-to-br from-slate-800 to-slate-900', border: 'border-slate-700', shadow: 'hover:shadow-orange-500/10' },
+  cyan: { text: 'text-cyan-400', bg: 'bg-gradient-to-br from-slate-800 to-slate-900', border: 'border-slate-700', shadow: 'hover:shadow-cyan-500/10' },
 };
 
 const ChangeIndicator = ({ change }) => {
@@ -43,20 +43,18 @@ const AnimatedValue = ({ end }) => {
         };
         requestAnimationFrame(animate);
     }, [end]);
-    // ZMĚNA: Velikost fontu zmenšena na text-3xl
-    return <p className="text-3xl font-bold text-white">{current ?? 0}</p>;
+    return <p className="text-2xl font-bold text-white">{current ?? 0}</p>;
 };
 
-export const SummaryCard = ({ title, value, icon: Icon, color = 'blue', change, breakdown }) => {
+export const SummaryCard = ({ title, value, icon: Icon, color = 'blue', change, breakdown, onStatusClick }) => {
   const styles = colorClasses[color] || colorClasses.blue;
-  const [isExpanded, setIsExpanded] = useState(false);
   const hasBreakdown = breakdown && Object.keys(breakdown).length > 0;
 
   return (
-    <div className={`col-span-1 flex flex-col justify-between ${styles.bg} rounded-xl border ${styles.border} p-4 transition-all duration-300 hover:shadow-xl ${styles.shadow} hover:-translate-y-1`}>
+    <div className={`col-span-1 flex flex-col justify-between ${styles.bg} rounded-lg border ${styles.border} p-3 transition-all duration-300 hover:shadow-xl ${styles.shadow} hover:-translate-y-1`}>
       <div>
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-slate-400">{title}</p>
+          <p className="text-xs font-medium text-slate-400">{title}</p>
           <Icon className={`w-5 h-5 ${styles.text}`} />
         </div>
         <div className="flex items-baseline gap-2 mt-2">
@@ -66,30 +64,13 @@ export const SummaryCard = ({ title, value, icon: Icon, color = 'blue', change, 
       </div>
       {hasBreakdown && (
         <div className="mt-1">
-          <AnimatePresence>
-          {isExpanded && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="overflow-hidden"
-            >
-              <div className="mt-2 pt-2 border-t border-slate-700/50 space-y-1 text-xs">
-                {Object.entries(breakdown).sort(([a], [b]) => a - b).map(([status, count]) => (
-                  <div key={status} className="flex justify-between text-slate-300">
-                    <span>Status {status}:</span>
-                    <span className="font-semibold">{count}</span>
-                  </div>
-                ))}
+          <div className="pt-2 border-t border-slate-700/50 space-y-1 text-xs">
+            {Object.entries(breakdown).sort(([a], [b]) => a - b).map(([status, count]) => (
+              <div key={status} onClick={() => onStatusClick(Number(status))} className="flex justify-between text-slate-300 hover:bg-slate-700/50 -mx-1 px-1 rounded cursor-pointer">
+                <span>Status {status}:</span>
+                <span className="font-semibold">{count}</span>
               </div>
-            </motion.div>
-          )}
-          </AnimatePresence>
-          <div className="text-center h-5">
-            <button onClick={() => setIsExpanded(!isExpanded)} className="text-slate-500 hover:text-white mt-1 transition-transform duration-300">
-                <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-            </button>
+            ))}
           </div>
         </div>
       )}
@@ -97,15 +78,14 @@ export const SummaryCard = ({ title, value, icon: Icon, color = 'blue', change, 
   );
 };
 
-export const FeaturedKPICard = ({ title, value, icon: Icon, onClick, change, breakdown }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
+export const FeaturedKPICard = ({ title, value, icon: Icon, onClick, change, breakdown, onStatusClick }) => {
     const hasBreakdown = breakdown && Object.keys(breakdown).length > 0;
     
     return (
-        <div onClick={onClick} className="col-span-2 md:col-span-1 group flex flex-col justify-between rounded-xl border-2 border-red-500/50 bg-gradient-to-br from-red-900/40 to-slate-900/50 p-4 transition-all duration-300 hover:shadow-2xl hover:border-red-500/80 hover:-translate-y-1 backdrop-blur-sm cursor-pointer hover:shadow-red-500/20">
-            <div>
+        <div className="col-span-2 md:col-span-1 group flex flex-col justify-between rounded-lg border border-red-500/50 bg-gradient-to-br from-slate-800 to-slate-900 p-3 transition-all duration-300 hover:shadow-2xl hover:border-red-500/80 hover:-translate-y-1 backdrop-blur-sm hover:shadow-red-500/20">
+            <div onClick={onClick} className="cursor-pointer">
               <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-red-300 uppercase tracking-wider">{title}</p>
+                  <p className="text-xs font-medium text-red-300 uppercase tracking-wider">{title}</p>
                   <Icon className="w-5 h-5 text-red-300" />
               </div>
               <div className="flex items-baseline gap-2 mt-2">
@@ -115,30 +95,13 @@ export const FeaturedKPICard = ({ title, value, icon: Icon, onClick, change, bre
             </div>
              {hasBreakdown && (
                 <div className="mt-1">
-                  <AnimatePresence>
-                  {isExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3, ease: "easeInOut" }}
-                      className="overflow-hidden"
-                    >
-                      <div className="mt-2 pt-2 border-t border-red-500/30 space-y-1 text-xs">
-                        {Object.entries(breakdown).sort(([a], [b]) => a - b).map(([status, count]) => (
-                          <div key={status} className="flex justify-between text-red-200">
-                            <span>Status {status}:</span>
-                            <span className="font-semibold">{count}</span>
-                          </div>
-                        ))}
+                  <div className="pt-2 border-t border-red-500/30 space-y-1 text-xs">
+                    {Object.entries(breakdown).sort(([a], [b]) => a - b).map(([status, count]) => (
+                      <div key={status} onClick={() => onStatusClick(Number(status))} className="flex justify-between text-red-200 hover:bg-red-900/50 -mx-1 px-1 rounded cursor-pointer">
+                        <span>Status {status}:</span>
+                        <span className="font-semibold">{count}</span>
                       </div>
-                    </motion.div>
-                  )}
-                  </AnimatePresence>
-                  <div className="text-center h-5">
-                    <button onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }} className="text-red-400/70 hover:text-white mt-1 transition-transform duration-300">
-                        <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                    </button>
+                    ))}
                   </div>
                 </div>
             )}
@@ -146,14 +109,23 @@ export const FeaturedKPICard = ({ title, value, icon: Icon, onClick, change, bre
     );
 };
 
-export const PickingKPICard = ({ title, value, icon: Icon }) => (
-    <div className="col-span-1 flex flex-col justify-between bg-cyan-900/30 rounded-xl border border-cyan-500/30 p-4 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10 hover:-translate-y-1">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-slate-400">{title}</p>
-        <Icon className="w-5 h-5 text-cyan-400" />
+export const PickingKPICard = ({ title, shifts, icon: Icon }) => (
+    <div className="col-span-1 flex flex-col justify-between bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg border border-slate-700 p-3 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10 hover:-translate-y-1">
+      <div>
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium text-slate-400">{title}</p>
+          <Icon className="w-5 h-5 text-cyan-400" />
+        </div>
       </div>
-      <div className="flex items-baseline gap-2 mt-2">
-          <AnimatedValue end={value} />
+      <div className="mt-2 space-y-1 text-sm">
+          <div className="flex justify-between items-baseline text-slate-300">
+            <span>Směna A:</span>
+            <span className="font-semibold text-lg text-white">{shifts.shiftA}</span>
+          </div>
+          <div className="flex justify-between items-baseline text-slate-300">
+            <span>Směna B:</span>
+            <span className="font-semibold text-lg text-white">{shifts.shiftB}</span>
+          </div>
       </div>
     </div>
 );
