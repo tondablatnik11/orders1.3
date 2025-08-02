@@ -13,7 +13,7 @@ import D3StatusDistributionChart from '@/components/charts/D3StatusDistributionC
 import DonutChartCard from '@/components/charts/DonutChartCard';
 import D3GeoChart from '../charts/D3GeoChart';
 import { countryCodeMap } from '@/lib/dataProcessor';
-import { PickingDetailsModal } from '../modals/PickingDetailsModal'; // <-- Nový import
+import { PickingDetailsModal } from '../modals/PickingDetailsModal';
 
 const SummaryCardSkeleton = () => <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 h-[120px] animate-pulse"></div>;
 
@@ -21,7 +21,7 @@ export default function DashboardTab({ setActiveTab }) {
     const { summary, previousSummary, allOrdersData, setSelectedOrderDetails, isLoadingData, pickingData } = useData();
     const { t } = useUI();
     const [modalState, setModalState] = useState({ isOpen: false, title: '', orders: [] });
-    const [pickingModalState, setPickingModalState] = useState({ isOpen: false, title: '', operations: [] }); // <-- Nový state
+    const [pickingModalState, setPickingModalState] = useState({ isOpen: false, title: '', operations: [] });
     const scrollContainerRef = useRef(null);
     const todayCardRef = useRef(null);
     
@@ -34,9 +34,15 @@ export default function DashboardTab({ setActiveTab }) {
         }
     }, [summary]);
 
+    const getChange = (currentValue, previousValue) => {
+        if (previousSummary === null || currentValue === undefined || previousValue === undefined) return undefined;
+        return currentValue - previousValue;
+    };
+    
     const handleOrderClick = useCallback((deliveryNo) => {
         const orderDetails = allOrdersData.find(order => String(order['Delivery No']) === String(deliveryNo));
         const relatedPicking = (pickingData || []).filter(p => String(p.delivery_no) === String(deliveryNo));
+        
         if (orderDetails) {
             setSelectedOrderDetails({ ...orderDetails, picking_details: relatedPicking });
         } else {
@@ -49,7 +55,6 @@ export default function DashboardTab({ setActiveTab }) {
         setModalState({ isOpen: true, title: `${title}`, orders: filteredOrders });
     };
     
-    // Nová funkce pro zobrazení picků
     const handlePickingKpiClick = (day) => {
         const today = startOfDay(new Date());
         const targetDate = day === 'today' ? today : subDays(today, 1);
@@ -58,6 +63,36 @@ export default function DashboardTab({ setActiveTab }) {
 
         const filteredOps = pickingData.filter(p => p.confirmation_date === targetDateFormatted);
         setPickingModalState({ isOpen: true, title: title, operations: filteredOps });
+    };
+
+    const handleBarClick = (data) => {
+        if (!data || !data.activePayload || !data.activePayload.length) return;
+        const clickedBar = data.activePayload[0];
+        const statusKey = clickedBar.dataKey;
+        const dateLabel = data.activeLabel;
+        const dateObj = summary.dailySummaries.find(d => {
+            const parsedDate = parseISO(d.date);
+            return isValid(parsedDate) && format(parsedDate, 'dd/MM') === dateLabel;
+        });
+        if (!dateObj) return;
+        const dateStr = dateObj.date;
+        const filteredOrders = allOrdersData.filter(order => {
+            const loadingDate = order["Loading Date"] ? parseISO(order["Loading Date"]) : null;
+            if (!loadingDate || !isValid(loadingDate) || format(loadingDate, 'yyyy-MM-dd') !== dateStr) return false;
+             const status = statusKey.replace('status', '');
+             return String(order.Status) === status;
+        });
+        const statusName = clickedBar.name || statusKey;
+        setModalState({ isOpen: true, title: `${statusName} - ${format(parseISO(dateStr), 'dd.MM.yyyy')}`, orders: filteredOrders });
+    };
+    
+    // OPRAVA: Přidání chybějící funkce
+    const handleCountryClick = (countryCode3) => {
+        if (!allOrdersData) return;
+        const countryCodeMapReversed = Object.fromEntries(Object.entries(countryCodeMap).map(([k,v])=>[v,k]));
+        const countryCode2 = countryCodeMapReversed[countryCode3];
+        const filteredOrders = allOrdersData.filter(o => o["Country ship-to prty"] === countryCode2);
+        setModalState({ isOpen: true, title: `${t.orderListFor} ${countryCode3}`, orders: filteredOrders });
     };
 
     if (isLoadingData || !summary) {
@@ -71,8 +106,8 @@ export default function DashboardTab({ setActiveTab }) {
     }
 
     const today = startOfDay(new Date());
-    const datesForOverview = Array.from({ length: 30 }).map((_, i) => { // ZMĚNA: Zobrazení 30 dní
-        const date = addDays(subDays(today, 15), i); // Posunuto pro lepší zobrazení
+    const datesForOverview = Array.from({ length: 30 }).map((_, i) => {
+        const date = addDays(subDays(today, 15), i);
         let label = format(date, 'EEEE', { locale: cs });
         if (format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')) label = t.today || "Dnes";
         if (format(date, 'yyyy-MM-dd') === format(subDays(today, 1), 'yyyy-MM-dd')) label = t.yesterday || "Včera";
@@ -134,7 +169,7 @@ export default function DashboardTab({ setActiveTab }) {
                 </div>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <D3StatusDistributionChart />
+                <D3StatusDistributionChart onBarClick={handleBarClick} />
                 <D3OrdersOverTimeChart summary={summary} />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -155,7 +190,6 @@ export default function DashboardTab({ setActiveTab }) {
                 onSelectOrder={(order) => handleOrderClick(order['Delivery No'])}
                 t={t}
             />
-            {/* Nové modální okno pro picky */}
             <PickingDetailsModal
                 isOpen={pickingModalState.isOpen}
                 onClose={() => setPickingModalState({ isOpen: false, title: '', operations: [] })}
