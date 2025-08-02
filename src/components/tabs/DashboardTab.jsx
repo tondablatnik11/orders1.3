@@ -118,7 +118,9 @@ export default function DashboardTab({ setActiveTab }) {
         const dateStr = format(date, 'yyyy-MM-dd');
         const prevDayStats = previousSummary.dailySummaries.find(d => d.date === dateStr);
         const currentDayStats = summary.dailySummaries.find(d => d.date === dateStr);
-        if (prevDayStats && currentDayStats) return currentDayStats[metric] - prevDayStats[metric];
+        if (prevDayStats && currentDayStats && prevDayStats[metric] !== undefined && currentDayStats[metric] !== undefined) {
+            return currentDayStats[metric] - prevDayStats[metric];
+        }
         return undefined;
     };
 
@@ -147,13 +149,18 @@ export default function DashboardTab({ setActiveTab }) {
                         const isToday = format(d.date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
                         const dailyStats = summary.dailySummaries.find(s => s.date === dateStr);
                         const displayLabel = `${d.label} (${format(d.date, 'dd.MM.')})`;
-                        const dailyChanges = { 
-                            total: getDailyChange(d.date, 'total'), 
-                            done: getDailyChange(d.date, 'done'), 
-                            remaining: getDailyChange(d.date, 'remaining'), 
-                            inProgress: getDailyChange(d.date, 'inProgress'), 
-                            new: getDailyChange(d.date, 'new') 
-                        };
+
+                        // Upraveno pro nové kategorie
+                        const dailyChanges = dailyStats ? {
+                            total: getDailyChange(d.date, 'total'),
+                            status10: getDailyChange(d.date, 'status10'),
+                            status31: getDailyChange(d.date, 'status31'),
+                            status35: getDailyChange(d.date, 'status35'),
+                            status40: getDailyChange(d.date, 'status40'),
+                            status50_60: getDailyChange(d.date, 'status50_60'),
+                            status_done_all: getDailyChange(d.date, 'status_done_all'),
+                        } : {};
+
                         return (
                             <DailyOverviewCard 
                                 ref={isToday ? todayCardRef : null} 

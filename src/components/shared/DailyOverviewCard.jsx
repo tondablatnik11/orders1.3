@@ -3,7 +3,6 @@
 import React from 'react';
 import { ArrowUp, ArrowDown, Minus } from 'lucide-react';
 
-// NOVÉ: Samostatná komponenta pro indikátor změny
 const ChangeIndicator = ({ change }) => {
     if (change === undefined || change === null) return null;
     
@@ -31,7 +30,6 @@ const StatRow = ({ label, value, colorClass, change, onClick }) => (
         <div className="flex items-center gap-2">
           <span className={`font-semibold text-base ${colorClass}`}>{value}</span>
           <div className="w-8 text-right">
-              {/* UPRAVENO: Použití nové komponenty */}
               <ChangeIndicator change={change} />
           </div>
         </div>
@@ -39,7 +37,7 @@ const StatRow = ({ label, value, colorClass, change, onClick }) => (
 );
 
 export const DailyOverviewCard = React.forwardRef(({ title, stats, t, onStatClick, date, isToday, changes }, ref) => {
-    const cardClasses = `bg-slate-800 p-4 rounded-xl shadow-lg border min-w-[240px] flex-shrink-0 transition-all duration-300 ${isToday ? 'border-blue-500' : 'border-slate-700'}`;
+    const cardClasses = `bg-slate-800 p-4 rounded-xl shadow-lg border min-w-[280px] flex-shrink-0 transition-all duration-300 ${isToday ? 'border-blue-500' : 'border-slate-700'}`;
 
     return (
         <div ref={ref} className={cardClasses}>
@@ -56,10 +54,13 @@ export const DailyOverviewCard = React.forwardRef(({ title, stats, t, onStatClic
                            <ChangeIndicator change={changes?.total} />
                         </div>
                     </div>
-                    <StatRow label={t.done} value={stats.done} colorClass="text-green-400" change={changes?.done} onClick={() => onStatClick(date, [50, 60, 70, 80, 90], t.done)} />
-                    <StatRow label={t.remaining} value={stats.remaining} colorClass="text-yellow-400" change={changes?.remaining} onClick={() => onStatClick(date, [10, 30, 31, 35, 40], t.remaining)} />
-                    <StatRow label={t.inProgress} value={stats.inProgress} colorClass="text-orange-400" change={changes?.inProgress} onClick={() => onStatClick(date, [31, 35, 40], t.inProgress)} />
-                    <StatRow label={t.newOrders} value={stats.new} colorClass="text-purple-400" change={changes?.new} onClick={() => onStatClick(date, [10], t.newOrders)} />
+                    {/* Změněné řádky statistik */}
+                    <StatRow label="Nové" value={stats.status10} colorClass="text-purple-400" onClick={() => onStatClick(date, [10], "Nové")} />
+                    <StatRow label="Připraveno k pickování" value={stats.status31} colorClass="text-yellow-400" onClick={() => onStatClick(date, [31], "Připraveno k pickování")} />
+                    <StatRow label="V Picku" value={stats.status35} colorClass="text-orange-400" onClick={() => onStatClick(date, [35], "V Picku")} />
+                    <StatRow label="Připraveno k zabalení" value={stats.status40} colorClass="text-amber-500" onClick={() => onStatClick(date, [40], "Připraveno k zabalení")} />
+                    <StatRow label="Zabaleno" value={stats.status50_60} colorClass="text-teal-400" onClick={() => onStatClick(date, [50, 60], "Zabaleno")} />
+                    <StatRow label="Hotovo" value={stats.status_done_all} colorClass="text-green-400" onClick={() => onStatClick(date, [50, 60, 70, 80, 90], "Hotovo")} />
                 </div>
             ) : <div className="text-center text-slate-500 text-sm flex items-center justify-center h-full min-h-[140px]">{t.noDataAvailable}</div>}
         </div>

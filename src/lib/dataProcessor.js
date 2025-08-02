@@ -49,7 +49,7 @@ export const processData = (allData) => {
         ordersByCountry: {},
         delayedByCarrier: {},
         recentUpdates: [],
-        allOrdersData: allData, 
+        allOrdersData: allData,
         dailySummaries: new Map(),
         statusByLoadingDate: {},
         delayedOrdersList: [],
@@ -59,7 +59,6 @@ export const processData = (allData) => {
 
     const doneStatuses = [50, 60, 70, 80, 90];
     const inProgressStatuses = [31, 35, 40];
-    const newStatus = [10];
     const remainingStatuses = [10, 30, 31, 35, 40];
     const today = startOfDay(new Date());
 
@@ -100,7 +99,6 @@ export const processData = (allData) => {
         summary.statusCounts[status] = (summary.statusCounts[status] || 0) + 1;
         if (doneStatuses.includes(status)) summary.doneTotal++;
         if (inProgressStatuses.includes(status)) summary.inProgressTotal++;
-        if (newStatus.includes(status)) summary.newOrdersTotal++;
         
         const delType = row["del.type"] === 'P' ? 'Palety' : 'Kartony';
         summary.deliveryTypes[delType] = (summary.deliveryTypes[delType] || 0) + 1;
@@ -121,19 +119,29 @@ export const processData = (allData) => {
             const dateKey = format(startOfDay(loadingDate), 'yyyy-MM-dd');
 
             if (!summary.dailySummaries.has(dateKey)) {
-                summary.dailySummaries.set(dateKey, { date: dateKey, total: 0, done: 0, inProgress: 0, new: 0, remaining: 0, statusCounts: {} });
+                summary.dailySummaries.set(dateKey, {
+                    date: dateKey,
+                    total: 0,
+                    status10: 0, // Nové
+                    status31: 0, // Připraveno k pickování
+                    status35: 0, // V Picku
+                    status40: 0, // Připraveno k zabalení
+                    status50_60: 0, // Zabaleno
+                    status_done_all: 0, // Hotovo
+                    statusCounts: {}
+                });
             }
             const day = summary.dailySummaries.get(dateKey);
             day.total++;
             day.statusCounts[status] = (day.statusCounts[status] || 0) + 1;
 
-            if (doneStatuses.includes(status)) {
-                day.done++;
-            } else if (inProgressStatuses.includes(status)) {
-                day.inProgress++;
-            } else if (newStatus.includes(status)) {
-                day.new++;
-            }
+            if (status === 10) day.status10++;
+            if (status === 31) day.status31++;
+            if (status === 35) day.status35++;
+            if (status === 40) day.status40++;
+            if (status === 50 || status === 60) day.status50_60++;
+            if ([50, 60, 70, 80, 90].includes(status)) day.status_done_all++;
+
 
             if (!summary.statusByLoadingDate[dateKey]) {
                 summary.statusByLoadingDate[dateKey] = { date: dateKey };
@@ -143,9 +151,6 @@ export const processData = (allData) => {
     });
     
     summary.remainingTotal = summary.total - summary.doneTotal;
-    summary.dailySummaries.forEach(day => {
-        day.remaining = day.total - day.done;
-    });
     summary.dailySummaries = Array.from(summary.dailySummaries.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
     summary.recentUpdates = allData.filter(o => o.updated_at).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).slice(0, 5);
     
