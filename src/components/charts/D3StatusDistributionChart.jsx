@@ -59,48 +59,48 @@ const D3StatusDistributionChart = ({ onBarClick }) => {
         
         svg.selectAll("*").remove();
 
-        const x = d3.scaleBand()
-            .domain(data.map(d => d.date))
-            .range([0, innerWidth])
-            .padding(0.2);
-
-        const y = d3.scaleLinear()
-            .domain([0, d3.max(data, d => d.total)]).nice()
-            .range([innerHeight, 0]);
+        const x = d3.scaleBand().domain(data.map(d => d.date)).range([0, innerWidth]).padding(0.2);
+        const y = d3.scaleLinear().domain([0, d3.max(data, d => d.total)]).nice().range([innerHeight, 0]);
 
         const xAxis = g => g
             .attr("transform", `translate(0,${innerHeight})`)
             .call(d3.axisBottom(x).tickSizeOuter(0).tickFormat(d3.timeFormat("%d.%m")))
-            .call(g => g.selectAll("text").style("fill", "#9CA3AF"))
-            .call(g => g.selectAll(".domain, .tick line").remove());
+            .call(g => g.selectAll(".domain, .tick line").attr("stroke", "#374151"))
+            .call(g => g.selectAll("text").attr("fill", "#9ca3af"));
 
         const yAxis = g => g
             .call(d3.axisLeft(y).ticks(5))
-            .call(g => g.selectAll("text").style("fill", "#9CA3AF"))
-            .call(g => g.selectAll(".domain, .tick line").remove());
+            .call(g => g.selectAll(".domain").remove())
+            .call(g => g.selectAll(".tick line").clone().attr("x2", innerWidth).attr("stroke", "#374151").attr("stroke-dasharray", "2,2"))
+            .call(g => g.selectAll("text").attr("fill", "#9ca3af"));
         
         const series = d3.stack().keys(keys)(data);
         
         const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
-        const gx = g.append("g");
-        const gy = g.append("g");
         
-        const barsContainer = g.append("g")
+        const barGroups = g.append("g")
             .selectAll("g")
             .data(series)
             .join("g")
             .attr("fill", d => colors[d.key]);
 
-        barsContainer.selectAll("rect")
+        barGroups.selectAll("rect")
             .data(d => d)
             .join("rect")
             .attr("x", d => x(d.data.date))
             .attr("y", d => y(d[1]))
             .attr("height", d => y(d[0]) - y(d[1]))
-            .attr("width", x.bandwidth());
+            .attr("width", x.bandwidth())
+            .style("transition", "opacity 0.2s ease")
+            .on("mouseover", function() {
+                d3.select(this).style("opacity", 0.8);
+            })
+            .on("mouseout", function() {
+                d3.select(this).style("opacity", 1);
+            });
 
-        gx.call(xAxis);
-        gy.call(yAxis);
+        g.append("g").call(xAxis);
+        g.append("g").call(yAxis);
         
         const tooltip = d3.select(tooltipRef.current);
         const bisectDate = d3.bisector(d => d.date).left;
@@ -108,7 +108,8 @@ const D3StatusDistributionChart = ({ onBarClick }) => {
         const focus = g.append("g").style("display", "none");
         focus.append("line").attr("y1", 0).attr("y2", innerHeight).attr("stroke", "#6b7280").attr("stroke-width", 1).attr("stroke-dasharray", "3,3");
 
-        const zoomRect = g.append("rect")
+        svg.append("rect")
+            .attr("transform", `translate(${margin.left},${margin.top})`)
             .attr("width", innerWidth)
             .attr("height", innerHeight)
             .style("fill", "none")
@@ -116,46 +117,34 @@ const D3StatusDistributionChart = ({ onBarClick }) => {
             .on("mouseover", () => { focus.style("display", null); tooltip.style("opacity", 1); })
             .on("mouseout", () => { focus.style("display", "none"); tooltip.style("opacity", 0); })
             .on("mousemove", (event) => {
-                const pointerX = d3.pointer(event)[0];
-                const date = x.domain()[d3.bisectCenter(x.range(), pointerX) - 1];
-                if (!date) return;
+                const pointer = d3.pointer(event, this);
+                const x0 = x.invert(pointer[0] - margin.left);
+                const i = bisectDate(data, x0, 1);
+                const d0 = data[i - 1];
+                const d1 = data[i];
+                if (!d0 || !d1) return;
+                const d = x0 - d0.date > d1.date - x0 ? d1 : d0;
                 
-                const i = bisectDate(data, date, 1) - 1;
-                const d = data[i];
-
                 focus.attr("transform", `translate(${x(d.date) + x.bandwidth() / 2},0)`);
                 
                 tooltip.html(`
                     <div class="font-semibold text-white">${format(d.date, 'dd.MM.yyyy')}</div>
                     ${keys.map(key => `<div style="color: ${colors[key]}">Status ${key.replace('status', '')}: <strong>${d[key]}</strong></div>`).join('')}
                 `)
-                .style("left", `${event.pageX + 15}px`)
+                .style("left", `${event.pageX + 20}px`)
                 .style("top", `${event.pageY}px`);
             });
-
-        const zoom = d3.zoom()
-            .scaleExtent([1, 10]) 
-            .translateExtent([[0, 0], [innerWidth, innerHeight]])
-            .extent([[0, 0], [innerWidth, innerHeight]])
-            .on("zoom", (event) => {
-                const newX = event.transform.rescaleX(x);
-                gx.call(xAxis.scale(newX));
-                barsContainer.selectAll("rect")
-                    .attr("x", d => newX(d.data.date))
-                    .attr("width", newX.bandwidth());
-            });
-
-        zoomRect.call(zoom);
-
     }, [data, keys, colors, dimensions, t]);
+
+    if (!summary) return null;
 
     return (
         <Card>
-            <CardContent className="pt-6">
-                <h2 className="text-xl font-semibold mb-4">{t.statusDistribution}</h2>
+            <CardContent>
+                <h2 className="text-lg font-semibold mb-4">{t.statusDistribution}</h2>
                 <div className="relative">
                     <svg ref={svgRef}></svg>
-                    <div ref={tooltipRef} className="absolute bg-gray-800 p-2 border border-gray-700 rounded-md text-xs pointer-events-none" style={{ opacity: 0, transition: 'opacity 0.2s' }}></div>
+                    <div ref={tooltipRef} className="absolute bg-slate-800/80 backdrop-blur-sm p-2 border border-slate-700 rounded-md text-xs pointer-events-none shadow-lg" style={{ opacity: 0, transition: 'opacity 0.2s' }}></div>
                 </div>
                  <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2 text-xs">
                     {legendData.map(item => (

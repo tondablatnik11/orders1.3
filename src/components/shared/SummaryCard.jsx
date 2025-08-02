@@ -43,13 +43,11 @@ const AnimatedValue = ({ end }) => {
         };
         requestAnimationFrame(animate);
     }, [end]);
-    // ZMĚNA: Velikost fontu zmenšena na text-2xl
     return <p className="text-2xl font-bold text-white">{current ?? 0}</p>;
 };
 
 export const SummaryCard = ({ title, value, icon: Icon, color = 'blue', change, breakdown, onStatusClick }) => {
   const styles = colorClasses[color] || colorClasses.blue;
-  const [isExpanded, setIsExpanded] = useState(false);
   const hasBreakdown = breakdown && Object.keys(breakdown).length > 0;
 
   return (
@@ -66,31 +64,14 @@ export const SummaryCard = ({ title, value, icon: Icon, color = 'blue', change, 
       </div>
       {hasBreakdown && (
         <div className="mt-1">
-          <AnimatePresence>
-          {isExpanded && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="overflow-hidden"
-            >
-              <div className="mt-2 pt-2 border-t border-slate-700/50 space-y-1 text-xs">
-                {Object.entries(breakdown).sort(([a], [b]) => a - b).map(([status, count]) => (
-                  <div key={status} onClick={() => onStatusClick(Number(status))} className="flex justify-between text-slate-300 hover:bg-slate-700/50 -mx-1 px-1 rounded cursor-pointer">
+            <div className="pt-2 border-t border-slate-700/50 space-y-1 text-xs">
+                {Object.entries(breakdown).sort(([a], [b]) => Number(a) - Number(b)).map(([status, count]) => (
+                <div key={status} onClick={() => onStatusClick(Number(status))} className="flex justify-between text-slate-300 hover:bg-slate-700/50 -mx-1 px-1 rounded cursor-pointer">
                     <span>Status {status}:</span>
                     <span className="font-semibold">{count}</span>
-                  </div>
+                </div>
                 ))}
-              </div>
-            </motion.div>
-          )}
-          </AnimatePresence>
-          <div className="text-center h-5">
-            <button onClick={() => setIsExpanded(!isExpanded)} className="text-slate-500 hover:text-white mt-1 transition-transform duration-300">
-                <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-            </button>
-          </div>
+            </div>
         </div>
       )}
     </div>
@@ -98,7 +79,6 @@ export const SummaryCard = ({ title, value, icon: Icon, color = 'blue', change, 
 };
 
 export const FeaturedKPICard = ({ title, value, icon: Icon, onClick, change, breakdown, onStatusClick }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
     const hasBreakdown = breakdown && Object.keys(breakdown).length > 0;
     
     return (
@@ -115,38 +95,21 @@ export const FeaturedKPICard = ({ title, value, icon: Icon, onClick, change, bre
             </div>
              {hasBreakdown && (
                 <div className="mt-1">
-                  <AnimatePresence>
-                  {isExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3, ease: "easeInOut" }}
-                      className="overflow-hidden"
-                    >
-                      <div className="mt-2 pt-2 border-t border-red-500/30 space-y-1 text-xs">
-                        {Object.entries(breakdown).sort(([a], [b]) => a - b).map(([status, count]) => (
-                          <div key={status} onClick={(e) => { e.stopPropagation(); onStatusClick(Number(status)); }} className="flex justify-between text-red-200 hover:bg-red-900/50 -mx-1 px-1 rounded cursor-pointer">
+                    <div className="pt-2 border-t border-red-500/30 space-y-1 text-xs">
+                        {Object.entries(breakdown).sort(([a], [b]) => Number(a) - Number(b)).map(([status, count]) => (
+                        <div key={status} onClick={(e) => { e.stopPropagation(); onStatusClick(Number(status)); }} className="flex justify-between text-red-200 hover:bg-red-900/50 -mx-1 px-1 rounded cursor-pointer">
                             <span>Status {status}:</span>
                             <span className="font-semibold">{count}</span>
-                          </div>
+                        </div>
                         ))}
-                      </div>
-                    </motion.div>
-                  )}
-                  </AnimatePresence>
-                  <div className="text-center h-5">
-                    <button onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }} className="text-red-400/70 hover:text-white mt-1 transition-transform duration-300">
-                        <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                    </button>
-                  </div>
+                    </div>
                 </div>
             )}
         </div>
     );
 };
 
-export const PickingKPICard = ({ title, shifts, icon: Icon }) => (
+export const PickingKPICard = ({ title, shifts, todayPicks, icon: Icon, onDayClick }) => (
     <div className="col-span-1 flex flex-col justify-between bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg border border-slate-700 p-3 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10 hover:-translate-y-1">
       <div>
         <div className="flex items-center justify-between">
@@ -155,13 +118,19 @@ export const PickingKPICard = ({ title, shifts, icon: Icon }) => (
         </div>
       </div>
       <div className="mt-2 space-y-1 text-sm">
-          <div className="flex justify-between items-baseline text-slate-300">
-            <span>Směna A:</span>
-            <span className="font-semibold text-lg text-white">{shifts.shiftA}</span>
+          <div onClick={() => onDayClick('today')} className="flex justify-between items-baseline text-slate-300 hover:bg-slate-700/50 -mx-1 px-1 rounded cursor-pointer">
+            <span>Dnes:</span>
+            <span className="font-semibold text-lg text-white">{todayPicks}</span>
           </div>
-          <div className="flex justify-between items-baseline text-slate-300">
-            <span>Směna B:</span>
-            <span className="font-semibold text-lg text-white">{shifts.shiftB}</span>
+          <div className="pt-1 border-t border-slate-700/50 text-xs">
+              <div className="flex justify-between text-slate-400">
+                  <span>Včera A:</span>
+                  <span className="font-semibold">{shifts.shiftA}</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                  <span>Včera B:</span>
+                  <span className="font-semibold">{shifts.shiftB}</span>
+              </div>
           </div>
       </div>
     </div>
