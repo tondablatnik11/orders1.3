@@ -14,12 +14,12 @@ export const OrderListModal = ({ isOpen, onClose, title, orders, onSelectOrder, 
             <div className="flex justify-end mb-4">
                 <button
                     onClick={() => exportCustomOrdersToXLSX(orders, title, t)}
-                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700"
+                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 transition-transform hover:scale-105"
                 >
                     <FileDown className="w-5 h-5" /> {t.exportToXLSX}
                 </button>
             </div>
-            <div className="max-h-[65vh] overflow-y-auto">
+            <div className="max-h-[60vh] overflow-y-auto scrollbar-thin">
                 <OrderListTable orders={orders} onSelectOrder={onSelectOrder} />
             </div>
         </Modal>
