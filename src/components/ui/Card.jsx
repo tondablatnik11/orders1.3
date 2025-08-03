@@ -6,8 +6,8 @@ const Card = React.forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
-      // Finální verze Glassmorphism efektu
-      "rounded-xl border border-white/10 bg-slate-800/20 backdrop-blur-md shadow-lg",
+      // ZMĚNA: Použití třídy z nového pluginu
+      "glass rounded-xl shadow-lg", // Přidána třída "glass"
       className
     )}
     {...props}
