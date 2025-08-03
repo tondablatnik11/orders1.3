@@ -8,7 +8,7 @@ const GlobalStyles = () => {
     <style jsx global>{`
       body {
         background-color: #0d1117;
-        background-image: 
+        background-image:
           radial-gradient(at 20% 20%, hsla(210, 80%, 40%, 0.2) 0px, transparent 50%),
           radial-gradient(at 80% 20%, hsla(180, 70%, 50%, 0.15) 0px, transparent 50%),
           radial-gradient(at 50% 80%, hsla(240, 60%, 40%, 0.2) 0px, transparent 50%),
