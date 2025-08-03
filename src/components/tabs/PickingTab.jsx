@@ -5,13 +5,14 @@ import { useData } from '@/hooks/useData';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, LabelList } from 'recharts';
 import * as XLSX from 'xlsx';
 import { UploadCloud, ChevronDown, ChevronUp, ArrowUpDown, UserCheck, Users, X, BarChart2, Warehouse, Component, BarChartHorizontal, Info, Calendar, Zap } from 'lucide-react';
-import { format, startOfDay, endOfDay, parseISO, isWithinInterval, startOfWeek, endOfWeek, eachDayOfInterval, getWeek, eachWeekOfInterval, eachHourOfInterval, setHours, setMinutes, differenceInDays } from 'date-fns';
+import { format, startOfDay, endOfDay, parseISO, isWithinInterval, startOfWeek, endOfWeek, eachDayOfInterval, getWeek, eachWeekOfInterval, eachMonthOfInterval, setHours, setMinutes, differenceInDays } from 'date-fns';
 import { cs } from 'date-fns/locale';
+import { Card } from '@/components/ui/Card';
 
 // --- POMOCNÉ KOMPONENTY ---
 
 const KpiCard = ({ title, value, unit, icon, color, subValue, subUnit }) => (
-    <div className="bg-slate-800 p-5 rounded-lg border border-slate-700 flex transition-all hover:border-slate-600 hover:shadow-lg">
+    <div className="glass-card p-5 rounded-xl flex transition-all hover:border-slate-600 hover:shadow-lg">
         <div className={`p-3 rounded-lg mr-4 self-start ${color}`}>{icon}</div>
         <div className="flex flex-col">
             <h3 className="text-sm font-medium text-slate-400">{title}</h3>
@@ -28,7 +29,7 @@ const KpiCard = ({ title, value, unit, icon, color, subValue, subUnit }) => (
 );
 
 const ChartContainer = ({ title, controls, children, data }) => (
-    <div className="bg-slate-800 p-6 rounded-lg border border-slate-700 flex flex-col">
+    <div className="glass-card p-6 rounded-xl flex flex-col">
         <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
             <h2 className="text-xl font-semibold text-white">{title}</h2>
             {controls && <div className="flex items-center gap-2 flex-wrap">{controls}</div>}
@@ -152,7 +153,7 @@ const ImportSection = ({ onImportSuccess }) => {
     }, [supabase, onImportSuccess]);
 
     return (
-        <div className="bg-slate-800 rounded-lg border border-slate-700">
+        <div className="bg-slate-800/50 rounded-lg border border-slate-700/80">
             <button onClick={() => setIsOpen(!isOpen)} className="w-full flex justify-between items-center p-4 hover:bg-slate-700/50 transition-colors">
                 <div className="flex items-center"><UploadCloud className="w-5 h-5 mr-3 text-sky-400" /><h2 className="text-lg font-semibold text-white">Importovat nová data</h2></div>
                 {isOpen ? <ChevronUp className="text-slate-400" /> : <ChevronDown className="text-slate-400" />}
@@ -405,17 +406,22 @@ const PickingTab = () => {
     return (
         <div className="space-y-8">
             {selectedPicker && <PickerDetailModal pickerName={selectedPicker} data={pickingData} onClose={() => setSelectedPicker(null)} />}
-            <ImportSection onImportSuccess={fetchData} />
-            <hr className="border-slate-700"/>
+            <Card>
+                <ImportSection onImportSuccess={fetchData} />
+            </Card>
+            
+            <hr className="border-slate-700/50"/>
             
             <div>
                 <h1 className="text-3xl font-bold text-white mb-6">Přehled a Analýza Pickování</h1>
-                <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 mb-8 flex flex-wrap items-center gap-4">
-                    <label className="text-slate-300 font-medium">Období:</label>
-                    <input type="date" value={format(dateRange.from, 'yyyy-MM-dd')} onChange={e => setDateRange(prev => ({...prev, from: e.target.valueAsDate || new Date()}))} className="p-2 bg-slate-700 border border-slate-600 rounded-md text-white"/>
-                    <label className="text-slate-300 font-medium">do:</label>
-                    <input type="date" value={format(dateRange.to, 'yyyy-MM-dd')} onChange={e => setDateRange(prev => ({...prev, to: e.target.valueAsDate || new Date()}))} className="p-2 bg-slate-700 border border-slate-600 rounded-md text-white"/>
-                </div>
+                <Card className="p-4 mb-8">
+                    <div className="flex flex-wrap items-center gap-4">
+                        <label className="text-slate-300 font-medium">Období:</label>
+                        <input type="date" value={format(dateRange.from, 'yyyy-MM-dd')} onChange={e => setDateRange(prev => ({...prev, from: e.target.valueAsDate || new Date()}))} className="p-2 bg-slate-700 border border-slate-600 rounded-md text-white"/>
+                        <label className="text-slate-300 font-medium">do:</label>
+                        <input type="date" value={format(dateRange.to, 'yyyy-MM-dd')} onChange={e => setDateRange(prev => ({...prev, to: e.target.valueAsDate || new Date()}))} className="p-2 bg-slate-700 border border-slate-600 rounded-md text-white"/>
+                    </div>
+                </Card>
 
                 {loading ? <div className="text-center p-8 text-slate-400">Načítám data...</div> : (
                     <div className="space-y-8">
@@ -521,7 +527,7 @@ const PickingTab = () => {
                             </ChartContainer>
                         </div>
                         
-                        <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+                        <Card className="overflow-hidden">
                             <div className="p-6">
                                 <h2 className="text-xl font-semibold text-white">Detailní přehled operací</h2>
                                 <div className="mt-4"><input type="text" placeholder="Hledat v detailech..." value={tableFilter} onChange={(e) => { setTableFilter(e.target.value); setCurrentPage(1); }} className="p-2 bg-slate-700 border border-slate-600 rounded-md w-full md:w-1/3 text-white placeholder-slate-400" /></div>
@@ -551,7 +557,7 @@ const PickingTab = () => {
                                     <button onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages} className="p-2 bg-slate-700 rounded disabled:opacity-50 hover:bg-slate-600">Další</button>
                                 </div>
                             </div>
-                        </div>
+                        </Card>
                     </div>
                 )}
             </div>

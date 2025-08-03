@@ -10,7 +10,7 @@ import AnimatedStatusIcon from '../shared/AnimatedStatusIcon';
 
 // Pomocná komponenta pro zobrazení detailů
 const DetailItem = ({ icon: Icon, label, value }) => (
-    <div className="flex items-start gap-3">
+    <div className="flex items-start gap-3 p-3 bg-slate-900/50 rounded-lg">
         <Icon className="w-5 h-5 text-slate-400 mt-1 flex-shrink-0" />
         <div>
             <p className="text-sm text-slate-400">{label}</p>
@@ -24,7 +24,7 @@ const PickingDetails = ({ details }) => {
     if (!details || details.length === 0) return null;
     return (
         <div className="mt-6">
-            <h3 className="text-lg font-bold text-blue-300 border-b border-slate-700 pb-2 flex items-center gap-2">
+            <h3 className="text-lg font-bold text-sky-300 border-b border-slate-700 pb-2 flex items-center gap-2">
                 <Box className="w-5 h-5" /> Detaily Pickování
             </h3>
             <div className="mt-3 border border-slate-700 rounded-lg overflow-hidden">
@@ -119,10 +119,10 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
 
     return (
         <Modal title={`${t.deliveryDetails}: ${order["Delivery No"]}`} onClose={onClose}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-1">
                 
-                <div className="md:col-span-2 space-y-4 text-gray-200 border-r border-slate-700 pr-6">
-                    <h3 className="text-lg font-bold text-blue-300 border-b border-slate-700 pb-2">Informace o objednávce</h3>
+                <div className="md:col-span-2 space-y-4 text-gray-200">
+                    <h3 className="text-lg font-bold text-sky-300 border-b border-slate-700 pb-2 mb-4">Informace o objednávce</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <DetailItem icon={Hash} label={t.deliveryNo} value={order["Delivery No"]} />
                         <DetailItem icon={Package} label={t.deliveryType} value={order["del.type"] === 'P' ? t.pallets : t.carton} />
@@ -137,12 +137,12 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
                     <PickingDetails details={order.picking_details} />
                 </div>
 
-                <div className="md:col-span-1 flex flex-col">
-                    <div className="text-center mb-4">
-                        <h3 className="text-lg font-bold text-blue-300 mb-4">{t.status}</h3>
+                <div className="md:col-span-1 flex flex-col gap-4">
+                    <div className="text-center p-4 bg-slate-900/50 rounded-lg">
+                        <h3 className="text-lg font-bold text-sky-300 mb-4">{t.status}</h3>
                         <AnimatedStatusIcon status={order.Status} size="large" />
                     </div>
-                    <div className="flex flex-col flex-grow h-64 bg-slate-900 rounded-lg p-3">
+                    <div className="flex flex-col flex-grow h-64 bg-slate-900/50 rounded-lg p-3">
                          <h4 className="font-semibold mb-2 flex-shrink-0">Komentáře</h4>
                         <div className="flex-grow overflow-y-auto space-y-3 pr-2">
                             {comments.map((comment) => (
