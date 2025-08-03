@@ -1,15 +1,13 @@
 // src/components/ui/Card.jsx
 import React from 'react';
-
-// Pomocná funkce pro spojování tříd (pokud ji nemáte, můžete ji přidat nebo nahradit)
 import { cn } from "@/lib/utils"; 
 
 const Card = React.forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
-      "rounded-lg border bg-card text-card-foreground shadow-sm",
-      "border-gray-700 bg-gray-900 text-gray-300",
+      // ZMĚNA: Aplikace Glassmorphism efektu
+      "rounded-xl border border-white/10 bg-slate-900/40 backdrop-blur-sm shadow-lg",
       className
     )}
     {...props}
@@ -30,7 +28,7 @@ const CardTitle = React.forwardRef(({ className, ...props }, ref) => (
   <h3
     ref={ref}
     className={cn(
-      "text-2xl font-semibold leading-none tracking-tight text-white",
+      "text-xl font-semibold leading-none tracking-tight text-slate-100",
       className
     )}
     {...props}
@@ -39,9 +37,8 @@ const CardTitle = React.forwardRef(({ className, ...props }, ref) => (
 CardTitle.displayName = "CardTitle";
 
 const CardContent = React.forwardRef(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
+  <div ref={ref} className={cn("p-4 sm:p-6", className)} {...props} />
 ));
 CardContent.displayName = "CardContent";
 
-// Exportujeme všechny potřebné komponenty
 export { Card, CardHeader, CardTitle, CardContent };
