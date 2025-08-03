@@ -1,25 +1,24 @@
 "use client";
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { format, startOfDay, addDays, subDays, parseISO, isValid } from 'date-fns';
 import { cs } from 'date-fns/locale';
-import { CheckCircle, Clock, Hourglass, Info, AlertTriangle, ClipboardList, Package, Zap } from 'lucide-react';
+import { CheckCircle, Clock, Hourglass, AlertTriangle, ClipboardList, Package, Zap } from 'lucide-react';
 import { OrderListModal } from '@/components/modals/OrderListModal';
 import { DailyOverviewCard } from '@/components/shared/DailyOverviewCard';
 import { SummaryCard, FeaturedKPICard, PickingKPICard } from '@/components/shared/SummaryCard';
 import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
-// ZMĚNA: Vráceno zpět na původní, funkční Recharts graf
 import StatusDistributionChart from '@/components/charts/StatusDistributionChart'; 
 import DonutChartCard from '@/components/charts/DonutChartCard';
 import D3GeoChart from '../charts/D3GeoChart';
 import { countryCodeMap } from '@/lib/dataProcessor';
 import { PickingDetailsModal } from '../modals/PickingDetailsModal';
 
-const SummaryCardSkeleton = () => <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 h-[120px] animate-pulse"></div>;
+const SummaryCardSkeleton = () => <div className="bg-slate-800/50 rounded-xl border border-slate-700 h-[100px] animate-pulse"></div>;
 
 export default function DashboardTab({ setActiveTab }) {
-    const { summary, previousSummary, allOrdersData, setSelectedOrderDetails, isLoadingData, pickingData } = useData();
+    const { summary, allOrdersData, setSelectedOrderDetails, isLoadingData, pickingData } = useData();
     const { t } = useUI();
     const [modalState, setModalState] = useState({ isOpen: false, title: '', orders: [] });
     const [pickingModalState, setPickingModalState] = useState({ isOpen: false, title: '', operations: [] });
@@ -35,19 +34,12 @@ export default function DashboardTab({ setActiveTab }) {
         }
     }, [summary]);
 
-    const getChange = (currentValue, previousValue) => {
-        if (previousSummary === null || currentValue === undefined || previousValue === undefined) return undefined;
-        return currentValue - previousValue;
-    };
-    
     const handleOrderClick = useCallback((deliveryNo) => {
         const orderDetails = allOrdersData.find(order => String(order['Delivery No']) === String(deliveryNo));
         const relatedPicking = (pickingData || []).filter(p => String(p.delivery_no) === String(deliveryNo));
         
         if (orderDetails) {
             setSelectedOrderDetails({ ...orderDetails, picking_details: relatedPicking });
-        } else {
-            console.error(`Objednávka ${deliveryNo} nebyla nalezena.`);
         }
     }, [allOrdersData, pickingData, setSelectedOrderDetails]);
     
@@ -98,8 +90,8 @@ export default function DashboardTab({ setActiveTab }) {
 
     if (isLoadingData || !summary) {
         return (
-             <div className="space-y-4">
-                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+             <div className="space-y-6">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                      {Array.from({length: 6}).map((_, i) => <SummaryCardSkeleton key={i} />)}
                  </div>
              </div>
@@ -126,8 +118,8 @@ export default function DashboardTab({ setActiveTab }) {
     };
     
     return (
-        <div className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 <SummaryCard title={t.total} value={summary.total} icon={Package} color="blue" onStatusClick={(status) => handleKpiStatusClick(status, `Zakázky ve stavu ${status}`)} breakdown={summary.statusCounts} />
                 <SummaryCard title={t.done} value={summary.doneTotal} icon={CheckCircle} color="green" onStatusClick={(status) => handleKpiStatusClick(status, `Hotové zakázky ve stavu ${status}`)} breakdown={summary.doneBreakdown} />
                 <SummaryCard title={t.remaining} value={summary.remainingTotal} icon={Clock} color="yellow" onStatusClick={(status) => handleKpiStatusClick(status, `Zbývající zakázky ve stavu ${status}`)} breakdown={summary.remainingBreakdown} />
@@ -143,11 +135,11 @@ export default function DashboardTab({ setActiveTab }) {
                 />
             </div>
             
-            <div>
-                <h2 className="text-xl font-bold mb-3 flex items-center gap-2 text-slate-200">
+            <div className="glass-card p-4 rounded-xl">
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-200 px-2">
                     <ClipboardList className="w-5 h-5 text-cyan-400" /> Denní přehled stavu
                 </h2>
-                <div ref={scrollContainerRef} className="flex space-x-3 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 -mx-4 px-4">
+                <div ref={scrollContainerRef} className="flex space-x-3 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 -mx-2 px-2">
                     {datesForOverview.map((d) => {
                         const dateStr = format(d.date, 'yyyy-MM-dd');
                         const isToday = format(d.date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
@@ -170,7 +162,6 @@ export default function DashboardTab({ setActiveTab }) {
                 </div>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* ZMĚNA: Vrácen původní Recharts graf */}
                 <StatusDistributionChart onBarClick={handleBarClick} />
                 <OrdersOverTimeChart summary={summary} />
             </div>

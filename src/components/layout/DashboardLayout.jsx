@@ -6,9 +6,9 @@ import { useData } from '@/hooks/useData';
 import OrderDetailsModal from '../modals/OrderDetailsModal';
 import StatusHistoryModal from '../modals/StatusHistoryModal';
 import * as XLSX from 'xlsx';
-import GlobalStyles from './GlobalStyles'; // <-- NOVÝ IMPORT
+import GlobalStyles from './GlobalStyles';
 
-// Import všech komponent záložek
+// Import komponent
 import DashboardTab from '../tabs/DashboardTab';
 import ErrorMonitorTab from '../tabs/ErrorMonitorTab';
 import OrderSearchTab from '../tabs/OrderSearchTab';
@@ -26,6 +26,7 @@ const DashboardLayout = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [globalSearchQuery, setGlobalSearchQuery] = useState('');
     const [isSidebarOpen, setSidebarOpen] = useState(false);
+    const [isSidebarCollapsed, setSidebarCollapsed] = useState(false); // <-- NOVÝ STAV
 
     const { selectedOrderDetails, setSelectedOrderDetails, statusHistory, setStatusHistory, fetchStatusHistory } = useData();
 
@@ -52,24 +53,30 @@ const DashboardLayout = () => {
             default: return <DashboardTab setActiveTab={setActiveTab} />;
         }
     };
-
+    
     const handleShowHistory = (deliveryNo) => {
         fetchStatusHistory(deliveryNo);
     }
 
     return (
-        <div className="flex h-screen bg-transparent text-slate-200"> {/* Změna na bg-transparent */}
-            <GlobalStyles /> {/* <-- VLOŽENÍ KOMPONENTY */}
-            {isSidebarOpen && <div onClick={() => setSidebarOpen(false)} className="fixed inset-0 bg-black/60 z-30 lg:hidden"></div>}
-
-            <Sidebar activeTab={activeTab} onTabChange={setActiveTab} isOpen={isSidebarOpen} />
-
+        <div className="flex h-screen bg-transparent text-slate-200">
+            <GlobalStyles />
+            {isSidebarOpen && <div onClick={() => setSidebarOpen(false)} className="fixed inset-0 bg-black/60 z-30 lg:hidden backdrop-blur-sm"></div>}
+            
+            <Sidebar 
+                activeTab={activeTab} 
+                onTabChange={setActiveTab} 
+                isOpen={isSidebarOpen} 
+                isCollapsed={isSidebarCollapsed} // <-- Předání stavu
+                setCollapsed={setSidebarCollapsed} // <-- Předání funkce
+            />
+            
             <div className="flex flex-col flex-1 min-w-0">
-                <AppHeader
+                <AppHeader 
                     onSearchSubmit={(query) => {
                         setGlobalSearchQuery(query);
                         setActiveTab('orderSearch');
-                    }}
+                    }} 
                     activeTab={activeTab}
                     onMenuClick={() => setSidebarOpen(!isSidebarOpen)}
                 />
@@ -79,9 +86,9 @@ const DashboardLayout = () => {
                     </div>
                 </main>
             </div>
-
+            
             {selectedOrderDetails && (
-                <OrderDetailsModal
+                <OrderDetailsModal 
                     order={selectedOrderDetails}
                     onClose={() => setSelectedOrderDetails(null)}
                     onShowHistory={() => handleShowHistory(selectedOrderDetails["Delivery No"])}

@@ -29,6 +29,28 @@ body {
   @apply bg-slate-900 text-slate-50 antialiased;
 }
 
+/* Nová třída pro "glow" efekt na KPI kartách */
+@layer utilities {
+  .glow-blue {
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.3), 0 0 5px rgba(59, 130, 246, 0.2);
+  }
+  .glow-green {
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.3), 0 0 5px rgba(16, 185, 129, 0.2);
+  }
+  .glow-yellow {
+    box-shadow: 0 0 15px rgba(234, 179, 8, 0.3), 0 0 5px rgba(234, 179, 8, 0.2);
+  }
+  .glow-orange {
+    box-shadow: 0 0 15px rgba(249, 115, 22, 0.3), 0 0 5px rgba(249, 115, 22, 0.2);
+  }
+  .glow-red {
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.4), 0 0 8px rgba(239, 68, 68, 0.3);
+  }
+  .glow-cyan {
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.4), 0 0 8px rgba(34, 211, 238, 0.3);
+  }
+}
+
 .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: hsl(217 33% 17%) transparent;

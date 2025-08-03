@@ -52,7 +52,7 @@ const StatRow = ({ label, value, oemValue, colorClass, onClick }) => (
 );
 
 export const DailyOverviewCard = React.forwardRef(({ title, stats, t, onStatClick, date, isToday }, ref) => {
-    const cardClasses = `bg-slate-800/80 p-3 rounded-xl shadow-lg border min-w-[220px] flex-shrink-0 transition-all duration-300 ${isToday ? 'border-cyan-500 shadow-cyan-500/10' : 'border-slate-700'}`;
+    const cardClasses = `bg-slate-800/60 p-3 rounded-xl shadow-lg border min-w-[220px] flex-shrink-0 transition-all duration-300 ${isToday ? 'border-cyan-500 shadow-lg shadow-cyan-500/10' : 'border-slate-700 hover:border-slate-600'}`;
 
     const donePercentage = stats && stats.total > 0 ? Math.round((stats.status_done_all / stats.total) * 100) : 0;
 
