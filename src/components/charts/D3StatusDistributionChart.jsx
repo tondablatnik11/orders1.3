@@ -103,11 +103,11 @@ const D3StatusDistributionChart = ({ onBarClick }) => {
         g.append("g").call(yAxis);
         
         const tooltip = d3.select(tooltipRef.current);
-        const bisectDate = d3.bisector(d => d.date).left;
 
         const focus = g.append("g").style("display", "none");
         focus.append("line").attr("y1", 0).attr("y2", innerHeight).attr("stroke", "#6b7280").attr("stroke-width", 1).attr("stroke-dasharray", "3,3");
-
+        
+        // OPRAVA ZDE: Použití `d3.pointer` a správná logika pro `scaleBand`
         svg.append("rect")
             .attr("transform", `translate(${margin.left},${margin.top})`)
             .attr("width", innerWidth)
@@ -117,23 +117,27 @@ const D3StatusDistributionChart = ({ onBarClick }) => {
             .on("mouseover", () => { focus.style("display", null); tooltip.style("opacity", 1); })
             .on("mouseout", () => { focus.style("display", "none"); tooltip.style("opacity", 0); })
             .on("mousemove", (event) => {
-                const pointer = d3.pointer(event, this);
-                const x0 = x.invert(pointer[0] - margin.left);
-                const i = bisectDate(data, x0, 1);
-                const d0 = data[i - 1];
-                const d1 = data[i];
-                if (!d0 || !d1) return;
-                const d = x0 - d0.date > d1.date - x0 ? d1 : d0;
+                const pointer = d3.pointer(event, svg.node());
+                const xm = pointer[0] - margin.left;
                 
-                focus.attr("transform", `translate(${x(d.date) + x.bandwidth() / 2},0)`);
-                
-                tooltip.html(`
-                    <div class="font-semibold text-white">${format(d.date, 'dd.MM.yyyy')}</div>
-                    ${keys.map(key => `<div style="color: ${colors[key]}">Status ${key.replace('status', '')}: <strong>${d[key]}</strong></div>`).join('')}
-                `)
-                .style("left", `${event.pageX + 20}px`)
-                .style("top", `${event.pageY}px`);
+                const eachBand = x.step();
+                const index = Math.floor(xm / eachBand);
+                const domain = x.domain();
+
+                if (index >= 0 && index < domain.length) {
+                    const d = data[index];
+                    if (d) {
+                         focus.attr("transform", `translate(${x(d.date) + x.bandwidth() / 2},0)`);
+                        tooltip.html(`
+                            <div class="font-semibold text-white">${format(d.date, 'dd.MM.yyyy')}</div>
+                            ${keys.map(key => d[key] > 0 ? `<div style="color: ${colors[key]}">Status ${key.replace('status', '')}: <strong>${d[key]}</strong></div>` : '').join('')}
+                        `)
+                        .style("left", `${event.pageX + 20}px`)
+                        .style("top", `${event.pageY}px`);
+                    }
+                }
             });
+
     }, [data, keys, colors, dimensions, t]);
 
     if (!summary) return null;

@@ -29,7 +29,7 @@ export default function DashboardTab({ setActiveTab }) {
         if (summary && scrollContainerRef.current && todayCardRef.current) {
             const container = scrollContainerRef.current;
             const todayCard = todayCardRef.current;
-            const scrollAmount = todayCard.offsetLeft - (container.offsetWidth / 2) + (todayCard.offsetWidth / 2);
+            const scrollAmount = todayCard.offsetLeft - container.offsetWidth / 2 + (todayCard.offsetWidth / 2);
             container.scrollTo({ left: scrollAmount, behavior: 'smooth' });
         }
     }, [summary]);
@@ -51,7 +51,8 @@ export default function DashboardTab({ setActiveTab }) {
     }, [allOrdersData, pickingData, setSelectedOrderDetails]);
     
     const handleKpiStatusClick = (statuses, title) => {
-        const filteredOrders = allOrdersData.filter(order => statuses.includes(Number(order.Status)));
+        const statusArray = Array.isArray(statuses) ? statuses : [statuses];
+        const filteredOrders = allOrdersData.filter(order => statusArray.includes(Number(order.Status)));
         setModalState({ isOpen: true, title: `${title}`, orders: filteredOrders });
     };
     
@@ -86,7 +87,6 @@ export default function DashboardTab({ setActiveTab }) {
         setModalState({ isOpen: true, title: `${statusName} - ${format(parseISO(dateStr), 'dd.MM.yyyy')}`, orders: filteredOrders });
     };
     
-    // OPRAVA: Přidání chybějící funkce
     const handleCountryClick = (countryCode3) => {
         if (!allOrdersData) return;
         const countryCodeMapReversed = Object.fromEntries(Object.entries(countryCodeMap).map(([k,v])=>[v,k]));
@@ -127,17 +127,17 @@ export default function DashboardTab({ setActiveTab }) {
     return (
         <div className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                <SummaryCard title={t.total} value={summary.total} icon={Package} color="blue" onStatusClick={(status) => handleKpiStatusClick([status], `Zakázky ve stavu ${status}`)} breakdown={summary.statusCounts} />
-                <SummaryCard title={t.done} value={summary.doneTotal} icon={CheckCircle} color="green" onStatusClick={(status) => handleKpiStatusClick([status], `Hotové zakázky ve stavu ${status}`)} breakdown={summary.doneBreakdown} />
-                <SummaryCard title={t.remaining} value={summary.remainingTotal} icon={Clock} color="yellow" onStatusClick={(status) => handleKpiStatusClick([status], `Zbývající zakázky ve stavu ${status}`)} breakdown={summary.remainingBreakdown} />
-                <SummaryCard title={t.inProgress} value={summary.inProgressTotal} icon={Hourglass} color="orange" onStatusClick={(status) => handleKpiStatusClick([status], `Zakázky v procesu ve stavu ${status}`)} breakdown={summary.inProgressBreakdown} />
+                <SummaryCard title={t.total} value={summary.total} icon={Package} color="blue" onStatusClick={(status) => handleKpiStatusClick(status, `Zakázky ve stavu ${status}`)} breakdown={summary.statusCounts} />
+                <SummaryCard title={t.done} value={summary.doneTotal} icon={CheckCircle} color="green" onStatusClick={(status) => handleKpiStatusClick(status, `Hotové zakázky ve stavu ${status}`)} breakdown={summary.doneBreakdown} />
+                <SummaryCard title={t.remaining} value={summary.remainingTotal} icon={Clock} color="yellow" onStatusClick={(status) => handleKpiStatusClick(status, `Zbývající zakázky ve stavu ${status}`)} breakdown={summary.remainingBreakdown} />
+                <SummaryCard title={t.inProgress} value={summary.inProgressTotal} icon={Hourglass} color="orange" onStatusClick={(status) => handleKpiStatusClick(status, `Zakázky v procesu ve stavu ${status}`)} breakdown={summary.inProgressBreakdown} />
                 <PickingKPICard title="Dnešní/Včerejší picky" shifts={summary.yesterdayPicksByShift} todayPicks={summary.totalPicksToday} icon={Zap} onDayClick={handlePickingKpiClick} />
                 <FeaturedKPICard 
                     title={t.delayed} 
                     value={summary.delayed} 
                     icon={AlertTriangle} 
                     onClick={() => setActiveTab('delayedOrders')}
-                    onStatusClick={(status) => handleKpiStatusClick([status], `Zpožděné zakázky ve stavu ${status}`)}
+                    onStatusClick={(status) => handleKpiStatusClick(status, `Zpožděné zakázky ve stavu ${status}`)}
                     breakdown={summary.delayedBreakdown}
                 />
             </div>

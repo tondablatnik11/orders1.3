@@ -6,7 +6,6 @@ const Card = React.forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
-      // ZMĚNA: Aplikace Glassmorphism efektu
       "rounded-xl border border-white/10 bg-slate-900/40 backdrop-blur-sm shadow-lg",
       className
     )}

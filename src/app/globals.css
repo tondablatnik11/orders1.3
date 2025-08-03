@@ -40,7 +40,6 @@
 body {
   @apply bg-slate-900 text-slate-50 antialiased;
   background-color: hsl(var(--background));
-  /* ZMĚNA: Přidání obrázku na pozadí pro lepší glassmorphism efekt */
   background-image: url('/background-pattern.svg'), radial-gradient(circle at 1px 1px, hsl(222 47% 15%) 1px, transparent 0);
   background-size: cover, 2rem 2rem;
 }
