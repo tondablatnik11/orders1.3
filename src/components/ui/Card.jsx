@@ -6,8 +6,7 @@ const Card = React.forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
-      // ZMĚNA: Přidána třída "glass" a zjednodušeny ostatní styly
-      "glass rounded-xl shadow-lg",
+      "glass rounded-xl shadow-lg", // Použití třídy "glass"
       className
     )}
     {...props}
