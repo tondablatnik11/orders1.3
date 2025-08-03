@@ -12,8 +12,8 @@ import { eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, format, par
 import { cs } from 'date-fns/locale';
 
 const KpiCard = ({ title, value, icon: Icon }) => (
-    <div className="bg-slate-800/50 p-4 rounded-lg flex items-center gap-4 border border-slate-700">
-        <div className="bg-slate-700 p-3 rounded-md">
+    <div className="glass-card p-4 rounded-lg flex items-center gap-4">
+        <div className="bg-red-900/50 p-3 rounded-md">
             <Icon className="w-6 h-6 text-red-400" />
         </div>
         <div>
@@ -26,7 +26,6 @@ const KpiCard = ({ title, value, icon: Icon }) => (
 export default function DelayedOrdersTab() {
     const { summary, pickingData, setSelectedOrderDetails, selectedOrderDetails } = useData();
     const { t } = useUI();
-    const [showAll, setShowAll] = useState(false);
     const [chartInterval, setChartInterval] = useState('day');
 
     const delayedOrdersStats = useMemo(() => {
@@ -83,7 +82,7 @@ export default function DelayedOrdersTab() {
             "Delivery No": order.delivery,
             "del.type": order.delType,
             "Loading Date": order.loadingDate,
-            "delayDays": order.delayDays // Zajistíme, že sloupec existuje pro tabulku
+            "delayDays": order.delayDays
         })).sort((a, b) => b.delayDays - a.delayDays);
     }, [summary]);
 
@@ -98,8 +97,6 @@ export default function DelayedOrdersTab() {
         return <div className="text-center p-8 text-slate-400">Načítám data...</div>;
     }
 
-    const displayedOrders = showAll ? delayedOrdersForTable : delayedOrdersForTable.slice(0, 10);
-
     return (
         <Card>
             <CardHeader>
@@ -111,15 +108,16 @@ export default function DelayedOrdersTab() {
                     <KpiCard title="Průměrné zpoždění (dny)" value={delayedOrdersStats.avgDelay} icon={Clock} />
                 </div>
                 
-                <div className="bg-slate-800/30 p-4 rounded-lg border border-slate-700">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-semibold text-white">Zpožděné zakázky v čase</h3>
+                <ChartContainer 
+                    title="Zpožděné zakázky v čase"
+                    data={chartData}
+                    controls={
                         <div className="flex items-center gap-1 bg-slate-700/50 p-1 rounded-md">
                             <button onClick={() => setChartInterval('day')} className={`px-2 py-1 text-sm rounded ${chartInterval === 'day' ? 'bg-sky-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>Dny</button>
                             <button onClick={() => setChartInterval('week')} className={`px-2 py-1 text-sm rounded ${chartInterval === 'week' ? 'bg-sky-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>Týdny</button>
                             <button onClick={() => setChartInterval('month')} className={`px-2 py-1 text-sm rounded ${chartInterval === 'month' ? 'bg-sky-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>Měsíce</button>
                         </div>
-                    </div>
+                    }>
                     <ResponsiveContainer width="100%" height={250}>
                         <BarChart data={chartData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
@@ -129,30 +127,23 @@ export default function DelayedOrdersTab() {
                             <Bar dataKey="Počet zpožděných" fill="#ef4444" />
                         </BarChart>
                     </ResponsiveContainer>
-                </div>
+                </ChartContainer>
 
-                <div className="bg-slate-800/30 p-4 rounded-lg border border-slate-700">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-semibold text-white">Seznam zakázek</h3>
-                        <button onClick={() => exportDelayedOrdersXLSX(summary.delayedOrdersList, t)} className="flex items-center gap-2 bg-slate-700 text-white px-4 py-2 rounded-lg shadow hover:bg-slate-600 transition-colors text-sm">
-                            <FileDown className="w-4 h-4" /> Exportovat do XLSX
-                        </button>
-                    </div>
-                    
-                    <OrderListTable
-                        orders={displayedOrders}
-                        onSelectOrder={handleSelectOrder}
-                        columnsToShow={['Delivery No', 'Status', 'Loading Date', 'delayDays', 'del.type', 'Forwarding agent name']}
-                    />
-
-                    {delayedOrdersForTable.length > 10 && (
-                        <div className="text-center mt-4">
-                            <button onClick={() => setShowAll(!showAll)} className="text-sky-400 hover:underline text-sm">
-                                {showAll ? 'Zobrazit méně' : `Zobrazit všech ${delayedOrdersForTable.length} zakázek`}
+                <Card>
+                    <CardContent>
+                        <div className="flex justify-between items-center mb-4 pt-6">
+                            <h3 className="text-lg font-semibold text-white">Seznam zakázek</h3>
+                            <button onClick={() => exportDelayedOrdersXLSX(summary.delayedOrdersList, t)} className="flex items-center gap-2 bg-slate-700 text-white px-4 py-2 rounded-lg shadow hover:bg-slate-600 transition-colors text-sm">
+                                <FileDown className="w-4 h-4" /> Exportovat do XLSX
                             </button>
                         </div>
-                    )}
-                </div>
+                        
+                        <OrderListTable
+                            orders={delayedOrdersForTable}
+                            onSelectOrder={handleSelectOrder}
+                        />
+                    </CardContent>
+                </Card>
 
                 {selectedOrderDetails && (
                     <OrderDetailsModal order={selectedOrderDetails} onClose={() => setSelectedOrderDetails(null)} />

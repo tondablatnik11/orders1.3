@@ -20,7 +20,6 @@ export const OrderListModal = ({ isOpen, onClose, title, orders, onSelectOrder, 
                 </button>
             </div>
             <div className="max-h-[65vh] overflow-y-auto">
-                {/* UPRAVENO: Použití nové komponenty OrderListTable */}
                 <OrderListTable orders={orders} onSelectOrder={onSelectOrder} />
             </div>
         </Modal>

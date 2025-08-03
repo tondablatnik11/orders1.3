@@ -242,7 +242,6 @@ const CustomActivityLegend = ({ payload, data }) => {
 
 // --- Hlavní komponenta ---
 const PickingTab = () => {
-    // Stavy
     const [pickingData, setPickingData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [dateRange, setDateRange] = useState({ from: startOfWeek(new Date(), { weekStartsOn: 1 }), to: endOfWeek(new Date(), { weekStartsOn: 1 }) });
