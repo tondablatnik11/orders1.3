@@ -6,17 +6,18 @@ import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { getStatusColor } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
-import { format, parseISO, isBefore, addDays, startOfToday } from 'date-fns';
+import { format, parseISO, isBefore, addDays, startOfToday } from 'fns';
 import { BarChart2 } from 'lucide-react';
 
+// Vylepšený Tooltip, který ladí s designem
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
         const total = payload.reduce((sum, entry) => sum + entry.value, 0);
         return (
-            <div className="bg-gray-800/90 p-3 border border-gray-700 rounded-lg shadow-xl backdrop-blur-sm">
+            <div className="bg-slate-800/80 backdrop-blur-sm p-3 border border-slate-700 rounded-lg shadow-xl text-sm">
                 <p className="label text-white font-semibold">{`Den: ${label}`}</p>
                 {total > 0 ? (
-                    <div className="mt-2 space-y-1 text-sm">
+                    <div className="mt-2 space-y-1">
                         {payload.slice().reverse().map((p, index) => (
                             p.value > 0 && (
                                 <div key={index} style={{ color: p.color || p.fill }}>
@@ -26,7 +27,7 @@ const CustomTooltip = ({ active, payload, label }) => {
                         ))}
                     </div>
                 ) : (
-                    <p className="text-sm text-gray-400 mt-1">Žádná data</p>
+                    <p className="text-sm text-slate-400 mt-1">Žádná data</p>
                 )}
             </div>
         );
@@ -88,27 +89,12 @@ export default function StatusDistributionChart({ onBarClick }) {
         if (stackedData && stackedData.length > 0) {
             const todayFormatted = format(new Date(), 'dd/MM');
             let todayIndex = stackedData.findIndex(d => d.date === todayFormatted);
-            const visibleRange = 8;
             
-            let startIndex, endIndex;
-
-            if (todayIndex === -1) {
-                todayIndex = stackedData.length - 1;
-            }
-
-            const halfRangeBefore = 4;
-            const halfRangeAfter = 3;
-
-            startIndex = Math.max(0, todayIndex - halfRangeBefore);
-            endIndex = Math.min(stackedData.length - 1, todayIndex + halfRangeAfter);
-
-            if (endIndex - startIndex + 1 < visibleRange) {
-                if (startIndex === 0) {
-                    endIndex = Math.min(stackedData.length - 1, visibleRange - 1);
-                } else {
-                    startIndex = Math.max(0, endIndex - visibleRange + 1);
-                }
-            }
+            if (todayIndex === -1) todayIndex = stackedData.length - 1;
+            
+            const visibleRange = 14; // Zobrazí více dnů ve výchozím nastavení
+            const startIndex = Math.max(0, stackedData.length - visibleRange);
+            const endIndex = stackedData.length - 1;
             
             setBrushDomain({ startIndex, endIndex });
         }
@@ -125,14 +111,26 @@ export default function StatusDistributionChart({ onBarClick }) {
         <Card>
              <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                    <BarChart2 className="w-6 h-6 text-sky-400" />
-                    {t.statusDistribution}
+                    <BarChart2 className="w-5 h-5 text-sky-400" />
+                    <span className="text-lg">{t.statusDistribution}</span>
                 </CardTitle>
             </CardHeader>
-            <CardContent className="pt-6">
+            <CardContent>
                 <ResponsiveContainer width="100%" height={400}>
-                    <BarChart data={stackedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }} onClick={onBarClick}>
-                        <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.1}/>
+                    <BarChart data={stackedData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }} onClick={onBarClick}>
+                        <defs>
+                            {uniqueStatuses.map(statusKey => {
+                                const status = statusKey.replace('status', '');
+                                const color = getStatusColor(status);
+                                return (
+                                    <linearGradient key={`gradient-${status}`} id={`color${status}`} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={color} stopOpacity={0.8}/>
+                                        <stop offset="95%" stopColor={color} stopOpacity={0.4}/>
+                                    </linearGradient>
+                                );
+                            })}
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151"/>
                         <XAxis dataKey="date" stroke="#9CA3AF" tick={{ fill: "#D1D5DB", fontSize: 12 }} />
                         <YAxis stroke="#9CA3AF" tick={{ fill: "#D1D5DB" }} allowDecimals={false} />
                         <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(107, 114, 128, 0.2)' }}/>
@@ -144,7 +142,7 @@ export default function StatusDistributionChart({ onBarClick }) {
                                      key={`status-bar-${status}`}
                                      dataKey={statusKey}
                                      name={`Status ${status}`}
-                                     fill={getStatusColor(status)}
+                                     fill={`url(#color${status})`}
                                      stackId="statusStack"
                                      hide={hiddenStatuses[statusKey]}
                                  />
@@ -158,6 +156,7 @@ export default function StatusDistributionChart({ onBarClick }) {
                             endIndex={brushDomain.endIndex}
                             onChange={(newDomain) => setBrushDomain(newDomain)}
                             fill="rgba(100, 116, 139, 0.2)"
+                            tickFormatter={(index) => stackedData[index]?.date}
                         />
                     </BarChart>
                 </ResponsiveContainer>
