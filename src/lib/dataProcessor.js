@@ -28,7 +28,7 @@ const parseDataDate = (dateInput) => {
     return null;
 };
 
-export const processData = (allData, pickingData = []) => {
+export const processData = (allData, pickingData = [], statusHistory = []) => {
     if (!allData || allData.length === 0) {
         return null;
     }
@@ -55,15 +55,24 @@ export const processData = (allData, pickingData = []) => {
         inProgressBreakdown: {},
         remainingBreakdown: {},
         delayedBreakdown: {},
-        yesterdayPicksByShift: { shiftA: 0, shiftB: 0 }
+        yesterdayPicksByShift: { shiftA: 0, shiftB: 0 },
+        totalPicksToday: 0,
+        // Nové metriky
+        newOrdersSinceLastImport: 0,
+        completedSinceLastImport: 0,
+        newlyDelayedSinceLastImport: 0,
+        netWorkingProgress: 0,
+        avgTimeInStatus: {},
     };
 
     const doneStatuses = [50, 60, 70, 80, 90];
     const inProgressStatuses = [35, 40];
     const remainingStatuses = [10, 31, 35, 40];
     const today = startOfDay(new Date());
+    const todayFormatted = format(today, 'yyyy-MM-dd');
     const yesterdayFormatted = format(subDays(today, 1), 'yyyy-MM-dd');
     
+    summary.totalPicksToday = pickingData.filter(p => p.confirmation_date === todayFormatted).length;
     const yesterdayPicks = pickingData.filter(p => p.confirmation_date === yesterdayFormatted);
     yesterdayPicks.forEach(pick => {
         if (pick.confirmation_time && pick.confirmation_date) {
@@ -83,8 +92,7 @@ export const processData = (allData, pickingData = []) => {
         if (isNaN(status)) return;
         
         const loadingDate = parseDataDate(row["Loading Date"]);
-        const isOEM = row.order_type === 'O';
-
+        
         if (loadingDate) {
             const delayDays = differenceInDays(today, startOfDay(loadingDate));
             if (delayDays > 0 && remainingStatuses.includes(status)) {
@@ -160,12 +168,12 @@ export const processData = (allData, pickingData = []) => {
             day.total++;
             day.statusCounts[status] = (day.statusCounts[status] || 0) + 1;
 
-            if (status === 10) { day.status10++; if (isOEM) day.status10_oem++; }
-            if (status === 31) { day.status31++; if (isOEM) day.status31_oem++; }
-            if (status === 35) { day.status35++; if (isOEM) day.status35_oem++; }
-            if (status === 40) { day.status40++; if (isOEM) day.status40_oem++; }
-            if (status === 50 || status === 60) { day.status50_60++; if (isOEM) day.status50_60_oem++; }
-            if (doneStatuses.includes(status)) { day.status_done_all++; if (isOEM) day.status_done_all_oem++; }
+            if (status === 10) { day.status10++; }
+            if (status === 31) { day.status31++; }
+            if (status === 35) { day.status35++; }
+            if (status === 40) { day.status40++; }
+            if (status === 50 || status === 60) { day.status50_60++; }
+            if (doneStatuses.includes(status)) { day.status_done_all++; }
 
             if (!summary.statusByLoadingDate[dateKey]) {
                 summary.statusByLoadingDate[dateKey] = { date: dateKey };

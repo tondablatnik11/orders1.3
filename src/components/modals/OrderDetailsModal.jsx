@@ -4,7 +4,7 @@ import { useUI } from '@/hooks/useUI';
 import { useData } from '@/hooks/useData';
 import { useAuth } from '@/hooks/useAuth';
 import { Modal } from '@/components/ui/Modal';
-import { History, Send, Truck, Package, User, Hash, Calendar, Globe, Weight, Box } from 'lucide-react';
+import { History, Send, Truck, Package, User, Hash, Calendar, Globe, Weight, Box, FileType } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import AnimatedStatusIcon from '../shared/AnimatedStatusIcon';
 
@@ -19,7 +19,16 @@ const DetailItem = ({ icon: Icon, label, value }) => (
     </div>
 );
 
-// Komponenta pro zobrazení picking dat
+// Mapování typu zakázky pro zobrazení
+const getOrderTypeLabel = (type) => {
+    switch (type) {
+        case 'O': return 'OEM';
+        case 'N': return 'Normal';
+        case 'E': return 'Expres';
+        default: return type || 'N/A';
+    }
+};
+
 const PickingDetails = ({ details }) => {
     if (!details || details.length === 0) return null;
     return (
@@ -126,10 +135,10 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <DetailItem icon={Hash} label={t.deliveryNo} value={order["Delivery No"]} />
                         <DetailItem icon={Package} label={t.deliveryType} value={order["del.type"] === 'P' ? t.pallets : t.carton} />
+                        <DetailItem icon={FileType} label="Typ zakázky" value={getOrderTypeLabel(order.order_type)} />
                         <DetailItem icon={Calendar} label={t.loadingDate} value={formattedLoadingDate} />
                         <DetailItem icon={Weight} label={t.totalWeight} value={`${order["Total Weight"]} kg`} />
                         <DetailItem icon={Truck} label={t.forwardingAgent} value={order["Forwarding agent name"]} />
-                        <DetailItem icon={User} label={t.shipToPartyName} value={order["Name of ship-to party"]} />
                         <DetailItem icon={Globe} label="Země doručení" value={order["Country ship-to prty"]} />
                         <DetailItem icon={Hash} label={t.billOfLading} value={order["Bill of lading"]} />
                     </div>

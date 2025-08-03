@@ -4,10 +4,9 @@ import React, { useState, useMemo } from 'react';
 import { useUI } from '@/hooks/useUI';
 import { format, parseISO } from 'date-fns';
 import AnimatedStatusIcon from './AnimatedStatusIcon';
-import StaticStatusIcon from './StaticStatusIcon'; // NOVÉ
-import { ArrowUpDown } from 'lucide-react'; // NOVÉ
+import StaticStatusIcon from './StaticStatusIcon';
+import { ArrowUpDown } from 'lucide-react';
 
-// NOVÉ: Hook pro řazení dat
 const useSortableData = (items, config = null) => {
     const [sortConfig, setSortConfig] = useState(config);
 
@@ -44,7 +43,16 @@ const useSortableData = (items, config = null) => {
     return { items: sortedItems, requestSort, sortConfig };
 };
 
-// UPRAVENO: Přidán prop `useStaticIcons`
+// Mapování typu zakázky pro zobrazení
+const getOrderTypeLabel = (type) => {
+    switch (type) {
+        case 'O': return 'OEM';
+        case 'N': return 'Normal';
+        case 'E': return 'Expres';
+        default: return type || 'N/A';
+    }
+};
+
 export default function OrderListTable({ orders, onSelectOrder, useStaticIcons = false }) {
     const { t } = useUI();
     const { items, requestSort, sortConfig } = useSortableData(orders);
@@ -60,11 +68,10 @@ export default function OrderListTable({ orders, onSelectOrder, useStaticIcons =
         { key: 'Delivery No', label: t.deliveryNo },
         { key: 'Status', label: t.status },
         { key: 'del.type', label: t.deliveryType },
+        { key: 'order_type', label: 'Typ zakázky' }, // ZMĚNA ZDE
         { key: 'Loading Date', label: t.loadingDate },
         { key: 'Forwarding agent name', label: t.forwardingAgent },
-        { key: 'Name of ship-to party', label: t.shipToPartyName },
         { key: 'Total Weight', label: t.totalWeight },
-        { key: 'Bill of lading', label: t.billOfLading },
         { key: 'Country ship-to prty', label: 'Země' },
         { key: 'Note', label: t.note }
     ];
@@ -75,14 +82,12 @@ export default function OrderListTable({ orders, onSelectOrder, useStaticIcons =
     
     return (
         <div className="overflow-x-auto">
-            {/* UPRAVENO: table-fixed a w-full zajistí, že se tabulka přizpůsobí šířce rodiče */}
-            <table className="min-w-full bg-gray-800/50 rounded-lg table-fixed w-full">
-                <thead className="bg-gray-700/50">
+            <table className="min-w-full bg-slate-800/50 rounded-lg table-fixed w-full">
+                <thead className="bg-slate-700/50">
                     <tr>
                         {headers.map(header => (
                             <th 
                                 key={header.key}
-                                // UPRAVENO: Zmenšen padding a nastavení šířky pro poslední sloupec
                                 className={`py-3 px-2 text-left text-xs font-semibold text-gray-300 uppercase tracking-wider cursor-pointer transition-colors hover:bg-gray-600/50 ${header.key === 'Note' ? 'w-48' : ''}`}
                                 onClick={() => requestSort(header.key)}
                             >
@@ -97,10 +102,9 @@ export default function OrderListTable({ orders, onSelectOrder, useStaticIcons =
                     {items.map((order, index) => (
                         <tr
                             key={order["Delivery No"] || index}
-                            className="hover:bg-gray-700 transition-colors duration-150 cursor-pointer"
+                            className="hover:bg-slate-700/50 transition-colors duration-150 cursor-pointer"
                             onClick={() => onSelectOrder(order)}
                         >
-                            {/* UPRAVENO: Zmenšen padding a velikost písma pro lepší fit */}
                             <td className="py-2 px-2 text-xs font-medium text-white truncate">{order["Delivery No"]}</td>
                             <td className="py-2 px-2 text-xs">
                                 {useStaticIcons 
@@ -109,11 +113,11 @@ export default function OrderListTable({ orders, onSelectOrder, useStaticIcons =
                                 }
                             </td>
                             <td className="py-2 px-2 text-xs">{order["del.type"]}</td>
+                            {/* ZMĚNA ZDE */}
+                            <td className="py-2 px-2 text-xs font-semibold">{getOrderTypeLabel(order.order_type)}</td>
                             <td className="py-2 px-2 text-xs">{order["Loading Date"] ? format(parseISO(order["Loading Date"]), 'dd.MM.yyyy') : 'N/A'}</td>
                             <td className="py-2 px-2 text-xs truncate">{order["Forwarding agent name"] || 'N/A'}</td>
-                            <td className="py-2 px-2 text-xs truncate">{order["Name of ship-to party"] || 'N/A'}</td>
                             <td className="py-2 px-2 text-xs">{order["Total Weight"] || 'N/A'}</td>
-                            <td className="py-2 px-2 text-xs truncate">{order["Bill of lading"] || 'N/A'}</td>
                             <td className="py-2 px-2 text-xs">{order["Country ship-to prty"] || 'N/A'}</td>
                             <td className="py-2 px-2 text-xs text-gray-300 truncate">{order.Note || ''}</td>
                         </tr>
