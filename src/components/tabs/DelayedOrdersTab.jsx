@@ -3,13 +3,34 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { FileDown, ClipboardList, Clock } from 'lucide-react';
+import { FileDown, ClipboardList, Clock, Info } from 'lucide-react';
 import { exportDelayedOrdersXLSX } from '@/lib/exportUtils';
 import OrderDetailsModal from '@/components/modals/OrderDetailsModal';
 import OrderListTable from '../shared/OrderListTable';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, format, parseISO, getWeek } from 'date-fns';
 import { cs } from 'date-fns/locale';
+
+// --- POMOCNÉ KOMPONENTY ---
+// OPRAVA: Přidána chybějící komponenta ChartContainer
+const ChartContainer = ({ title, controls, children, data }) => (
+    <div className="glass-card p-4 sm:p-6 rounded-xl flex flex-col">
+        <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
+            <h2 className="text-lg sm:text-xl font-semibold text-white">{title}</h2>
+            {controls && <div className="flex items-center gap-2 flex-wrap">{controls}</div>}
+        </div>
+        <div className="flex-grow h-[250px]">
+            {data && data.length > 0 ? (
+                children
+            ) : (
+                <div className="flex items-center justify-center h-full text-slate-500">
+                    <Info size={18} className="mr-2"/>
+                    <span>Nedostatek dat pro zobrazení</span>
+                </div>
+            )}
+        </div>
+    </div>
+);
 
 const KpiCard = ({ title, value, icon: Icon }) => (
     <div className="glass-card p-4 rounded-lg flex items-center gap-4">
@@ -77,18 +98,20 @@ export default function DelayedOrdersTab() {
 
     const delayedOrdersForTable = useMemo(() => {
         if (!summary || !summary.delayedOrdersList) return [];
+        // OPRAVA: Přidáno `order_type` pro správné zobrazení v responzivní tabulce
         return summary.delayedOrdersList.map(order => ({
             ...order,
             "Delivery No": order.delivery,
             "del.type": order.delType,
             "Loading Date": order.loadingDate,
-            "delayDays": order.delayDays
+            "delayDays": order.delayDays,
+            "order_type": order.order_type 
         })).sort((a, b) => b.delayDays - a.delayDays);
     }, [summary]);
 
     const handleSelectOrder = useCallback((order) => {
         const deliveryNo = order["Delivery No"];
-        const relatedPicking = pickingData.filter(p => String(p.delivery_no) === String(deliveryNo));
+        const relatedPicking = (pickingData || []).filter(p => String(p.delivery_no) === String(deliveryNo));
         const fullOrderDetails = { ...order, picking_details: relatedPicking };
         setSelectedOrderDetails(fullOrderDetails);
     }, [pickingData, setSelectedOrderDetails]);
@@ -96,7 +119,7 @@ export default function DelayedOrdersTab() {
     if (!summary || !summary.delayedOrdersList) {
         return <div className="text-center p-8 text-slate-400">Načítám data...</div>;
     }
-
+    
     return (
         <Card>
             <CardHeader>
@@ -113,9 +136,9 @@ export default function DelayedOrdersTab() {
                     data={chartData}
                     controls={
                         <div className="flex items-center gap-1 bg-slate-700/50 p-1 rounded-md">
-                            <button onClick={() => setChartInterval('day')} className={`px-2 py-1 text-sm rounded ${chartInterval === 'day' ? 'bg-sky-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>Dny</button>
-                            <button onClick={() => setChartInterval('week')} className={`px-2 py-1 text-sm rounded ${chartInterval === 'week' ? 'bg-sky-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>Týdny</button>
-                            <button onClick={() => setChartInterval('month')} className={`px-2 py-1 text-sm rounded ${chartInterval === 'month' ? 'bg-sky-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>Měsíce</button>
+                            <button onClick={() => setChartInterval('day')} className={`px-2 py-1 text-xs sm:text-sm rounded ${chartInterval === 'day' ? 'bg-sky-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>Dny</button>
+                            <button onClick={() => setChartInterval('week')} className={`px-2 py-1 text-xs sm:text-sm rounded ${chartInterval === 'week' ? 'bg-sky-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>Týdny</button>
+                            <button onClick={() => setChartInterval('month')} className={`px-2 py-1 text-xs sm:text-sm rounded ${chartInterval === 'month' ? 'bg-sky-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>Měsíce</button>
                         </div>
                     }>
                     <ResponsiveContainer width="100%" height={250}>
@@ -130,10 +153,10 @@ export default function DelayedOrdersTab() {
                 </ChartContainer>
 
                 <Card>
-                    <CardContent>
-                        <div className="flex justify-between items-center mb-4 pt-6">
+                    <CardContent className="pt-6">
+                        <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
                             <h3 className="text-lg font-semibold text-white">Seznam zakázek</h3>
-                            <button onClick={() => exportDelayedOrdersXLSX(summary.delayedOrdersList, t)} className="flex items-center gap-2 bg-slate-700 text-white px-4 py-2 rounded-lg shadow hover:bg-slate-600 transition-colors text-sm">
+                            <button onClick={() => exportDelayedOrdersXLSX(summary.delayedOrdersList, t)} className="flex items-center gap-2 bg-slate-700 text-white px-4 py-2 rounded-lg shadow hover:bg-slate-600 transition-colors text-sm w-full sm:w-auto">
                                 <FileDown className="w-4 h-4" /> Exportovat do XLSX
                             </button>
                         </div>
