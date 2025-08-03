@@ -6,7 +6,6 @@ const Card = React.forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
-      // ZMĚNA: Aplikace Glassmorphism efektu
       "rounded-xl border border-white/10 bg-slate-800/20 backdrop-blur-md shadow-lg",
       className
     )}
@@ -28,7 +27,7 @@ const CardTitle = React.forwardRef(({ className, ...props }, ref) => (
   <h3
     ref={ref}
     className={cn(
-      "text-lg font-semibold leading-none tracking-tight text-slate-100", // Zmenšený font
+      "text-lg font-semibold leading-none tracking-tight text-slate-100",
       className
     )}
     {...props}
