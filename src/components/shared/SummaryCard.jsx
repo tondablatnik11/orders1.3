@@ -5,25 +5,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowUp, ArrowDown, Minus, ChevronDown, Zap } from 'lucide-react';
 
 const colorClasses = {
-  blue: { text: 'text-blue-400', bg: 'bg-gradient-to-br from-slate-800 to-slate-900', border: 'border-slate-700', shadow: 'hover:shadow-blue-500/10' },
-  green: { text: 'text-green-400', bg: 'bg-gradient-to-br from-slate-800 to-slate-900', border: 'border-slate-700', shadow: 'hover:shadow-green-500/10' },
-  yellow: { text: 'text-yellow-400', bg: 'bg-gradient-to-br from-slate-800 to-slate-900', border: 'border-slate-700', shadow: 'hover:shadow-yellow-500/10' },
-  orange: { text: 'text-orange-400', bg: 'bg-gradient-to-br from-slate-800 to-slate-900', border: 'border-slate-700', shadow: 'hover:shadow-orange-500/10' },
-  cyan: { text: 'text-cyan-400', bg: 'bg-gradient-to-br from-slate-800 to-slate-900', border: 'border-slate-700', shadow: 'hover:shadow-cyan-500/10' },
-};
-
-const ChangeIndicator = ({ change }) => {
-    if (change === undefined || change === null) return null;
-    const isPositive = change > 0;
-    const isNegative = change < 0;
-    return (
-        <span className={`flex items-center text-xs font-bold ${ isPositive ? 'text-green-400' : isNegative ? 'text-red-500' : 'text-slate-500' }`}>
-            {isPositive && <ArrowUp className="w-3 h-3" />}
-            {isNegative && <ArrowDown className="w-3 h-3" />}
-            {change === 0 && <Minus className="w-3 h-3" />}
-            {Math.abs(change)}
-        </span>
-    );
+  blue: { text: 'text-blue-400' },
+  green: { text: 'text-green-400' },
+  yellow: { text: 'text-yellow-400' },
+  orange: { text: 'text-orange-400' },
 };
 
 const AnimatedValue = ({ end }) => {
@@ -46,43 +31,58 @@ const AnimatedValue = ({ end }) => {
     return <p className="text-2xl font-bold text-white">{current ?? 0}</p>;
 };
 
-export const SummaryCard = ({ title, value, icon: Icon, color = 'blue', change, breakdown, onStatusClick }) => {
+export const SummaryCard = ({ title, value, icon: Icon, color = 'blue', onStatusClick, breakdown }) => {
   const styles = colorClasses[color] || colorClasses.blue;
+  const [isExpanded, setIsExpanded] = useState(false);
   const hasBreakdown = breakdown && Object.keys(breakdown).length > 0;
 
   return (
-    <div className={`col-span-1 flex flex-col justify-between ${styles.bg} rounded-lg border ${styles.border} p-3 transition-all duration-300 hover:shadow-xl ${styles.shadow} hover:-translate-y-1`}>
-      <div>
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-medium text-slate-400">{title}</p>
-          <Icon className={`w-4 h-4 ${styles.text}`} />
-        </div>
-        <div className="flex items-baseline gap-2 mt-2">
-            <AnimatedValue end={value} />
-            <ChangeIndicator change={change} />
-        </div>
+    <div className={`col-span-1 rounded-xl p-3 transition-all duration-300`}>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-slate-400">{title}</p>
+        <Icon className={`w-4 h-4 ${styles.text}`} />
+      </div>
+      <div className="flex items-baseline gap-2 mt-2">
+          <AnimatedValue end={value} />
       </div>
       {hasBreakdown && (
         <div className="mt-1">
-          <div className="pt-2 border-t border-slate-700/50 space-y-1 text-xs">
-            {Object.entries(breakdown).sort(([a], [b]) => Number(a) - Number(b)).map(([status, count]) => (
-              <div key={status} onClick={() => onStatusClick(Number(status))} className="flex justify-between text-slate-300 hover:bg-slate-700/50 -mx-1 px-1 rounded cursor-pointer">
-                <span>Status {status}:</span>
-                <span className="font-semibold">{count}</span>
+          <button onClick={() => setIsExpanded(!isExpanded)} className="text-xs text-slate-500 hover:text-white flex items-center gap-1">
+            <span>Detaily</span>
+            <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+          </button>
+          <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="overflow-hidden"
+            >
+              <div className="mt-2 pt-2 border-t border-slate-700/50 space-y-1 text-xs">
+                {Object.entries(breakdown).sort(([a], [b]) => Number(a) - Number(b)).map(([status, count]) => (
+                  <div key={status} onClick={() => onStatusClick([Number(status)], `Status ${status}`)} className="flex justify-between text-slate-300 hover:bg-slate-700/50 -mx-1 px-1 rounded cursor-pointer">
+                    <span>Status {status}:</span>
+                    <span className="font-semibold">{count}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </motion.div>
+          )}
+          </AnimatePresence>
         </div>
       )}
     </div>
   );
 };
 
-export const FeaturedKPICard = ({ title, value, icon: Icon, onClick, change, breakdown, onStatusClick }) => {
+export const FeaturedKPICard = ({ title, value, icon: Icon, onClick, breakdown, onStatusClick }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
     const hasBreakdown = breakdown && Object.keys(breakdown).length > 0;
     
     return (
-        <div className="col-span-2 md:col-span-1 group flex flex-col justify-between rounded-lg border border-red-500/50 bg-gradient-to-br from-slate-800 to-slate-900 p-3 transition-all duration-300 hover:shadow-2xl hover:border-red-500/80 hover:-translate-y-1 backdrop-blur-sm hover:shadow-red-500/20">
+        <div className="col-span-2 md:col-span-1 group rounded-xl p-3 transition-all duration-300">
             <div onClick={onClick} className="cursor-pointer">
               <div className="flex items-center justify-between">
                   <p className="text-xs font-medium text-red-300 uppercase tracking-wider">{title}</p>
@@ -90,28 +90,42 @@ export const FeaturedKPICard = ({ title, value, icon: Icon, onClick, change, bre
               </div>
               <div className="flex items-baseline gap-2 mt-2">
                   <AnimatedValue end={value} />
-                  <ChangeIndicator change={change} />
               </div>
             </div>
              {hasBreakdown && (
                 <div className="mt-1">
-                    <div className="pt-2 border-t border-red-500/30 space-y-1 text-xs">
-                        {Object.entries(breakdown).sort(([a], [b]) => Number(a) - Number(b)).map(([status, count]) => (
-                        <div key={status} onClick={(e) => { e.stopPropagation(); onStatusClick(Number(status)); }} className="flex justify-between text-red-200 hover:bg-red-900/50 -mx-1 px-1 rounded cursor-pointer">
-                            <span>Status {status}:</span>
-                            <span className="font-semibold">{count}</span>
-                        </div>
-                        ))}
-                    </div>
+                    <button onClick={() => setIsExpanded(!isExpanded)} className="text-xs text-red-400/70 hover:text-white flex items-center gap-1">
+                        <span>Detaily</span>
+                        <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    </button>
+                    <AnimatePresence>
+                    {isExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="mt-2 pt-2 border-t border-red-500/30 space-y-1 text-xs">
+                            {Object.entries(breakdown).sort(([a], [b]) => Number(a) - Number(b)).map(([status, count]) => (
+                              <div key={status} onClick={(e) => { e.stopPropagation(); onStatusClick([Number(status)], `Zpožděné - Status ${status}`); }} className="flex justify-between text-red-200 hover:bg-red-900/50 -mx-1 px-1 rounded cursor-pointer">
+                                <span>Status {status}:</span>
+                                <span className="font-semibold">{count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </motion.div>
+                    )}
+                    </AnimatePresence>
                 </div>
             )}
         </div>
     );
 };
 
-// ZDE JE KLÍČOVÝ CHYBĚJÍCÍ EXPORT
 export const PickingKPICard = ({ title, shifts, todayPicks, icon: Icon, onDayClick }) => (
-    <div className="col-span-1 flex flex-col justify-between bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg border border-slate-700 p-3 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10 hover:-translate-y-1">
+    <div className="col-span-1 rounded-xl p-3 transition-all duration-300">
       <div>
         <div className="flex items-center justify-between">
           <p className="text-xs font-medium text-slate-400">{title}</p>

@@ -3,6 +3,7 @@ import './globals.css';
 import { AppProviders } from '@/components/layout/AppProviders';
 import { Toaster } from 'react-hot-toast';
 import { Inter } from 'next/font/google';
+import GlobalStyles from '@/components/layout/GlobalStyles'; // <-- NOVÝ IMPORT
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -14,6 +15,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="cs">
+      <head>
+        <GlobalStyles /> {/* <-- VLOŽENÍ KOMPONENTY SE STYLY */}
+      </head>
       <body className={inter.className}>
         <AppProviders>
           <Toaster 
