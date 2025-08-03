@@ -5,9 +5,12 @@ import { useData } from '@/hooks/useData';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, LabelList } from 'recharts';
 import * as XLSX from 'xlsx';
 import { UploadCloud, ChevronDown, ChevronUp, ArrowUpDown, UserCheck, Users, X, BarChart2, Warehouse, Component, BarChartHorizontal, Info, Calendar, Zap } from 'lucide-react';
-import { format, startOfDay, endOfDay, parseISO, isWithinInterval, startOfWeek, endOfWeek, eachDayOfInterval, getWeek, eachWeekOfInterval, eachMonthOfInterval, setHours, setMinutes, differenceInDays } from 'date-fns';
+// ZDE JE KLÍČOVÁ OPRAVA: Doplněny chybějící importy
+import { format, startOfDay, endOfDay, parseISO, isWithinInterval, startOfWeek, endOfWeek, eachDayOfInterval, getWeek, eachWeekOfInterval, eachHourOfInterval, eachMonthOfInterval, setHours, setMinutes, differenceInDays } from 'date-fns';
 import { cs } from 'date-fns/locale';
 import { Card } from '@/components/ui/Card';
+import { Modal } from '@/components/ui/Modal';
+
 
 // --- POMOCNÉ KOMPONENTY ---
 
@@ -170,6 +173,7 @@ const ImportSection = ({ onImportSuccess }) => {
 
 const PickerDetailModal = ({ pickerName, data, onClose }) => {
     if (!pickerName) return null;
+    
     const pickerStats = useMemo(() => {
         const pickerData = data.filter(p => p.user_name === pickerName);
         const totalPicks = pickerData.length;
@@ -183,28 +187,23 @@ const PickerDetailModal = ({ pickerName, data, onClose }) => {
     }, [pickerName, data]);
 
     return (
-        <div className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center" onClick={onClose}>
-            <div className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                <div className="p-6 border-b border-slate-700 sticky top-0 bg-slate-800/80 backdrop-blur-sm z-10">
-                    <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-white">Detail pickera: <span className="text-sky-400">{pickerName}</span></h2><button onClick={onClose} className="text-slate-400 hover:text-white"><X size={28} /></button></div>
+        <Modal title={`Detail pickera: ${pickerName}`} onClose={onClose}>
+            <div className="p-1 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                    <div className="bg-slate-900/50 p-4 rounded-lg"><div className="text-3xl font-bold text-white">{pickerStats.totalPicks.toLocaleString()}</div><div className="text-sm text-slate-400">Celkem operací</div></div>
+                    <div className="bg-slate-900/50 p-4 rounded-lg"><div className="text-3xl font-bold text-white">{pickerStats.totalQty.toLocaleString()}</div><div className="text-sm text-slate-400">Celkem kusů</div></div>
+                    <div className="bg-slate-900/50 p-4 rounded-lg"><div className="text-3xl font-bold text-white">{pickerStats.totalWeight.toLocaleString('cs-CZ')}</div><div className="text-sm text-slate-400">Celková váha (kg)</div></div>
                 </div>
-                <div className="p-6 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                        <div className="bg-slate-700/50 p-4 rounded-lg"><div className="text-3xl font-bold text-white">{pickerStats.totalPicks.toLocaleString()}</div><div className="text-sm text-slate-400">Celkem operací</div></div>
-                        <div className="bg-slate-700/50 p-4 rounded-lg"><div className="text-3xl font-bold text-white">{pickerStats.totalQty.toLocaleString()}</div><div className="text-sm text-slate-400">Celkem kusů</div></div>
-                        <div className="bg-slate-700/50 p-4 rounded-lg"><div className="text-3xl font-bold text-white">{pickerStats.totalWeight.toLocaleString('cs-CZ')}</div><div className="text-sm text-slate-400">Celková váha (kg)</div></div>
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-semibold text-white mb-3">Produktivita v čase (operace/den)</h3>
-                        <ResponsiveContainer width="100%" height={250}><BarChart data={pickerStats.activityChartData}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="date" tickFormatter={(date) => format(parseISO(date), 'dd.MM')} /><YAxis /><Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }}/><Bar dataKey="picks" fill="#38bdf8" name="Počet operací" /></BarChart></ResponsiveContainer>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div><h3 className="text-lg font-semibold text-white mb-3">Top 5 materiálů</h3><ul className="space-y-2">{pickerStats.topMaterials.map(m => <li key={m.name} className="bg-slate-700/50 p-3 rounded-md flex justify-between items-center text-sm"><span className="font-medium text-slate-300 truncate pr-4">{m.name}</span> <span className="text-sky-400 font-semibold">{m.picks} picků / {m.qty} ks</span></li>)}</ul></div>
-                        <div><h3 className="text-lg font-semibold text-white mb-3">Top 5 pozic</h3><ul className="space-y-2">{pickerStats.topBins.map(b => <li key={b.name} className="bg-slate-700/50 p-3 rounded-md flex justify-between items-center text-sm"><span className="font-medium text-slate-300">{b.name}</span> <span className="text-teal-400 font-semibold">{b.picks} picků</span></li>)}</ul></div>
-                    </div>
+                <div>
+                    <h3 className="text-lg font-semibold text-white mb-3">Produktivita v čase (operace/den)</h3>
+                    <ResponsiveContainer width="100%" height={250}><BarChart data={pickerStats.activityChartData}><CartesianGrid strokeDasharray="3 3" stroke="#475569" /><XAxis dataKey="date" tickFormatter={(date) => format(parseISO(date), 'dd.MM')} /><YAxis /><Tooltip contentStyle={{ backgroundColor: '#1e2d3b', border: '1px solid #334155' }}/><Bar dataKey="picks" fill="#38bdf8" name="Počet operací" /></BarChart></ResponsiveContainer>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div><h3 className="text-lg font-semibold text-white mb-3">Top 5 materiálů</h3><ul className="space-y-2">{pickerStats.topMaterials.map(m => <li key={m.name} className="bg-slate-900/50 p-3 rounded-md flex justify-between items-center text-sm"><span className="font-medium text-slate-300 truncate pr-4">{m.name}</span> <span className="text-sky-400 font-semibold">{m.picks} picků / {m.qty} ks</span></li>)}</ul></div>
+                    <div><h3 className="text-lg font-semibold text-white mb-3">Top 5 pozic</h3><ul className="space-y-2">{pickerStats.topBins.map(b => <li key={b.name} className="bg-slate-900/50 p-3 rounded-md flex justify-between items-center text-sm"><span className="font-medium text-slate-300">{b.name}</span> <span className="text-teal-400 font-semibold">{b.picks} picků</span></li>)}</ul></div>
                 </div>
             </div>
-        </div>
+        </Modal>
     );
 };
 

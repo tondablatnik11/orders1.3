@@ -6,7 +6,7 @@ import Notifications from './Notifications';
 import { Search, UploadCloud, Globe, AlertCircle, Menu } from 'lucide-react';
 
 export default function AppHeader({ onSearchSubmit, activeTab, onMenuClick }) {
-    const { handleErrorLogUpload } = useData();
+    const { handleFileUpload, handleErrorLogUpload } = useData();
     const { t, toggleLang } = useUI();
     const [localSearch, setLocalSearch] = useState('');
 
@@ -45,9 +45,11 @@ export default function AppHeader({ onSearchSubmit, activeTab, onMenuClick }) {
                         <input type="file" accept=".csv, .xlsx, .xls" onChange={(e) => handleErrorLogUpload(e.target.files[0])} className="hidden" />
                     </label>
                 ) : (
-                    <div className="hidden sm:block">
-                        {/* Zde může být tlačítko pro nahrání standardních dat, pokud ho budeš chtít vrátit */}
-                    </div>
+                    <label className="cursor-pointer flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg shadow-lg shadow-sky-600/20 transition-all duration-300 transform hover:-translate-y-0.5">
+                        <UploadCloud className="w-5 h-5" />
+                        <span className="hidden sm:inline">{t.upload}</span>
+                        <input type="file" accept=".xlsx, .xls" onChange={(e) => handleFileUpload(e.target.files[0])} className="hidden" />
+                    </label>
                 )}
 
                 <button onClick={toggleLang} title="Změnit jazyk" className="p-2 rounded-full hover:bg-slate-700/50 transition-colors duration-200">
