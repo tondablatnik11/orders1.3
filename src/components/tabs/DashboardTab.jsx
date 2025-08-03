@@ -15,7 +15,7 @@ import D3GeoChart from '../charts/D3GeoChart';
 import { countryCodeMap } from '@/lib/dataProcessor';
 import { PickingDetailsModal } from '../modals/PickingDetailsModal';
 
-const SummaryCardSkeleton = () => <div className="bg-slate-800/50 rounded-xl border border-slate-700 h-[100px] animate-pulse"></div>;
+const SummaryCardSkeleton = () => <div className="glass-card rounded-xl h-[100px] animate-pulse"></div>;
 
 export default function DashboardTab({ setActiveTab }) {
     const { summary, allOrdersData, setSelectedOrderDetails, isLoadingData, pickingData } = useData();
@@ -46,7 +46,7 @@ export default function DashboardTab({ setActiveTab }) {
     const handleKpiStatusClick = (statuses, title) => {
         const statusArray = Array.isArray(statuses) ? statuses : [statuses];
         const filteredOrders = allOrdersData.filter(order => statusArray.includes(Number(order.Status)));
-        setModalState({ isOpen: true, title: `${title}`, orders: filteredOrders });
+        setModalState({ isOpen: true, title: title, orders: filteredOrders });
     };
     
     const handlePickingKpiClick = (day) => {
@@ -139,7 +139,7 @@ export default function DashboardTab({ setActiveTab }) {
                 <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-200 px-2">
                     <ClipboardList className="w-5 h-5 text-cyan-400" /> Denní přehled stavu
                 </h2>
-                <div ref={scrollContainerRef} className="flex space-x-3 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 -mx-2 px-2">
+                <div ref={scrollContainerRef} className="flex space-x-3 overflow-x-auto pb-4 scrollbar-thin -mx-2 px-2">
                     {datesForOverview.map((d) => {
                         const dateStr = format(d.date, 'yyyy-MM-dd');
                         const isToday = format(d.date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
@@ -161,15 +161,15 @@ export default function DashboardTab({ setActiveTab }) {
                     })}
                 </div>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <StatusDistributionChart onBarClick={handleBarClick} />
                 <OrdersOverTimeChart summary={summary} />
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                  <div className="lg:col-span-8">
                      <D3GeoChart data={summary?.ordersByCountry || []} onCountryClick={handleCountryClick} />
                  </div>
-                 <div className="lg:col-span-4 space-y-4">
+                 <div className="lg:col-span-4 space-y-6">
                      <DonutChartCard title="Typy objednávek" data={summary?.orderTypesOEM} />
                      <DonutChartCard title="Podíl typů dodávek" data={summary?.deliveryTypes} />
                  </div>

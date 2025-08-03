@@ -6,16 +6,14 @@ import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { getStatusColor } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
-// OPRAVA: Správný název knihovny 'date-fns'
 import { format, parseISO, isBefore, addDays, startOfToday } from 'date-fns'; 
 import { BarChart2 } from 'lucide-react';
 
-// Vylepšený Tooltip, který ladí s designem
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
         const total = payload.reduce((sum, entry) => sum + entry.value, 0);
         return (
-            <div className="bg-slate-800/80 backdrop-blur-sm p-3 border border-slate-700 rounded-lg shadow-xl text-sm">
+            <div className="glass-card p-3 rounded-lg shadow-xl text-sm">
                 <p className="label text-white font-semibold">{`Den: ${label}`}</p>
                 {total > 0 ? (
                     <div className="mt-2 space-y-1">
@@ -88,15 +86,9 @@ export default function StatusDistributionChart({ onBarClick }) {
 
     useEffect(() => {
         if (stackedData && stackedData.length > 0) {
-            const todayFormatted = format(new Date(), 'dd/MM');
-            let todayIndex = stackedData.findIndex(d => d.date === todayFormatted);
-            
-            if (todayIndex === -1) todayIndex = stackedData.length - 1;
-            
             const visibleRange = 14; 
             const startIndex = Math.max(0, stackedData.length - visibleRange);
             const endIndex = stackedData.length - 1;
-            
             setBrushDomain({ startIndex, endIndex });
         }
     }, [stackedData]);
@@ -112,7 +104,7 @@ export default function StatusDistributionChart({ onBarClick }) {
         <Card>
              <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                    <BarChart2 className="w-5 h-5 text-sky-400" />
+                    <BarChart2 className="w-5 h-5 text-cyan-400" />
                     <span className="text-lg">{t.statusDistribution}</span>
                 </CardTitle>
             </CardHeader>
@@ -131,9 +123,9 @@ export default function StatusDistributionChart({ onBarClick }) {
                                 );
                             })}
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151"/>
-                        <XAxis dataKey="date" stroke="#9CA3AF" tick={{ fill: "#D1D5DB", fontSize: 12 }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: "#D1D5DB" }} allowDecimals={false} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" strokeOpacity={0.5}/>
+                        <XAxis dataKey="date" stroke="#9CA3AF" tick={{ fontSize: 12, fill: "#D1D5DB" }} />
+                        <YAxis stroke="#9CA3AF" tick={{ fontSize: 12, fill: "#D1D5DB" }} allowDecimals={false} />
                         <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(107, 114, 128, 0.2)' }}/>
                         <Legend wrapperStyle={{ color: '#D1D5DB', paddingTop: '10px' }} onClick={handleLegendClick} />
                         {uniqueStatuses.map((statusKey) => {
@@ -152,7 +144,7 @@ export default function StatusDistributionChart({ onBarClick }) {
                         <Brush
                             dataKey="date"
                             height={30}
-                            stroke="#8884d8"
+                            stroke="hsl(var(--chart-1))"
                             startIndex={brushDomain.startIndex}
                             endIndex={brushDomain.endIndex}
                             onChange={(newDomain) => setBrushDomain(newDomain)}

@@ -20,7 +20,7 @@ const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         return (
-            <div className="bg-slate-800/80 backdrop-blur-sm p-3 border border-slate-700 rounded-lg shadow-xl text-sm">
+            <div className="glass-card p-3 rounded-lg shadow-xl text-sm">
                 <p className="label text-white font-semibold mb-2">{`Den: ${label}`}</p>
                 {payload.map((p, index) => (
                     <div key={index} style={{ color: p.color }}>
@@ -69,19 +69,19 @@ export default function OrdersOverTimeChart({ summary }) {
     }
 
     return (
-        <Card>
+        <Card className="overflow-hidden">
              <CardHeader>
-                 <CardTitle className="flex items-center justify-between flex-wrap gap-2">
+                 <CardTitle className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                        <TrendingUp className="w-5 h-5 text-green-400" />
+                        <TrendingUp className="w-5 h-5 text-cyan-400" />
                         <span className="text-lg">{t.ordersOverTime}</span>
                     </div>
-                    <div className="flex items-center gap-1 bg-slate-700/50 p-1 rounded-md">
+                    <div className="flex items-center gap-1 bg-slate-800/50 p-1 rounded-md">
                         {[7, 30, 90, 0].map(range => (
                             <button 
                                 key={range} 
                                 onClick={() => setTimeRange(range)}
-                                className={`px-2 py-1 text-xs rounded ${timeRange === range ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}
+                                className={`px-2 py-1 text-xs rounded transition-colors ${timeRange === range ? 'bg-sky-600 text-white shadow' : 'text-slate-300 hover:bg-slate-700'}`}
                             >
                                 {range === 0 ? 'Vše' : `${range}D`}
                             </button>
@@ -94,22 +94,44 @@ export default function OrdersOverTimeChart({ summary }) {
                     <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                         <defs>
                             <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.6}/>
-                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.4}/>
+                                <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0}/>
                             </linearGradient>
                             <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.5}/>
-                                <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.4}/>
+                                <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0}/>
                             </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" strokeOpacity={0.5}/>
                         <XAxis dataKey="date" stroke="#9CA3AF" tick={{ fontSize: 12, fill: "#D1D5DB" }} />
                         <YAxis stroke="#9CA3AF" allowDecimals={false} tick={{ fill: "#D1D5DB" }}/>
-                        <Tooltip content={<CustomTooltip />} />
+                        <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'hsl(var(--chart-1))', strokeWidth: 1, strokeDasharray: '3 3' }}/>
                         <Legend wrapperStyle={{ color: '#D1D5DB', paddingTop: '10px' }} />
-                        <Area type="monotone" dataKey="total" name={t.total} stroke="#3b82f6" fill="url(#colorTotal)" strokeWidth={2} activeDot={{ r: 6, stroke: '#0f172a', strokeWidth: 2 }} />
-                        <Area type="monotone" dataKey="completed" name={t.done} stroke="#10b981" fill="url(#colorCompleted)" strokeWidth={2} activeDot={{ r: 6, stroke: '#0f172a', strokeWidth: 2 }} />
-                        <ReferenceLine yAxisId={0} dataKey="movingAverage" stroke="#FBBF24" strokeDasharray="3 3" name="7-denní průměr" />
+                        <Area 
+                            type="monotone" 
+                            dataKey="total" 
+                            name={t.total} 
+                            stroke="hsl(var(--chart-1))" 
+                            fill="url(#colorTotal)" 
+                            strokeWidth={2} 
+                            activeDot={{ r: 6, stroke: '#0f172a', strokeWidth: 2, fill: 'hsl(var(--chart-1))' }} 
+                        />
+                        <Area 
+                            type="monotone" 
+                            dataKey="completed" 
+                            name={t.done} 
+                            stroke="hsl(var(--chart-2))" 
+                            fill="url(#colorCompleted)" 
+                            strokeWidth={2} 
+                            activeDot={{ r: 6, stroke: '#0f172a', strokeWidth: 2, fill: 'hsl(var(--chart-2))' }} 
+                        />
+                        <ReferenceLine 
+                            yAxisId={0} 
+                            dataKey="movingAverage" 
+                            stroke="#FBBF24" 
+                            strokeDasharray="3 3" 
+                            name="7-denní průměr" 
+                        />
                     </AreaChart>
                 </ResponsiveContainer>
             </CardContent>
