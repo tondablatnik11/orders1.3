@@ -81,8 +81,8 @@ const AnimatedStatusIcon = ({ status, size = 'small' }) => {
     const currentSize = sizeClasses[size] || sizeClasses.small;
 
     return (
-        <div 
-            className={`flex items-center ${size === 'large' ? 'flex-col' : 'gap-2'}`} 
+        <div
+            className={`flex items-center ${size === 'large' ? 'flex-col' : 'gap-2'}`}
             title={label}
         >
             <motion.div animate={animation}>

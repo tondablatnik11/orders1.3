@@ -39,7 +39,7 @@ export const Modal = ({ title, children, onClose }) => {
                     animate={{ scale: 1, y: 0 }}
                     exit={{ scale: 0.95, y: 30 }}
                     transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                    className="bg-slate-800 rounded-xl shadow-2xl p-6 relative w-full max-w-7xl max-h-[90vh] flex flex-col border border-slate-700"
+                    className="bg-slate-800/80 backdrop-blur-md rounded-xl shadow-2xl p-6 relative w-full max-w-7xl max-h-[90vh] flex flex-col border border-slate-700"
                     onClick={(e) => e.stopPropagation()}
                 >
                     <div className="flex-shrink-0 flex justify-between items-center mb-4">
