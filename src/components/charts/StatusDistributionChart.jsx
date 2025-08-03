@@ -6,7 +6,8 @@ import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { getStatusColor } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
-import { format, parseISO, isBefore, addDays, startOfToday } from 'fns';
+// OPRAVA: Správný název knihovny 'date-fns'
+import { format, parseISO, isBefore, addDays, startOfToday } from 'date-fns'; 
 import { BarChart2 } from 'lucide-react';
 
 // Vylepšený Tooltip, který ladí s designem
@@ -92,7 +93,7 @@ export default function StatusDistributionChart({ onBarClick }) {
             
             if (todayIndex === -1) todayIndex = stackedData.length - 1;
             
-            const visibleRange = 14; // Zobrazí více dnů ve výchozím nastavení
+            const visibleRange = 14; 
             const startIndex = Math.max(0, stackedData.length - visibleRange);
             const endIndex = stackedData.length - 1;
             
