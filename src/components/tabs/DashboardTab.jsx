@@ -8,8 +8,8 @@ import { CheckCircle, Clock, Hourglass, Info, AlertTriangle, ClipboardList, Pack
 import { OrderListModal } from '@/components/modals/OrderListModal';
 import { DailyOverviewCard } from '@/components/shared/DailyOverviewCard';
 import { SummaryCard, FeaturedKPICard, PickingKPICard } from '@/components/shared/SummaryCard';
-import D3OrdersOverTimeChart from '@/components/charts/D3OrdersOverTimeChart';
-import D3StatusDistributionChart from '@/components/charts/D3StatusDistributionChart';
+import OrdersOverTimeChart from '@/components/charts/OrdersOverTimeChart';
+import StatusDistributionChart from '@/components/charts/StatusDistributionChart';
 import DonutChartCard from '@/components/charts/DonutChartCard';
 import D3GeoChart from '../charts/D3GeoChart';
 import { countryCodeMap } from '@/lib/dataProcessor';
@@ -131,7 +131,7 @@ export default function DashboardTab({ setActiveTab }) {
                 <SummaryCard title={t.done} value={summary.doneTotal} icon={CheckCircle} color="green" onStatusClick={(status) => handleKpiStatusClick(status, `Hotové zakázky ve stavu ${status}`)} breakdown={summary.doneBreakdown} />
                 <SummaryCard title={t.remaining} value={summary.remainingTotal} icon={Clock} color="yellow" onStatusClick={(status) => handleKpiStatusClick(status, `Zbývající zakázky ve stavu ${status}`)} breakdown={summary.remainingBreakdown} />
                 <SummaryCard title={t.inProgress} value={summary.inProgressTotal} icon={Hourglass} color="orange" onStatusClick={(status) => handleKpiStatusClick(status, `Zakázky v procesu ve stavu ${status}`)} breakdown={summary.inProgressBreakdown} />
-                <PickingKPICard title="Dnešní/Včerejší picky" shifts={summary.yesterdayPicksByShift} todayPicks={summary.totalPicksToday} icon={Zap} onDayClick={handlePickingKpiClick} />
+                <PickingKPICard title="Včerejší picky" shifts={summary.yesterdayPicksByShift} todayPicks={summary.totalPicksToday} icon={Zap} onDayClick={handlePickingKpiClick} />
                 <FeaturedKPICard 
                     title={t.delayed} 
                     value={summary.delayed} 
@@ -169,8 +169,8 @@ export default function DashboardTab({ setActiveTab }) {
                 </div>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <D3StatusDistributionChart onBarClick={handleBarClick} />
-                <D3OrdersOverTimeChart summary={summary} />
+                <StatusDistributionChart onBarClick={handleBarClick} />
+                <OrdersOverTimeChart summary={summary} />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                  <div className="lg:col-span-8">
