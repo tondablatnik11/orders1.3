@@ -40,6 +40,7 @@
 body {
   @apply bg-slate-900 text-slate-50 antialiased;
   background-color: hsl(var(--background));
+  /* Nové, komplexní pozadí pro moderní vzhled a podporu Glassmorphism */
   background-image: 
     radial-gradient(at 20% 20%, hsla(210, 80%, 40%, 0.2) 0px, transparent 50%),
     radial-gradient(at 80% 20%, hsla(180, 70%, 50%, 0.15) 0px, transparent 50%),
@@ -49,6 +50,7 @@ body {
   background-size: 100% 100%, 2rem 2rem;
 }
 
+/* Vylepšený custom scrollbar */
 .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: hsl(217 33% 17%) transparent;
