@@ -53,7 +53,6 @@ export const DataProvider = ({ children }) => {
         }
     }, [supabase]);
     
-    // OPRAVA 1: Vytvořena samostatná, znovupoužitelná funkce pro načtení a obnovení dat z Error Monitoru
     const refetchErrorData = useCallback(async () => {
         setIsLoadingErrorData(true);
         try {
@@ -70,15 +69,18 @@ export const DataProvider = ({ children }) => {
         }
     }, [supabase]);
 
-
     useEffect(() => {
+        // TATO ČÁST JE OPRAVENA
+        // Správně čeká na dokončení ověřování a existenci uživatele,
+        // než spustí načítání veškerých dat.
         if (!authLoading && user) {
             fetchAllApplicationData();
+            refetchErrorData(); // <-- Přidáno sem pro načtení po přihlášení
         } else if (!authLoading && !user) {
+            // Pokud není uživatel přihlášen, ukončíme všechny načítací stavy
             setIsLoadingData(false);
+            setIsLoadingErrorData(false);
         }
-        // Spustíme načítání dat pro Error Monitor nezávisle na přihlášení uživatele
-        refetchErrorData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authLoading, user]);
 
@@ -97,12 +99,11 @@ export const DataProvider = ({ children }) => {
                     const worksheet = workbook.Sheets[sheetName];
                     const json = XLSX.utils.sheet_to_json(worksheet);
                     
-                    // Nahrání do Supabase
                     const { error } = await supabase.from('orders_data').upsert(json, { onConflict: 'Delivery No' });
                     if (error) throw error;
                     
                     toast.success('Data byla úspěšně nahrána a aktualizována.', { id: toastId });
-                    await fetchAllApplicationData(); // Znovu načteme všechna data
+                    await fetchAllApplicationData();
                 } catch (err) {
                      toast.error(`Chyba při zpracování souboru: ${err.message}`, { id: toastId });
                 }
@@ -116,7 +117,7 @@ export const DataProvider = ({ children }) => {
     const handleErrorLogUpload = useCallback(async (file) => {
         if (!file) return;
         const toastId = toast.loading('Zpracovávám soubor s chybami...');
-        setIsLoadingErrorData(true); // <-- Správně nastavíme načítání
+        setIsLoadingErrorData(true);
         try {
             const dataForSupabase = await processErrorDataForSupabase(file);
             
@@ -129,13 +130,11 @@ export const DataProvider = ({ children }) => {
             }
 
             toast.success('Data chyb byla úspěšně nahrána. Obnovuji zobrazení...', { id: toastId });
-            await refetchErrorData(); // Znovu načteme data pro error monitor
+            await refetchErrorData();
         } catch (error) {
             console.error("Chyba při nahrávání logu chyb:", error);
             toast.error(`Chyba: ${error.message}`, { id: toastId });
-        } finally {
-            // OPRAVA 2: Zajistíme, že se loading stav vždy vypne
-            setIsLoadingErrorData(false); 
+            setIsLoadingErrorData(false); // Zajistíme vypnutí i při chybě
         }
     }, [supabase, refetchErrorData]);
 
@@ -227,7 +226,7 @@ export const DataProvider = ({ children }) => {
         handleErrorLogUpload, 
         errorData, 
         isLoadingErrorData,
-        refetchErrorData, // <-- Přidáno pro ruční obnovení z UI
+        refetchErrorData,
         selectedOrderDetails, 
         setSelectedOrderDetails, 
         handleSaveNote, 
@@ -240,7 +239,7 @@ export const DataProvider = ({ children }) => {
     }), [
         allOrdersData, pickingData, summary, previousSummary, isLoadingData,
         fetchAllApplicationData, handleFileUpload, handleErrorLogUpload, errorData, isLoadingErrorData,
-        refetchErrorData, // <-- Přidáno do závislostí
+        refetchErrorData,
         selectedOrderDetails, handleSaveNote, handleUpdateStatus,
         statusHistory, fetchStatusHistory, fetchOrderComments, addOrderComment
     ]);
