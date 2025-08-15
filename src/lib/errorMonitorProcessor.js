@@ -1,5 +1,6 @@
 // src/lib/errorMonitorProcessor.js
-import { format, startOfDay, subDays } from 'date-fns';
+import { format, startOfDay, subDays, startOfWeek, startOfMonth, endOfDay } from 'date-fns';
+import { cs } from 'date-fns/locale';
 
 const getCellValue = (row, keys) => {
     for (const key of keys) {
@@ -39,7 +40,7 @@ export const processErrorDataForSupabase = (file) => {
                     hours = timeValue.getUTCHours();
                     minutes = timeValue.getUTCMinutes();
                     seconds = timeValue.getUTCSeconds();
-                } else if (typeof timeValue === 'number') { // Excel time is a float from 0 to 1
+                } else if (typeof timeValue === 'number') {
                     const totalSeconds = Math.round(timeValue * 86400);
                     hours = Math.floor(totalSeconds / 3600);
                     minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -84,29 +85,24 @@ export const processErrorDataForSupabase = (file) => {
   });
 };
 
-
 /**
- * Hlavní funkce, která zpracovává surová data z databáze na formát pro UI
- * @param {Array} data - Pole objektů s chybami ze Supabase
- * @returns {Object} - Objekt obsahující zpracovaná data pro grafy, tabulky a nové analýzy
+ * Hlavní funkce pro zpracování dat pro UI
  */
 export const processArrayForDisplay = (data) => {
     if (!data || data.length === 0) {
-        return { detailedErrors: [], chartsData: {}, riskAnalysis: {}, timeSeriesData: {} };
+        return { detailedErrors: [], chartsData: {}, timeSeriesData: {} };
     }
     
-    // Transformace a příprava dat
     const errorsForCharts = data.map(e => ({
         ...e,
+        timestampDate: new Date(e.timestamp),
         position: String(e.error_location || 'Nezadáno').trim(),
         material: String(e.material || 'Nezadáno').trim(),
         user: String(e.user || 'Nezadáno').trim(),
         description: e.description || 'Neznámý typ',
         qtyDifference: Math.abs(Number(e.diff_qty) || 0),
-        date: startOfDay(new Date(e.timestamp)).toISOString().split('T')[0] // Normalizujeme datum
     }));
 
-    // Agregace pro stávající grafy (koláčové, sloupcové)
     const aggregateMetric = (dataset, key, metricName) => {
         const aggregation = dataset.reduce((acc, item) => {
             const value = item[key];
@@ -129,44 +125,57 @@ export const processArrayForDisplay = (data) => {
             .sort((a, b) => b['Absolutní rozdíl'] - a['Absolutní rozdíl']);
     };
     
-    // NOVÉ: Analýza pro identifikaci rizikových položek
-    const performRiskAnalysis = (dataset) => {
-        const topRiskyMaterials = aggregateMetric(dataset, 'material', 'Počet chyb').slice(0, 5);
-        const topRiskyOrders = aggregateMetric(dataset.filter(e => e.order_refence && e.order_refence !== 'N/A'), 'order_refence', 'Počet chyb').slice(0, 5);
-        return { topRiskyMaterials, topRiskyOrders };
-    };
-
-    // NOVÉ: Zpracování dat pro časovou osu a klouzavý průměr
+    // NOVÉ: Zpracování dat pro časovou osu s různými intervaly
     const processTimeSeries = (dataset) => {
-        const errorsByDay = dataset.reduce((acc, error) => {
-            const day = error.date;
-            acc[day] = (acc[day] || 0) + 1;
-            return acc;
-        }, {});
+        const now = new Date();
+        const today = endOfDay(now);
+        const lastDay = subDays(today, 1);
+        const lastWeek = subDays(today, 7);
+        const lastMonth = subDays(today, 30);
 
-        const sortedDays = Object.entries(errorsByDay)
-            .map(([date, count]) => ({ date, count }))
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
+        const daily = dataset.filter(d => d.timestampDate >= lastDay);
+        const weekly = dataset.filter(d => d.timestampDate >= lastWeek);
+        const monthly = dataset.filter(d => d.timestampDate >= lastMonth);
 
-        // Výpočet 30-denního klouzavého průměru
-        const withMovingAverage = sortedDays.map((entry, index, arr) => {
-            const thirtyDaysAgo = subDays(new Date(entry.date), 30);
-            const relevantData = arr.filter(d => new Date(d.date) >= thirtyDaysAgo && new Date(d.date) <= new Date(entry.date));
-            const total = relevantData.reduce((sum, d) => sum + d.count, 0);
-            const movingAverage = relevantData.length > 0 ? (total / relevantData.length) : 0;
-            return {
-                ...entry,
-                name: format(new Date(entry.date), 'dd.MM'),
-                'Počet chyb': entry.count,
-                '30-denní průměr': parseFloat(movingAverage.toFixed(2))
-            };
-        });
+        const aggregateBy = (data, period) => {
+            let formatStr, grouper;
+            if (period === 'day') {
+                formatStr = 'HH:00';
+                grouper = (d) => format(d, 'HH');
+            } else if (period === 'week') {
+                formatStr = 'eeeeee';
+                grouper = (d) => format(d, 'eeeeee', { locale: cs });
+            } else { // month
+                formatStr = 'dd.MM';
+                grouper = (d) => format(d, 'dd.MM');
+            }
 
-        return withMovingAverage;
+            const grouped = data.reduce((acc, error) => {
+                const key = grouper(error.timestampDate);
+                acc[key] = (acc[key] || 0) + 1;
+                return acc;
+            }, {});
+            
+            return Object.entries(grouped)
+                .map(([name, count]) => ({ name, 'Počet chyb': count }))
+                // Třídění pro 'week' podle dnů v týdnu
+                .sort((a, b) => {
+                    if (period === 'week') {
+                        const days = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
+                        return days.indexOf(a.name) - days.indexOf(b.name);
+                    }
+                    return 0;
+                });
+        };
+
+        return {
+            day: aggregateBy(daily, 'day'),
+            week: aggregateBy(weekly, 'week'),
+            month: aggregateBy(monthly, 'month'),
+        };
     };
 
     return {
-        // Původní data
         detailedErrors: data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)),
         chartsData: {
             errorsByPosition: aggregateMetric(errorsForCharts, 'position', 'Počet chyb'),
@@ -175,8 +184,6 @@ export const processArrayForDisplay = (data) => {
             errorsByType: aggregateMetric(errorsForCharts, 'description', 'Počet chyb'),
             quantityDifferenceByMaterial: aggregateQuantityDifference(errorsForCharts),
         },
-        // NOVÁ DATA
-        riskAnalysis: performRiskAnalysis(errorsForCharts),
         timeSeriesData: processTimeSeries(errorsForCharts),
     };
 };
