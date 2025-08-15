@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { Card, CardContent } from '../ui/Card';
 import { ListChecks, MapPin, Package, GitCommitVertical } from 'lucide-react';
+import { useUI } from '@/hooks/useUI';
 
 const formatErrorTypeForDisplay = (description) => {
     if (!description) return "Neznámý typ";
@@ -41,11 +42,12 @@ const CustomTooltip = ({ active, payload, label }) => {
     return null;
 };
 
-const ErrorMonitorCharts = ({ chartsData }) => {
+const ErrorMonitorCharts = ({ chartsData, onBarClick }) => {
+    const { t } = useUI();
     const errorsByTypeData = chartsData?.errorsByType.map(e => ({
         ...e,
         name: formatErrorTypeForDisplay(e.name),
-        value: e['Počet chyb'] // recharts očekává 'value' pro PieChart
+        value: e['Počet chyb']
     })).slice(0, 6) || [];
 
     return (
@@ -53,21 +55,17 @@ const ErrorMonitorCharts = ({ chartsData }) => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                 <Card>
                     <CardContent className="pt-6">
-                        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><ListChecks className="w-5 h-5" />TOP 6 Typů Chyb</h3>
+                        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><ListChecks className="w-5 h-5" />{t.top10ErrorsByType || "TOP 6 Typů Chyb"}</h3>
                         <ResponsiveContainer width="100%" height={320}>
                             <PieChart>
-                                <Pie
-                                    data={errorsByTypeData}
-                                    cx="50%"
-                                    cy="50%"
-                                    labelLine={false}
-                                    outerRadius={100}
-                                    fill="#8884d8"
-                                    dataKey="value"
-                                    nameKey="name"
-                                >
+                                <Pie data={errorsByTypeData} cx="50%" cy="50%" labelLine={false} outerRadius={100} fill="#8884d8" dataKey="value" nameKey="name">
                                     {errorsByTypeData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        <Cell 
+                                            key={`cell-${index}`} 
+                                            fill={COLORS[index % COLORS.length]} 
+                                            onClick={() => onBarClick({ filterKey: 'description', value: entry.name })}
+                                            style={{ cursor: 'pointer' }}
+                                        />
                                     ))}
                                 </Pie>
                                 <Tooltip contentStyle={{ backgroundColor: '#1F2937' }} />
@@ -78,18 +76,14 @@ const ErrorMonitorCharts = ({ chartsData }) => {
                 </Card>
                 <Card>
                     <CardContent className="pt-6">
-                       <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><MapPin className="w-5 h-5" />TOP 10 Pozic s nejvíce chybami</h3>
+                       <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><MapPin className="w-5 h-5" />{t.top10ErrorsByPosition || "TOP 10 Pozic s nejvíce chybami"}</h3>
                         <ResponsiveContainer width="100%" height={350}>
-                            <BarChart
-                                data={chartsData.errorsByPosition.slice(0, 10)}
-                                layout="vertical"
-                                margin={{ top: 5, right: 20, left: 100, bottom: 5 }}
-                            >
+                            <BarChart data={chartsData.errorsByPosition.slice(0, 10)} layout="vertical" margin={{ top: 5, right: 20, left: 100, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
                                 <XAxis type="number" stroke="#9CA3AF" tick={{ fill: "#D1D5DB" }} allowDecimals={false} />
                                 <YAxis type="category" dataKey="name" stroke="#9CA3AF" tick={{ fill: "#D1D5DB", fontSize: 12 }} width={120} />
                                 <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(107, 114, 128, 0.2)' }} />
-                                <Bar dataKey="Počet chyb" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                                <Bar dataKey="Počet chyb" fill="#3b82f6" radius={[0, 4, 4, 0]} onClick={(data) => onBarClick({ filterKey: 'error_location', value: data.name })} style={{ cursor: 'pointer' }} />
                             </BarChart>
                         </ResponsiveContainer>
                     </CardContent>
@@ -98,36 +92,28 @@ const ErrorMonitorCharts = ({ chartsData }) => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                 <Card>
                     <CardContent className="pt-6">
-                        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><Package className="w-5 h-5" />TOP 10 Materiálů s nejvíce chybami</h3>
+                        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><Package className="w-5 h-5" />{t.top10ErrorsByMaterial || "TOP 10 Materiálů s nejvíce chybami"}</h3>
                         <ResponsiveContainer width="100%" height={350}>
-                            <BarChart
-                                data={chartsData.errorsByMaterial.slice(0, 10)}
-                                layout="vertical"
-                                margin={{ top: 5, right: 20, left: 100, bottom: 5 }}
-                            >
+                            <BarChart data={chartsData.errorsByMaterial.slice(0, 10)} layout="vertical" margin={{ top: 5, right: 20, left: 100, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
                                 <XAxis type="number" stroke="#9CA3AF" tick={{ fill: "#D1D5DB" }} allowDecimals={false} />
                                 <YAxis type="category" dataKey="name" stroke="#9CA3AF" tick={{ fill: "#D1D5DB", fontSize: 12 }} width={120} />
                                 <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(107, 114, 128, 0.2)' }} />
-                                <Bar dataKey="Počet chyb" fill="#16a34a" radius={[0, 4, 4, 0]} />
+                                <Bar dataKey="Počet chyb" fill="#16a34a" radius={[0, 4, 4, 0]} onClick={(data) => onBarClick({ filterKey: 'material', value: data.name })} style={{ cursor: 'pointer' }} />
                             </BarChart>
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="pt-6">
-                        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><GitCommitVertical className="w-5 h-5" />TOP 10 Materiálů s největším rozdílem</h3>
+                        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><GitCommitVertical className="w-5 h-5" />{t.top10UsersByErrorCount || "TOP 10 Uživatelů podle počtu chyb"}</h3>
                         <ResponsiveContainer width="100%" height={350}>
-                            <BarChart
-                                data={chartsData.quantityDifferenceByMaterial.slice(0, 10)}
-                                layout="vertical"
-                                margin={{ top: 5, right: 20, left: 100, bottom: 5 }}
-                            >
+                            <BarChart data={chartsData.errorsByUser.slice(0, 10)} layout="vertical" margin={{ top: 5, right: 20, left: 100, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
                                 <XAxis type="number" stroke="#9CA3AF" tick={{ fill: "#D1D5DB" }} allowDecimals={false} />
                                 <YAxis type="category" dataKey="name" stroke="#9CA3AF" tick={{ fill: "#D1D5DB", fontSize: 12 }} width={120} />
                                 <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(107, 114, 128, 0.2)' }} />
-                                <Bar dataKey="Absolutní rozdíl" fill="#f97316" radius={[0, 4, 4, 0]} />
+                                <Bar dataKey="Počet chyb" fill="#f97316" radius={[0, 4, 4, 0]} onClick={(data) => onBarClick({ filterKey: 'user', value: data.name })} style={{ cursor: 'pointer' }} />
                             </BarChart>
                         </ResponsiveContainer>
                     </CardContent>

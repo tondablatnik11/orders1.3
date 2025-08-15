@@ -90,3 +90,17 @@ export const exportTicketsToXLSX = (tickets, allUsers, t) => {
     }));
     exportToXLSX(formattedData, t.ticketsTab, t);
 };
+
+export const exportErrorsToXLSX = (errors, startDate, endDate, t) => {
+    const formattedData = errors.map(error => ({
+        [t.timestamp]: new Date(error.timestamp).toLocaleString('cs-CZ'),
+        [t.errorType]: error.description,
+        [t.position]: error.error_location,
+        [t.material]: error.material,
+        [t.order]: error.order_refence,
+        [t.user]: error.user,
+        [t.difference]: error.diff_qty,
+    }));
+    const fileName = `${t.errorMonitor}_${startDate}_${endDate}`;
+    exportToXLSX(formattedData, fileName, t);
+};

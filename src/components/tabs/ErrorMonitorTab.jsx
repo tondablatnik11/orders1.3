@@ -3,28 +3,33 @@
 import React, { useRef, useState, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useData } from '@/hooks/useData';
+import { useUI } from '@/hooks/useUI';
 import { Card, Title, Button, Text, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell } from '@tremor/react';
-import { RefreshCw, UploadCloud, PackageX, List, Calendar } from 'lucide-react';
+import { RefreshCw, UploadCloud, PackageX, List, Calendar, FileDown } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { exportErrorsToXLSX } from '@/lib/exportUtils';
 import ErrorDetailModal from '../modals/ErrorDetailModal';
-import MaterialErrorsModal from '../modals/MaterialErrorsModal'; // Import nového modálu
+import ErrorListModal from '../modals/ErrorListModal';
+import MaterialErrorsModal from '../modals/MaterialErrorsModal';
+import ErrorExportModal from '../modals/ErrorExportModal';
+import toast from 'react-hot-toast';
 
 const ErrorMonitorCharts = dynamic(() => import('../charts/ErrorMonitorCharts'), {
     ssr: false,
-    loading: () => <div className="grid grid-cols-1 lg:grid-cols-2 gap-6"><div className="h-96 bg-slate-800 rounded-lg animate-pulse"></div><div className="h-96 bg-slate-800 rounded-lg animate-pulse"></div></div>
+    loading: () => <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6"><div className="h-96 bg-slate-800 rounded-lg animate-pulse"></div><div className="h-96 bg-slate-800 rounded-lg animate-pulse"></div></div>
 });
 
-const ErrorsOverTimeChart = ({ data, timeRange, setTimeRange }) => {
+const ErrorsOverTimeChart = ({ data, timeRange, setTimeRange, t }) => {
     const chartData = data[timeRange] || [];
     
     return (
         <Card>
              <div className="flex justify-between items-center">
-                <Title className="flex items-center gap-2"><Calendar className="w-5 h-5" />Chybovost</Title>
+                <Title className="flex items-center gap-2"><Calendar className="w-5 h-5" />{t.errorsOverTime || "Chybovost v čase"}</Title>
                 <div className="flex items-center gap-1 bg-slate-700/50 p-1 rounded-md">
-                    <button onClick={() => setTimeRange('day')} className={`px-2 py-1 text-xs sm:text-sm rounded ${timeRange === 'day' ? 'bg-sky-600' : 'hover:bg-slate-600'}`}>Den</button>
-                    <button onClick={() => setTimeRange('week')} className={`px-2 py-1 text-xs sm:text-sm rounded ${timeRange === 'week' ? 'bg-sky-600' : 'hover:bg-slate-600'}`}>Týden</button>
-                    <button onClick={() => setTimeRange('month')} className={`px-2 py-1 text-xs sm:text-sm rounded ${timeRange === 'month' ? 'bg-sky-600' : 'hover:bg-slate-600'}`}>Měsíc</button>
+                    <button onClick={() => setTimeRange('day')} className={`px-2 py-1 text-xs sm:text-sm rounded ${timeRange === 'day' ? 'bg-sky-600' : 'hover:bg-slate-600'}`}>{t.day || "Den"}</button>
+                    <button onClick={() => setTimeRange('week')} className={`px-2 py-1 text-xs sm:text-sm rounded ${timeRange === 'week' ? 'bg-sky-600' : 'hover:bg-slate-600'}`}>{t.week || "Týden"}</button>
+                    <button onClick={() => setTimeRange('month')} className={`px-2 py-1 text-xs sm:text-sm rounded ${timeRange === 'month' ? 'bg-sky-600' : 'hover:bg-slate-600'}`}>{t.month || "Měsíc"}</button>
                 </div>
             </div>
              <ResponsiveContainer width="100%" height={300} className="mt-4">
@@ -34,7 +39,7 @@ const ErrorsOverTimeChart = ({ data, timeRange, setTimeRange }) => {
                     <YAxis stroke="#9CA3AF" allowDecimals={false} />
                     <Tooltip contentStyle={{ backgroundColor: '#1F2937' }}/>
                     <Legend />
-                    <Line type="monotone" dataKey="Počet chyb" stroke="#ef4444" strokeWidth={2} name="Počet chyb" />
+                    <Line type="monotone" dataKey="Počet chyb" stroke="#ef4444" strokeWidth={2} name={t.errorCount || "Počet chyb"} />
                 </LineChart>
             </ResponsiveContainer>
         </Card>
@@ -43,19 +48,26 @@ const ErrorsOverTimeChart = ({ data, timeRange, setTimeRange }) => {
 
 export default function ErrorMonitorTab() {
     const { errorData, isLoadingErrorData, refetchData, handleErrorLogUpload, allOrdersData, setSelectedOrderDetails } = useData();
+    const { t } = useUI();
     const fileInputRef = useRef(null);
     const [filters, setFilters] = useState({ description: '', material: '', error_location: '', order_refence: '', user: '' });
     const [selectedErrorForDetail, setSelectedErrorForDetail] = useState(null);
-    const [selectedMaterial, setSelectedMaterial] = useState(null); // <-- Nový stav pro materiál modál
+    const [selectedMaterial, setSelectedMaterial] = useState(null);
+    const [modalData, setModalData] = useState({ isOpen: false, title: '', errors: [] });
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [timeRange, setTimeRange] = useState('week');
 
     const handleBarClick = useCallback((payload) => {
-        if (!payload) return;
-        setFilters(prev => ({
-            ...{ description: '', material: '', error_location: '', order_refence: '', user: '' },
-            [payload.filterKey]: payload.value
-        }));
-    }, []);
+        if (!payload || !errorData?.detailedErrors) return;
+        const { filterKey, value } = payload;
+        
+        const filtered = errorData.detailedErrors.filter(e => String(e[filterKey] || '') === String(value));
+        setModalData({
+            isOpen: true,
+            title: `${t.errorsFor || "Chyby pro"}: ${value}`,
+            errors: filtered
+        });
+    }, [errorData, t]);
 
     const handleOrderClick = useCallback((e, deliveryNo) => {
         e.stopPropagation();
@@ -81,7 +93,11 @@ export default function ErrorMonitorTab() {
             });
         });
     }, [errorData, filters]);
-    
+
+    const handleExport = (errorsToExport, startDate, endDate) => {
+        exportErrorsToXLSX(errorsToExport, startDate, endDate, t);
+    };
+
     const formatErrorTypeForDisplay = (description) => {
         if (!description) return "Neznámý typ";
         const desc = description.toLowerCase();
@@ -96,10 +112,11 @@ export default function ErrorMonitorTab() {
     return (
         <div className="p-0 md:p-4 space-y-6">
             <div className="flex flex-wrap justify-between items-center gap-4">
-                <h1 className="text-2xl font-bold text-gray-100 tracking-tight">Analýza Chyb Skenování</h1>
+                <h1 className="text-2xl font-bold text-gray-100 tracking-tight">{t.scanErrorAnalysis || "Analýza Chyb Skenování"}</h1>
                 <div className='flex items-center gap-2'>
-                    <Button onClick={() => fileInputRef.current?.click()} icon={UploadCloud} variant="primary">Nahrát Report</Button>
-                    <Button onClick={refetchData} loading={isLoadingErrorData} icon={RefreshCw} variant="secondary">Aktualizovat</Button>
+                    <Button onClick={() => setIsExportModalOpen(true)} icon={FileDown} variant="secondary">{t.export || "Exportovat"}</Button>
+                    <Button onClick={() => fileInputRef.current?.click()} icon={UploadCloud} variant="primary">{t.uploadErrorLog || "Nahrát log chyb"}</Button>
+                    <Button onClick={refetchData} loading={isLoadingErrorData} icon={RefreshCw} variant="secondary">{t.update || "Aktualizovat"}</Button>
                     <input type="file" ref={fileInputRef} onChange={(e) => handleErrorLogUpload(e.target.files[0])} className="hidden" accept=".xlsx, .xls" />
                 </div>
             </div>
@@ -108,31 +125,29 @@ export default function ErrorMonitorTab() {
                 <div className="flex justify-center items-center h-96"><RefreshCw className="w-10 h-10 text-gray-400 animate-spin" /></div>
             ) : errorData && errorData.detailedErrors.length > 0 ? (
                 <>
-                    <ErrorsOverTimeChart data={errorData.timeSeriesData} timeRange={timeRange} setTimeRange={setTimeRange} />
-                    
+                    <ErrorsOverTimeChart data={errorData.timeSeriesData} timeRange={timeRange} setTimeRange={setTimeRange} t={t} />
                     <ErrorMonitorCharts chartsData={errorData.chartsData} onBarClick={handleBarClick} />
-                    
                     <Card className="mt-6">
-                        <Title className="flex items-center gap-2"><List className="w-5 h-5" />Detailní Seznam Chyb</Title>
+                        <Title className="flex items-center gap-2"><List className="w-5 h-5" />{t.detailedErrorList || "Detailní Seznam Chyb"}</Title>
                         
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 my-4 p-4 border border-slate-700 rounded-lg">
-                             <input name="description" value={filters.description} onChange={(e) => setFilters(prev => ({...prev, description: e.target.value}))} placeholder="Filtrovat typ chyby..." className="bg-slate-800 p-2 rounded text-sm w-full" />
-                            <input name="material" value={filters.material} onChange={(e) => setFilters(prev => ({...prev, material: e.target.value}))} placeholder="Filtrovat materiál..." className="bg-slate-800 p-2 rounded text-sm w-full" />
-                            <input name="error_location" value={filters.error_location} onChange={(e) => setFilters(prev => ({...prev, error_location: e.target.value}))} placeholder="Filtrovat pozici..." className="bg-slate-800 p-2 rounded text-sm w-full" />
-                            <input name="order_refence" value={filters.order_refence} onChange={(e) => setFilters(prev => ({...prev, order_refence: e.target.value}))} placeholder="Filtrovat zakázku..." className="bg-slate-800 p-2 rounded text-sm w-full" />
-                            <input name="user" value={filters.user} onChange={(e) => setFilters(prev => ({...prev, user: e.target.value}))} placeholder="Filtrovat uživatele..." className="bg-slate-800 p-2 rounded text-sm w-full" />
+                            <input name="description" value={filters.description} onChange={(e) => setFilters(prev => ({...prev, description: e.target.value}))} placeholder={t.filterErrorType || "Filtrovat typ chyby..."} className="bg-slate-800 p-2 rounded text-sm w-full" />
+                            <input name="material" value={filters.material} onChange={(e) => setFilters(prev => ({...prev, material: e.target.value}))} placeholder={t.filterMaterial || "Filtrovat materiál..."} className="bg-slate-800 p-2 rounded text-sm w-full" />
+                            <input name="error_location" value={filters.error_location} onChange={(e) => setFilters(prev => ({...prev, error_location: e.target.value}))} placeholder={t.filterPosition || "Filtrovat pozici..."} className="bg-slate-800 p-2 rounded text-sm w-full" />
+                            <input name="order_refence" value={filters.order_refence} onChange={(e) => setFilters(prev => ({...prev, order_refence: e.target.value}))} placeholder={t.filterOrder || "Filtrovat zakázku..."} className="bg-slate-800 p-2 rounded text-sm w-full" />
+                            <input name="user" value={filters.user} onChange={(e) => setFilters(prev => ({...prev, user: e.target.value}))} placeholder={t.filterUser || "Filtrovat uživatele..."} className="bg-slate-800 p-2 rounded text-sm w-full" />
                         </div>
                         
                         <div className="overflow-x-auto">
                             <Table className="mt-5 min-w-full">
                                 <TableHead>
                                     <TableRow>
-                                        <TableHeaderCell>Timestamp</TableHeaderCell>
-                                        <TableHeaderCell>Typ chyby</TableHeaderCell>
-                                        <TableHeaderCell>Pozice</TableHeaderCell>
-                                        <TableHeaderCell>Materiál</TableHeaderCell>
-                                        <TableHeaderCell>Zakázka</TableHeaderCell>
-                                        <TableHeaderCell>Uživatel</TableHeaderCell>
+                                        <TableHeaderCell>{t.timestamp || "Timestamp"}</TableHeaderCell>
+                                        <TableHeaderCell>{t.errorType || "Typ chyby"}</TableHeaderCell>
+                                        <TableHeaderCell>{t.position || "Pozice"}</TableHeaderCell>
+                                        <TableHeaderCell>{t.material || "Materiál"}</TableHeaderCell>
+                                        <TableHeaderCell>{t.order || "Zakázka"}</TableHeaderCell>
+                                        <TableHeaderCell>{t.user || "Uživatel"}</TableHeaderCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -156,27 +171,26 @@ export default function ErrorMonitorTab() {
                     </Card>
                 </>
             ) : (
-                <div className="flex items-center justify-center h-[60vh] text-center">
+                 <div className="flex items-center justify-center h-[60vh] text-center">
                     <div className="space-y-2">
                         <PackageX className="mx-auto h-12 w-12 text-gray-500" />
-                        <h3 className="text-lg font-medium text-gray-200">Žádná data k zobrazení</h3>
-                        <Text className="text-gray-400">Zkuste nahrát report chyb pro zobrazení analýzy.</Text>
+                        <h3 className="text-lg font-medium text-gray-200">{t.noDataToDisplay || "Žádná data k zobrazení"}</h3>
+                        <Text className="text-gray-400">{t.tryUploadingReport || "Zkuste nahrát report chyb pro zobrazení analýzy."}</Text>
                     </div>
                 </div>
             )}
             
             {selectedErrorForDetail && (
-                <ErrorDetailModal
-                    error={selectedErrorForDetail}
-                    onClose={() => setSelectedErrorForDetail(null)}
-                />
+                <ErrorDetailModal error={selectedErrorForDetail} onClose={() => setSelectedErrorForDetail(null)} />
             )}
             {selectedMaterial && (
-                <MaterialErrorsModal
-                    material={selectedMaterial}
-                    allErrors={errorData.detailedErrors}
-                    onClose={() => setSelectedMaterial(null)}
-                />
+                <MaterialErrorsModal material={selectedMaterial} allErrors={errorData.detailedErrors} onClose={() => setSelectedMaterial(null)} />
+            )}
+            {modalData.isOpen && (
+                <ErrorListModal title={modalData.title} errors={modalData.errors} onClose={() => setModalData({ isOpen: false, title: '', errors: [] })} />
+            )}
+            {isExportModalOpen && (
+                <ErrorExportModal allErrors={errorData.detailedErrors} onExport={handleExport} onClose={() => setIsExportModalOpen(false)} />
             )}
         </div>
     );
