@@ -1,5 +1,5 @@
 // src/lib/errorMonitorProcessor.js
-import { format, startOfDay, subDays, startOfWeek, startOfMonth, endOfDay } from 'date-fns';
+import { format, startOfDay, subDays, endOfDay, parse } from 'date-fns';
 import { cs } from 'date-fns/locale';
 
 const getCellValue = (row, keys) => {
@@ -125,7 +125,7 @@ export const processArrayForDisplay = (data) => {
             .sort((a, b) => b['Absolutní rozdíl'] - a['Absolutní rozdíl']);
     };
     
-    // NOVÉ: Zpracování dat pro časovou osu s různými intervaly
+    // Zpracování dat pro časovou osu s různými intervaly
     const processTimeSeries = (dataset) => {
         const now = new Date();
         const today = endOfDay(now);
@@ -138,15 +138,12 @@ export const processArrayForDisplay = (data) => {
         const monthly = dataset.filter(d => d.timestampDate >= lastMonth);
 
         const aggregateBy = (data, period) => {
-            let formatStr, grouper;
+            let grouper;
             if (period === 'day') {
-                formatStr = 'HH:00';
-                grouper = (d) => format(d, 'HH');
+                grouper = (d) => format(d, 'HH:00');
             } else if (period === 'week') {
-                formatStr = 'eeeeee';
                 grouper = (d) => format(d, 'eeeeee', { locale: cs });
             } else { // month
-                formatStr = 'dd.MM';
                 grouper = (d) => format(d, 'dd.MM');
             }
 
@@ -156,16 +153,24 @@ export const processArrayForDisplay = (data) => {
                 return acc;
             }, {});
             
-            return Object.entries(grouped)
-                .map(([name, count]) => ({ name, 'Počet chyb': count }))
-                // Třídění pro 'week' podle dnů v týdnu
-                .sort((a, b) => {
-                    if (period === 'week') {
-                        const days = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
-                        return days.indexOf(a.name) - days.indexOf(b.name);
-                    }
-                    return 0;
+            const mapped = Object.entries(grouped).map(([name, count]) => ({ name, 'Počet chyb': count }));
+
+            // ===== ZDE JE KLÍČOVÁ OPRAVA PRO ŘAZENÍ =====
+            if (period === 'week') {
+                const daysOrder = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
+                return mapped.sort((a, b) => daysOrder.indexOf(a.name) - daysOrder.indexOf(b.name));
+            }
+            if (period === 'month') {
+                return mapped.sort((a, b) => {
+                    const dateA = parse(a.name, 'dd.MM', new Date());
+                    const dateB = parse(b.name, 'dd.MM', new Date());
+                    return dateA - dateB;
                 });
+            }
+            if (period === 'day') {
+                 return mapped.sort((a, b) => parseInt(a.name) - parseInt(b.name));
+            }
+            return mapped;
         };
 
         return {

@@ -6,15 +6,14 @@ import { useData } from '@/hooks/useData';
 import { Card, Title, Button, Text, Table, TableHead, TableRow, TableHeaderCell, TableBody, TableCell } from '@tremor/react';
 import { RefreshCw, UploadCloud, PackageX, List, Calendar } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import ErrorDetailModal from '../modals/ErrorDetailModal'; // Import nového modálu
+import ErrorDetailModal from '../modals/ErrorDetailModal';
+import MaterialErrorsModal from '../modals/MaterialErrorsModal'; // Import nového modálu
 
-// Dynamický import původních grafů
 const ErrorMonitorCharts = dynamic(() => import('../charts/ErrorMonitorCharts'), {
     ssr: false,
     loading: () => <div className="grid grid-cols-1 lg:grid-cols-2 gap-6"><div className="h-96 bg-slate-800 rounded-lg animate-pulse"></div><div className="h-96 bg-slate-800 rounded-lg animate-pulse"></div></div>
 });
 
-// Komponenta pro nový graf chyb v čase
 const ErrorsOverTimeChart = ({ data, timeRange, setTimeRange }) => {
     const chartData = data[timeRange] || [];
     
@@ -47,24 +46,19 @@ export default function ErrorMonitorTab() {
     const fileInputRef = useRef(null);
     const [filters, setFilters] = useState({ description: '', material: '', error_location: '', order_refence: '', user: '' });
     const [selectedErrorForDetail, setSelectedErrorForDetail] = useState(null);
+    const [selectedMaterial, setSelectedMaterial] = useState(null); // <-- Nový stav pro materiál modál
     const [timeRange, setTimeRange] = useState('week');
-
-    const handleFilterChange = (e) => {
-        const { name, value } = e.target;
-        setFilters(prev => ({ ...prev, [name]: value }));
-    };
 
     const handleBarClick = useCallback((payload) => {
         if (!payload) return;
-        // Příklad payloadu: { filterKey: 'description', value: 'Prázdná lokace' }
         setFilters(prev => ({
-            ...{ description: '', material: '', error_location: '', order_refence: '', user: '' }, // Reset ostatních filtrů
+            ...{ description: '', material: '', error_location: '', order_refence: '', user: '' },
             [payload.filterKey]: payload.value
         }));
     }, []);
 
     const handleOrderClick = useCallback((e, deliveryNo) => {
-        e.stopPropagation(); // Zabráníme spuštění on-clicku na řádku
+        e.stopPropagation();
         const orderDetails = allOrdersData.find(order => String(order['Delivery No']) === String(deliveryNo));
         if (orderDetails) {
             setSelectedOrderDetails(orderDetails);
@@ -72,6 +66,11 @@ export default function ErrorMonitorTab() {
             toast.error(`Zakázka ${deliveryNo} nebyla nalezena.`);
         }
     }, [allOrdersData, setSelectedOrderDetails]);
+
+    const handleMaterialClick = useCallback((e, material) => {
+        e.stopPropagation();
+        setSelectedMaterial(material);
+    }, []);
 
     const filteredErrors = useMemo(() => {
         if (!errorData?.detailedErrors) return [];
@@ -82,7 +81,7 @@ export default function ErrorMonitorTab() {
             });
         });
     }, [errorData, filters]);
-
+    
     const formatErrorTypeForDisplay = (description) => {
         if (!description) return "Neznámý typ";
         const desc = description.toLowerCase();
@@ -117,11 +116,11 @@ export default function ErrorMonitorTab() {
                         <Title className="flex items-center gap-2"><List className="w-5 h-5" />Detailní Seznam Chyb</Title>
                         
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 my-4 p-4 border border-slate-700 rounded-lg">
-                            <input name="description" value={filters.description} onChange={handleFilterChange} placeholder="Filtrovat typ chyby..." className="bg-slate-800 p-2 rounded text-sm w-full" />
-                            <input name="material" value={filters.material} onChange={handleFilterChange} placeholder="Filtrovat materiál..." className="bg-slate-800 p-2 rounded text-sm w-full" />
-                            <input name="error_location" value={filters.error_location} onChange={handleFilterChange} placeholder="Filtrovat pozici..." className="bg-slate-800 p-2 rounded text-sm w-full" />
-                            <input name="order_refence" value={filters.order_refence} onChange={handleFilterChange} placeholder="Filtrovat zakázku..." className="bg-slate-800 p-2 rounded text-sm w-full" />
-                            <input name="user" value={filters.user} onChange={handleFilterChange} placeholder="Filtrovat uživatele..." className="bg-slate-800 p-2 rounded text-sm w-full" />
+                             <input name="description" value={filters.description} onChange={(e) => setFilters(prev => ({...prev, description: e.target.value}))} placeholder="Filtrovat typ chyby..." className="bg-slate-800 p-2 rounded text-sm w-full" />
+                            <input name="material" value={filters.material} onChange={(e) => setFilters(prev => ({...prev, material: e.target.value}))} placeholder="Filtrovat materiál..." className="bg-slate-800 p-2 rounded text-sm w-full" />
+                            <input name="error_location" value={filters.error_location} onChange={(e) => setFilters(prev => ({...prev, error_location: e.target.value}))} placeholder="Filtrovat pozici..." className="bg-slate-800 p-2 rounded text-sm w-full" />
+                            <input name="order_refence" value={filters.order_refence} onChange={(e) => setFilters(prev => ({...prev, order_refence: e.target.value}))} placeholder="Filtrovat zakázku..." className="bg-slate-800 p-2 rounded text-sm w-full" />
+                            <input name="user" value={filters.user} onChange={(e) => setFilters(prev => ({...prev, user: e.target.value}))} placeholder="Filtrovat uživatele..." className="bg-slate-800 p-2 rounded text-sm w-full" />
                         </div>
                         
                         <div className="overflow-x-auto">
@@ -131,6 +130,7 @@ export default function ErrorMonitorTab() {
                                         <TableHeaderCell>Timestamp</TableHeaderCell>
                                         <TableHeaderCell>Typ chyby</TableHeaderCell>
                                         <TableHeaderCell>Pozice</TableHeaderCell>
+                                        <TableHeaderCell>Materiál</TableHeaderCell>
                                         <TableHeaderCell>Zakázka</TableHeaderCell>
                                         <TableHeaderCell>Uživatel</TableHeaderCell>
                                     </TableRow>
@@ -141,6 +141,9 @@ export default function ErrorMonitorTab() {
                                             <TableCell>{new Date(error.timestamp).toLocaleString('cs-CZ')}</TableCell>
                                             <TableCell><Text>{formatErrorTypeForDisplay(error.description)}</Text></TableCell>
                                             <TableCell>{error.error_location}</TableCell>
+                                            <TableCell onClick={(e) => handleMaterialClick(e, error.material)} className="text-sky-400 hover:underline">
+                                                {error.material}
+                                            </TableCell>
                                             <TableCell onClick={(e) => handleOrderClick(e, error.order_refence)} className="text-sky-400 hover:underline">
                                                 {error.order_refence}
                                             </TableCell>
@@ -166,6 +169,13 @@ export default function ErrorMonitorTab() {
                 <ErrorDetailModal
                     error={selectedErrorForDetail}
                     onClose={() => setSelectedErrorForDetail(null)}
+                />
+            )}
+            {selectedMaterial && (
+                <MaterialErrorsModal
+                    material={selectedMaterial}
+                    allErrors={errorData.detailedErrors}
+                    onClose={() => setSelectedMaterial(null)}
                 />
             )}
         </div>
