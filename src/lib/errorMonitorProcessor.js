@@ -1,4 +1,6 @@
 // src/lib/errorMonitorProcessor.js
+import { format, startOfDay, subDays } from 'date-fns';
+
 const getCellValue = (row, keys) => {
     for (const key of keys) {
         if (row[key] !== undefined && row[key] !== null) {
@@ -33,74 +35,82 @@ export const processErrorDataForSupabase = (file) => {
             
             if (timeValue) {
                 let hours = 0, minutes = 0, seconds = 0;
-                if (timeValue instanceof Date && !isNaN(timeValue.getTime())) {
+                if (timeValue instanceof Date) {
                     hours = timeValue.getUTCHours();
                     minutes = timeValue.getUTCMinutes();
                     seconds = timeValue.getUTCSeconds();
-                } else if (typeof timeValue === 'number') {
-                    const fraction = timeValue > 1 ? timeValue - Math.floor(timeValue) : timeValue;
-                    const totalSeconds = Math.round(fraction * 86400);
+                } else if (typeof timeValue === 'number') { // Excel time is a float from 0 to 1
+                    const totalSeconds = Math.round(timeValue * 86400);
                     hours = Math.floor(totalSeconds / 3600);
                     minutes = Math.floor((totalSeconds % 3600) / 60);
                     seconds = totalSeconds % 60;
-                } else if (typeof timeValue === 'string') {
-                    const timeParts = timeValue.split(':');
-                    hours = parseInt(timeParts[0], 10) || 0;
-                    minutes = parseInt(timeParts[1], 10) || 0;
-                    seconds = parseInt(timeParts[2], 10) || 0;
                 }
-                datePart.setHours(hours, minutes, seconds);
+                datePart.setUTCHours(hours, minutes, seconds);
             }
             
-            const storageBin = String(getCellValue(row, ['Storage Bin', 'storage bin']) || 'N/A').trim();
-            const uniqueKey = `${datePart.toISOString()}_${getCellValue(row, ['Material'])}_${getCellValue(row, ['Created By', 'created by'])}_${storageBin}`;
+            const timestamp = datePart.toISOString();
+            const user = String(getCellValue(row, ['Created By', 'created by']) || 'N/A').trim();
+            const material = String(getCellValue(row, ['Material', 'material']) || 'N/A').trim();
+            const order_refence = String(getCellValue(row, ['Dest.Storage Bin', 'dest.storage bin']) || 'N/A').trim();
+            const error_location = String(getCellValue(row, ['Storage Bin', 'storage bin']) || 'N/A').trim();
+            const unique_key = `${timestamp}-${user}-${material}-${order_refence}-${error_location}`;
 
             return {
-              unique_key: uniqueKey,
-              description: String(getCellValue(row, ['Text', 'Description']) || 'Neznámá chyba').trim(),
-              material: String(getCellValue(row, ['Material']) || 'N/A').trim(),
-              order_refence: String(getCellValue(row, ['Dest.Storage Bin']) || 'N/A').trim(),
-              user: String(getCellValue(row, ['Created By', 'created by']) || 'N/A').trim(),
-              timestamp: datePart.toISOString(),
-              error_location: storageBin,
-              target_qty: Number(getCellValue(row, ['Source target qty']) || 0),
-              actual_qty: Number(getCellValue(row, ['Source actual qty.']) || 0),
-              diff_qty: Number(getCellValue(row, ['Source bin differ.']) || 0)
+                timestamp: timestamp,
+                description: `${String(row['Text'] || '').trim()} ${String(row['Text.1'] || '').trim()}`.trim() || 'N/A',
+                material: material,
+                error_location: error_location,
+                order_refence: order_refence,
+                user: user,
+                target_qty: Number(getCellValue(row, ['Source target qty', 'source target qty']) || 0),
+                actual_qty: Number(getCellValue(row, ['Source actual qty.', 'source actual qty.']) || 0),
+                diff_qty: Number(getCellValue(row, ['Source bin differ.', 'source bin differ.']) || 0),
+                unique_key: unique_key
             };
           } catch (e) {
-            console.error('Chyba při zpracování řádku:', row, e);
+            console.warn("Chyba při zpracování řádku:", row, e);
             return null;
           }
         }).filter(Boolean);
-
-        if (dataForSupabase.length === 0) {
-          throw new Error("V souboru nebyla nalezena žádná platná data.");
-        }
+        
         resolve(dataForSupabase);
       } catch (error) {
-        console.error('Chyba při zpracování souboru:', error);
-        reject(new Error(error.message || 'Nepodařilo se zpracovat soubor.'));
+        console.error("Chyba při parsování souboru:", error);
+        reject(error);
       }
     };
-    reader.onerror = () => reject(new Error('Chyba při čtení souboru.'));
+    reader.onerror = (error) => reject(error);
     reader.readAsBinaryString(file);
   });
 };
 
-export const processArrayForDisplay = (data) => {
-    if (!data || data.length === 0) return null;
 
-    const errorsForCharts = data.map(row => ({
-        position: row.error_location || row.position,
-        errorType: row.description || 'N/A',
-        material: row.material,
-        qtyDifference: Number(row.diff_qty || row.qty_difference) || 0,
+/**
+ * Hlavní funkce, která zpracovává surová data z databáze na formát pro UI
+ * @param {Array} data - Pole objektů s chybami ze Supabase
+ * @returns {Object} - Objekt obsahující zpracovaná data pro grafy, tabulky a nové analýzy
+ */
+export const processArrayForDisplay = (data) => {
+    if (!data || data.length === 0) {
+        return { detailedErrors: [], chartsData: {}, riskAnalysis: {}, timeSeriesData: {} };
+    }
+    
+    // Transformace a příprava dat
+    const errorsForCharts = data.map(e => ({
+        ...e,
+        position: String(e.error_location || 'Nezadáno').trim(),
+        material: String(e.material || 'Nezadáno').trim(),
+        user: String(e.user || 'Nezadáno').trim(),
+        description: e.description || 'Neznámý typ',
+        qtyDifference: Math.abs(Number(e.diff_qty) || 0),
+        date: startOfDay(new Date(e.timestamp)).toISOString().split('T')[0] // Normalizujeme datum
     }));
 
-    const aggregateMetric = (data, key, metricName) => {
-        const aggregation = data.reduce((acc, item) => {
-            const value = String(item[key] || 'Nezadáno').trim();
-            if (value === 'Nezadáno' || value === 'N/A' || value === '') return acc;
+    // Agregace pro stávající grafy (koláčové, sloupcové)
+    const aggregateMetric = (dataset, key, metricName) => {
+        const aggregation = dataset.reduce((acc, item) => {
+            const value = item[key];
+            if (!value || value === 'Nezadáno' || value === 'N/A' || value === '') return acc;
             acc[value] = (acc[value] || 0) + 1;
             return acc;
         }, {});
@@ -108,12 +118,10 @@ export const processArrayForDisplay = (data) => {
             .map(([name, value]) => ({ name, [metricName]: value }))
             .sort((a, b) => b[metricName] - a[metricName]);
     };
-    
-    const aggregateQuantityDifference = (data) => {
-        const aggregation = data.filter(e => e.qtyDifference !== 0).reduce((acc, e) => {
-            const material = String(e.material || 'Nezadáno').trim();
-            if (material === 'Nezadáno' || material === 'N/A' || material === '') return acc;
-            acc[material] = (acc[material] || 0) + Math.abs(e.qtyDifference);
+
+    const aggregateQuantityDifference = (dataset) => {
+        const aggregation = dataset.filter(e => e.qtyDifference > 0).reduce((acc, e) => {
+            acc[e.material] = (acc[e.material] || 0) + e.qtyDifference;
             return acc;
         }, {});
         return Object.entries(aggregation)
@@ -121,13 +129,54 @@ export const processArrayForDisplay = (data) => {
             .sort((a, b) => b['Absolutní rozdíl'] - a['Absolutní rozdíl']);
     };
     
+    // NOVÉ: Analýza pro identifikaci rizikových položek
+    const performRiskAnalysis = (dataset) => {
+        const topRiskyMaterials = aggregateMetric(dataset, 'material', 'Počet chyb').slice(0, 5);
+        const topRiskyOrders = aggregateMetric(dataset.filter(e => e.order_refence && e.order_refence !== 'N/A'), 'order_refence', 'Počet chyb').slice(0, 5);
+        return { topRiskyMaterials, topRiskyOrders };
+    };
+
+    // NOVÉ: Zpracování dat pro časovou osu a klouzavý průměr
+    const processTimeSeries = (dataset) => {
+        const errorsByDay = dataset.reduce((acc, error) => {
+            const day = error.date;
+            acc[day] = (acc[day] || 0) + 1;
+            return acc;
+        }, {});
+
+        const sortedDays = Object.entries(errorsByDay)
+            .map(([date, count]) => ({ date, count }))
+            .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        // Výpočet 30-denního klouzavého průměru
+        const withMovingAverage = sortedDays.map((entry, index, arr) => {
+            const thirtyDaysAgo = subDays(new Date(entry.date), 30);
+            const relevantData = arr.filter(d => new Date(d.date) >= thirtyDaysAgo && new Date(d.date) <= new Date(entry.date));
+            const total = relevantData.reduce((sum, d) => sum + d.count, 0);
+            const movingAverage = relevantData.length > 0 ? (total / relevantData.length) : 0;
+            return {
+                ...entry,
+                name: format(new Date(entry.date), 'dd.MM'),
+                'Počet chyb': entry.count,
+                '30-denní průměr': parseFloat(movingAverage.toFixed(2))
+            };
+        });
+
+        return withMovingAverage;
+    };
+
     return {
+        // Původní data
         detailedErrors: data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)),
         chartsData: {
             errorsByPosition: aggregateMetric(errorsForCharts, 'position', 'Počet chyb'),
             errorsByMaterial: aggregateMetric(errorsForCharts, 'material', 'Počet chyb'),
+            errorsByUser: aggregateMetric(errorsForCharts, 'user', 'Počet chyb'),
+            errorsByType: aggregateMetric(errorsForCharts, 'description', 'Počet chyb'),
             quantityDifferenceByMaterial: aggregateQuantityDifference(errorsForCharts),
-            errorsByType: aggregateMetric(errorsForCharts, 'errorType', 'Počet chyb'),
-        }
+        },
+        // NOVÁ DATA
+        riskAnalysis: performRiskAnalysis(errorsForCharts),
+        timeSeriesData: processTimeSeries(errorsForCharts),
     };
 };
