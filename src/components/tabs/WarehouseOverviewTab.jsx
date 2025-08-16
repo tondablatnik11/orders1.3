@@ -2,7 +2,7 @@
 "use client";
 import React, { useRef, useMemo, useState, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Text, Html } from '@react-three/drei';
+import { OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 
 // --- Konfigurace rozměrů ---
@@ -16,8 +16,6 @@ const COLUMN_WIDTH = 1.2;
 const ROW_DEPTH = 1.2;
 
 // --- Komponenty pro stavbu regálu ---
-
-// Oranžový nosník, na kterém leží paleta
 const HorizontalBeam = ({ position }) => (
     <mesh position={position}>
         <boxGeometry args={[COLUMN_WIDTH, BEAM_THICKNESS, BEAM_THICKNESS]} />
@@ -25,7 +23,6 @@ const HorizontalBeam = ({ position }) => (
     </mesh>
 );
 
-// Modrá vertikální stojina regálu
 const VerticalBeam = ({ position, height }) => (
     <mesh position={position}>
         <boxGeometry args={[BEAM_THICKNESS, height, BEAM_THICKNESS]} />
@@ -33,7 +30,6 @@ const VerticalBeam = ({ position, height }) => (
     </mesh>
 );
 
-// Paleta reprezentující obsazenou pozici
 const Pallet = ({ position, data, onClick, onPointerOver, onPointerOut, isFiltered }) => {
     const color = useMemo(() => {
         if (data.ageInDays > 180) return '#e11d48'; // Červená
@@ -55,17 +51,14 @@ const Pallet = ({ position, data, onClick, onPointerOver, onPointerOut, isFilter
     );
 };
 
-// Celá regálová buňka (stojiny, nosníky a případně paleta)
 const RackCell = ({ data, position, onClick, onPointerOver, onPointerOut, isFiltered }) => {
     const [x, y, z] = position;
 
     return (
         <group>
-            {/* Oranžové nosníky */}
             <HorizontalBeam position={[x, y - (LEVEL_HEIGHT / 2), z - (ROW_DEPTH / 2) + BEAM_THICKNESS]} />
             <HorizontalBeam position={[x, y - (LEVEL_HEIGHT / 2), z + (ROW_DEPTH / 2) - BEAM_THICKNESS]} />
             
-            {/* Paleta, pokud je pozice obsazená */}
             {data && (
                 <Pallet 
                     position={[x, y - (LEVEL_HEIGHT / 2) + (PALLET_HEIGHT / 2) + BEAM_THICKNESS, z]} 
@@ -80,12 +73,11 @@ const RackCell = ({ data, position, onClick, onPointerOver, onPointerOut, isFilt
     );
 };
 
-// Tooltip při najetí myší
 const Tooltip = ({ data, position }) => {
-    if (!data) return null;
+    if (!data || !position) return null;
     return (
         <Html position={position}>
-            <div className="bg-slate-800 text-white p-2 rounded-md border border-slate-600 text-xs w-48 shadow-lg">
+            <div className="bg-slate-800 text-white p-2 rounded-md border border-slate-600 text-xs w-48 shadow-lg pointer-events-none">
                 <p><strong>Pozice:</strong> {data['Storage Bin']}</p>
                 <p><strong>Materiál:</strong> {data.Material}</p>
                 <p><strong>Množství:</strong> {data['Available stock']}</p>
@@ -100,9 +92,10 @@ export default function Warehouse3DMap({ stockData, onBinClick }) {
     const [hoveredData, setHoveredData] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Generování kompletní mřížky skladu, včetně prázdných pozic
     const { grid, dimensions } = useMemo(() => {
-        if (!stockData || stockData.length === 0) return { grid: new Map(), dimensions: {} };
+        if (!stockData || stockData.length === 0) {
+            return { grid: new Map(), dimensions: { minRow: 1, maxRow: 1, minCol: 1, maxCol: 1, minLevel: 1, maxLevel: 1 } };
+        }
 
         const stockMap = new Map(stockData.map(item => [String(item['Storage Bin']), item]));
         const grid = new Map();
@@ -111,9 +104,14 @@ export default function Warehouse3DMap({ stockData, onBinClick }) {
 
         stockData.forEach(item => {
             const binId = String(item['Storage Bin']);
+            if (!binId || binId.length < 6) return; // Ochrana před neplatnými daty
+
             const row = parseInt(binId.substring(0, 2));
             const col = parseInt(binId.substring(2, 4));
             const level = parseInt(binId.substring(4, 6));
+
+            // KLÍČOVÁ OPRAVA: Přeskakujeme, pokud parsování selže a vrátí NaN
+            if (isNaN(row) || isNaN(col) || isNaN(level)) return;
 
             if (row < minRow) minRow = row;
             if (row > maxRow) maxRow = row;
@@ -122,15 +120,21 @@ export default function Warehouse3DMap({ stockData, onBinClick }) {
             if (level < minLevel) minLevel = level;
             if (level > maxLevel) maxLevel = level;
         });
+        
+        // Pokud se nepodařilo najít žádné platné pozice
+        if (maxRow === -Infinity) {
+            return { grid: new Map(), dimensions: { minRow: 1, maxRow: 1, minCol: 1, maxCol: 1, minLevel: 1, maxLevel: 1 } };
+        }
 
         for (let r = minRow; r <= maxRow; r++) {
             for (let c = minCol; c <= maxCol; c++) {
                 for (let l = minLevel; l <= maxLevel; l++) {
-                    const binId = `${String(r).padStart(2, '0')}${String(c).padStart(2, '0')}${String(l).padStart(2, '0')}1`; // Předpokládáme pozici 1
+                    // Předpokládáme, že pozice v rámci patra je '01', ale ID generujeme komplexnější
+                    const binId = `${String(r).padStart(2, '0')}${String(c).padStart(2, '0')}${String(l).padStart(2, '0')}1`;
                     
                     const position = [
                         (r - minRow) * COLUMN_WIDTH,
-                        (l - minLevel) * LEVEL_HEIGHT,
+                        l * LEVEL_HEIGHT,
                         (c - minCol) * ROW_DEPTH
                     ];
 
@@ -175,17 +179,15 @@ export default function Warehouse3DMap({ stockData, onBinClick }) {
                 <directionalLight position={[10, 20, 5]} intensity={1.5} castShadow />
                 <OrbitControls makeDefault />
                 
-                {/* Podlaha */}
                 <mesh rotation={[-Math.PI / 2, 0, 0]} position={[
                     ((dimensions.maxRow - dimensions.minRow) * COLUMN_WIDTH) / 2, 
-                    -LEVEL_HEIGHT/2, 
+                    -BEAM_THICKNESS, 
                     ((dimensions.maxCol - dimensions.minCol) * ROW_DEPTH) / 2
                 ]} receiveShadow>
                     <planeGeometry args={[ (dimensions.maxRow - dimensions.minRow + 2) * COLUMN_WIDTH, (dimensions.maxCol - dimensions.minCol + 2) * ROW_DEPTH ]} />
                     <meshStandardMaterial color="#475569" />
                 </mesh>
                 
-                {/* Vykreslení všech buněk (obsazených i prázdných) */}
                 {Array.from(grid.values()).map(({ id, position, data }) => (
                     <RackCell
                         key={id}
@@ -198,11 +200,10 @@ export default function Warehouse3DMap({ stockData, onBinClick }) {
                     />
                 ))}
 
-                {/* Vykreslení vertikálních stojin */}
                 {(() => {
                     const beams = [];
                     const { minRow, maxRow, minCol, maxCol, minLevel, maxLevel } = dimensions;
-                    const height = (maxLevel - minLevel + 1) * LEVEL_HEIGHT;
+                    const height = (maxLevel + 1) * LEVEL_HEIGHT;
                     for (let r = minRow; r <= maxRow + 1; r++) {
                         for (let c = minCol; c <= maxCol + 1; c++) {
                             beams.push(
