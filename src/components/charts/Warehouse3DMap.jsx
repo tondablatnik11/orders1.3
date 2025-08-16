@@ -1,11 +1,11 @@
 // src/components/charts/Warehouse3DMap.jsx
 "use client";
-import React, { useRef, useMemo, useState, Suspense } from 'react';
+import React, { useMemo, useState, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 
-// --- Konfigurace rozměrů ---
+// --- Konfigurace ---
 const BEAM_THICKNESS = 0.08;
 const PALLET_HEIGHT = 0.5;
 const PALLET_WIDTH = 0.9;
@@ -15,7 +15,8 @@ const LEVEL_HEIGHT = 1.2;
 const COLUMN_WIDTH = 1.2;
 const ROW_DEPTH = 1.2;
 
-// --- Komponenty pro stavbu regálu ---
+// --- Komponenty pro stavbu ---
+
 const HorizontalBeam = ({ position }) => (
     <mesh position={position}>
         <boxGeometry args={[COLUMN_WIDTH, BEAM_THICKNESS, BEAM_THICKNESS]} />
@@ -30,12 +31,13 @@ const VerticalBeam = ({ position, height }) => (
     </mesh>
 );
 
-const Pallet = ({ position, data, onClick, onPointerOver, onPointerOut, isFiltered }) => {
+const Pallet = ({ position, data, onClick, onPointerOver, onPointerOut, isFilteredOut }) => {
     const color = useMemo(() => {
-        if (data.ageInDays > 180) return '#e11d48'; // Červená
-        if (data.ageInDays > 90) return '#f59e0b'; // Oranžová
-        return '#22c55e'; // Zelená
-    }, [data.ageInDays]);
+        if (!data) return '#ffffff'; // Fallback, nemělo by nastat
+        if (data.ageInDays > 180) return '#e11d48';
+        if (data.ageInDays > 90) return '#f59e0b';
+        return '#22c55e';
+    }, [data]);
 
     return (
         <mesh
@@ -46,14 +48,13 @@ const Pallet = ({ position, data, onClick, onPointerOver, onPointerOut, isFilter
             castShadow
         >
             <boxGeometry args={[PALLET_WIDTH, PALLET_HEIGHT, PALLET_DEPTH]} />
-            <meshStandardMaterial color={color} opacity={isFiltered ? 0.25 : 1} transparent />
+            <meshStandardMaterial color={color} opacity={isFilteredOut ? 0.1 : 1} transparent />
         </mesh>
     );
 };
 
-const RackCell = ({ data, position, onClick, onPointerOver, onPointerOut, isFiltered }) => {
+const RackCell = ({ data, position, onClick, onPointerOver, onPointerOut, isFilteredOut }) => {
     const [x, y, z] = position;
-
     return (
         <group>
             <HorizontalBeam position={[x, y - (LEVEL_HEIGHT / 2), z - (ROW_DEPTH / 2) + BEAM_THICKNESS]} />
@@ -66,7 +67,7 @@ const RackCell = ({ data, position, onClick, onPointerOver, onPointerOut, isFilt
                     onClick={onClick}
                     onPointerOver={onPointerOver}
                     onPointerOut={onPointerOut}
-                    isFiltered={isFiltered}
+                    isFilteredOut={isFilteredOut}
                 />
             )}
         </group>
@@ -76,7 +77,7 @@ const RackCell = ({ data, position, onClick, onPointerOver, onPointerOut, isFilt
 const Tooltip = ({ data, position }) => {
     if (!data || !position) return null;
     return (
-        <Html position={position}>
+        <Html position={new THREE.Vector3(...position)}>
             <div className="bg-slate-800 text-white p-2 rounded-md border border-slate-600 text-xs w-48 shadow-lg pointer-events-none">
                 <p><strong>Pozice:</strong> {data['Storage Bin']}</p>
                 <p><strong>Materiál:</strong> {data.Material}</p>
@@ -92,70 +93,53 @@ export default function Warehouse3DMap({ stockData, onBinClick }) {
     const [hoveredData, setHoveredData] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
 
+    // ======================== KLÍČOVÁ OPRAVA ZDE ========================
     const { grid, dimensions } = useMemo(() => {
-        if (!stockData || stockData.length === 0) {
-            return { grid: new Map(), dimensions: { minRow: 13, maxRow: 18, minCol: 1, maxCol: 37, minLevel: 1, maxLevel: 5 } };
-        }
-
-        const stockMap = new Map(stockData.map(item => [String(item['Storage Bin']), item]));
+        // Pevně definujeme rozměry skladu
+        const dims = { minRow: 13, maxRow: 18, minCol: 1, maxCol: 37, minLevel: 1, maxLevel: 5 };
         const grid = new Map();
-
-        let minRow = Infinity, maxRow = -Infinity, minCol = Infinity, maxCol = -Infinity, minLevel = Infinity, maxLevel = -Infinity;
-
-        stockData.forEach(item => {
-            const binId = String(item['Storage Bin']);
-            if (!binId || binId.length < 6) return;
-
-            const row = parseInt(binId.substring(0, 2));
-            const col = parseInt(binId.substring(2, 4));
-            const level = parseInt(binId.substring(4, 6));
-
-            if (isNaN(row) || isNaN(col) || isNaN(level)) return;
-
-            if (row < minRow) minRow = row;
-            if (row > maxRow) maxRow = row;
-            if (col < minCol) minCol = col;
-            if (col > maxCol) maxCol = col;
-            if (level < minLevel) minLevel = level;
-            if (level > maxLevel) maxLevel = level;
-        });
         
-        if (maxRow === -Infinity) {
-            return { grid: new Map(), dimensions: { minRow: 13, maxRow: 18, minCol: 1, maxCol: 37, minLevel: 1, maxLevel: 5 } };
-        }
+        // Vytvoříme mapu existujících dat pro rychlé vyhledávání
+        const stockMap = new Map(stockData.map(item => [String(item['Storage Bin']), item]));
 
-        for (let r = minRow; r <= maxRow; r++) {
-            for (let c = minCol; c <= maxCol; c++) {
-                for (let l = minLevel; l <= maxLevel; l++) {
+        // Projdeme VŠECHNY možné pozice a vytvoříme pro ně záznam
+        for (let r = dims.minRow; r <= dims.maxRow; r++) {
+            for (let c = dims.minCol; c <= dims.maxCol; c++) {
+                for (let l = dims.minLevel; l <= dims.maxLevel; l++) {
+                    // Sestavíme ID pozice (předpokládáme formát AABBCCDD, kde DD je '01')
                     const binId = `${String(r).padStart(2, '0')}${String(c).padStart(2, '0')}${String(l).padStart(2, '0')}1`;
                     
                     const position = [
-                        (r - minRow) * COLUMN_WIDTH,
-                        l * LEVEL_HEIGHT,
-                        (c - minCol) * ROW_DEPTH
+                        (r - dims.minRow) * COLUMN_WIDTH,
+                        (l - dims.minLevel) * LEVEL_HEIGHT,
+                        (c - dims.minCol) * ROW_DEPTH
                     ];
 
                     grid.set(binId, {
                         id: binId,
                         position,
-                        data: stockMap.get(binId) || null
+                        data: stockMap.get(binId) || null // Pokud data existují, přiřadíme je, jinak null
                     });
                 }
             }
         }
-
-        return { grid, dimensions: { minRow, maxRow, minCol, maxCol, minLevel, maxLevel } };
+        return { grid, dimensions: dims };
     }, [stockData]);
+    // ====================================================================
 
-    const filteredGrid = useMemo(() => {
-        if (!searchTerm) return [];
+    const filteredMaterials = useMemo(() => {
+        if (!searchTerm) return null;
         const lowerCaseSearch = searchTerm.toLowerCase();
-        return Array.from(grid.values()).filter(cell =>
-            cell.data && (
+        const found = new Set();
+        for (const cell of grid.values()) {
+            if (cell.data && (
                 String(cell.data.Material).toLowerCase().includes(lowerCaseSearch) ||
                 String(cell.data['Storage Bin']).includes(lowerCaseSearch)
-            )
-        );
+            )) {
+                found.add(cell.data['Storage Bin']);
+            }
+        }
+        return found;
     }, [grid, searchTerm]);
 
     const isFiltered = searchTerm !== '';
@@ -178,7 +162,7 @@ export default function Warehouse3DMap({ stockData, onBinClick }) {
                 
                 <mesh rotation={[-Math.PI / 2, 0, 0]} position={[
                     ((dimensions.maxRow - dimensions.minRow) * COLUMN_WIDTH) / 2, 
-                    -BEAM_THICKNESS, 
+                    -LEVEL_HEIGHT/2, 
                     ((dimensions.maxCol - dimensions.minCol) * ROW_DEPTH) / 2
                 ]} receiveShadow>
                     <planeGeometry args={[ (dimensions.maxRow - dimensions.minRow + 2) * COLUMN_WIDTH, (dimensions.maxCol - dimensions.minCol + 2) * ROW_DEPTH ]} />
@@ -193,15 +177,14 @@ export default function Warehouse3DMap({ stockData, onBinClick }) {
                         onClick={onBinClick}
                         onPointerOver={setHoveredData}
                         onPointerOut={() => setHoveredData(null)}
-                        isFiltered={isFiltered && !filteredGrid.some(cell => cell.id === id)}
+                        isFilteredOut={isFiltered && (!data || !filteredMaterials.has(data['Storage Bin']))}
                     />
                 ))}
 
                 {(() => {
                     const beams = [];
                     const { minRow, maxRow, minCol, maxCol, minLevel, maxLevel } = dimensions;
-                    const height = (maxLevel + 1) * LEVEL_HEIGHT;
-                    // Ochrana před nekonečnou smyčkou, pokud by data byla nevalidní
+                    const height = (maxLevel - minLevel + 1) * LEVEL_HEIGHT;
                     if (!isFinite(height)) return null;
 
                     for (let r = minRow; r <= maxRow + 1; r++) {
