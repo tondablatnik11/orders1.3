@@ -1,12 +1,14 @@
 // src/components/tabs/WarehouseOverviewTab.jsx
 "use client";
-import React from 'react';
+import React, { useState, Suspense } from 'react';
 import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@tremor/react';
-import { UploadCloud, Package, Boxes, Warehouse, AlertOctagon, Loader2 } from 'lucide-react';
+import { UploadCloud, Package, Boxes, Warehouse, Clock, AlertOctagon, Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell } from 'recharts';
+import ErrorDetailModal from '../modals/ErrorDetailModal'; // Budeme chtít zobrazovat detaily
+import Warehouse3DMap from '../charts/Warehouse3DMap'; // Import naší nové 3D komponenty
 
 const KPICard = ({ title, value, icon: Icon }) => (
     <Card className="p-4">
@@ -33,12 +35,12 @@ export default function WarehouseOverviewTab() {
     const { processedWarehouseData, handleWarehouseFileUpload, isLoadingWarehouseData } = useData();
     const { t } = useUI();
     const fileInputRef = React.useRef(null);
+    const [selectedBin, setSelectedBin] = useState(null); // Stav pro zobrazení detailu pozice
 
     const handleFileChange = (e) => {
         if (e.target.files && e.target.files[0]) {
             handleWarehouseFileUpload(e.target.files[0]);
         }
-         // Reset inputu, aby bylo možné nahrát stejný soubor znovu
         if(fileInputRef.current) {
             fileInputRef.current.value = "";
         }
@@ -53,7 +55,6 @@ export default function WarehouseOverviewTab() {
         );
     }
 
-    // OPRAVA: Tato podmínka nyní správně zachytí stav, kdy nejsou data
     if (!processedWarehouseData) {
         return (
             <div className="text-center p-8">
@@ -66,8 +67,7 @@ export default function WarehouseOverviewTab() {
         );
     }
     
-    // Zde můžeme bezpečně přistupovat k datům
-    const { kpis, charts } = processedWarehouseData;
+    const { kpis, charts, detailedStock } = processedWarehouseData;
     const COLORS = ["#3b82f6", "#16a34a", "#facc15", "#f97316", "#ef4444"];
 
     return (
@@ -79,6 +79,14 @@ export default function WarehouseOverviewTab() {
                 <KPICard title="Celkem palet" value={kpis.totalPallets} icon={Boxes} />
                 <KPICard title="Staré zásoby (>180 dní)" value={kpis.deadStockCount} icon={AlertOctagon} />
             </div>
+
+            {/* Nahrazení placeholderu za reálnou 3D mapu */}
+            <Card className="p-6">
+                <h3 className="text-2xl font-bold text-center text-white mb-4">Interaktivní 3D Mapa Skladu</h3>
+                <Suspense fallback={<div className="h-[70vh] flex items-center justify-center">Načítání 3D modelu...</div>}>
+                    <Warehouse3DMap stockData={detailedStock} onBinClick={setSelectedBin} />
+                </Suspense>
+            </Card>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <ChartCard title="Stáří zásob (počet palet)">
@@ -114,12 +122,21 @@ export default function WarehouseOverviewTab() {
                 </BarChart>
             </ChartCard>
             
-            <Card className="p-6">
-                <h3 className="text-2xl font-bold text-center text-white mb-4">Interaktivní 3D Mapa Skladu (TODO)</h3>
-                <div className="h-96 bg-slate-800 rounded-lg flex items-center justify-center text-slate-400">
-                    <p>Zde bude v budoucnu vykreslena 3D vizualizace skladu pomocí React Three Fiber.</p>
-                </div>
-            </Card>
+            {/* Zobrazení modálního okna po kliknutí na pozici v 3D mapě */}
+            {selectedBin && (
+                 <ErrorDetailModal
+                    error={{
+                        description: `Detail pozice: ${selectedBin['Storage Bin']}`,
+                        timestamp: selectedBin.receptionDate,
+                        user: 'N/A',
+                        error_location: selectedBin['Storage Bin'],
+                        material: selectedBin.Material,
+                        order_refence: `Paleta: ${selectedBin['Storage Unit']}`,
+                        diff_qty: selectedBin['Available stock'],
+                    }}
+                    onClose={() => setSelectedBin(null)}
+                />
+            )}
         </div>
     );
 }
