@@ -7,13 +7,11 @@ import { differenceInDays } from 'date-fns';
  * @returns {Object} - Objekt obsahující KPI a data pro grafy.
  */
 export const processWarehouseData = (stockData) => {
-    // Pokud nejsou žádná data (např. po vytvoření tabulky), vrátíme null.
     if (!stockData || stockData.length === 0) {
         return null;
     }
 
     const processedData = stockData.map(item => {
-        // OPRAVA: Bereme 'Durat.' přímo jako stáří ve dnech.
         const ageInDays = Number(item['Durat.']) || 0;
         
         return {
@@ -29,8 +27,6 @@ export const processWarehouseData = (stockData) => {
     const totalPallets = new Set(processedData.map(item => item['Storage Unit'])).size;
 
     // --- Příprava Dat pro Grafy ---
-
-    // 1. Stáří zásob
     const ageBrackets = { '0-30 dní': 0, '31-60 dní': 0, '61-90 dní': 0, '91-180 dní': 0, '181+ dní': 0 };
     processedData.forEach(item => {
         if (item.ageInDays <= 30) ageBrackets['0-30 dní']++;
@@ -41,7 +37,6 @@ export const processWarehouseData = (stockData) => {
     });
     const stockAgeDistribution = Object.entries(ageBrackets).map(([name, value]) => ({ name, 'Počet palet': value }));
 
-    // 2. TOP 10 materiálů
     const materialCounts = processedData.reduce((acc, item) => {
         acc[item.Material] = (acc[item.Material] || 0) + (item['Available stock'] || 0);
         return acc;
@@ -51,7 +46,6 @@ export const processWarehouseData = (stockData) => {
         .slice(0, 10)
         .map(([name, value]) => ({ name, 'Celkové množství': value }));
         
-    // 3. Rozložení zásob podle typu skladu
     const stockByStorageType = processedData.reduce((acc, item) => {
         const type = item['Storage Type'];
         if (type) {
@@ -79,7 +73,7 @@ export const processWarehouseData = (stockData) => {
 };
 
 /**
- * Funkce pro nahrání a zpracování CSV souboru pro Supabase.
+ * Funkce pro nahrání a zpracování CSV/XLSX souboru pro Supabase.
  */
 export const processWarehouseFileForSupabase = (file) => {
     return new Promise(async (resolve, reject) => {
@@ -93,7 +87,31 @@ export const processWarehouseFileForSupabase = (file) => {
                     const sheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[sheetName];
                     const jsonData = XLSX.utils.sheet_to_json(worksheet);
-                    resolve(jsonData);
+
+                    // ===== ZDE JE KLÍČOVÁ OPRAVA =====
+                    // Vytvoříme nová, čistá data a explicitně mapujeme pouze ty sloupce,
+                    // které existují v naší databázové tabulce. Tím ignorujeme
+                    // všechny přebytečné nebo duplicitní sloupce jako "Storage Bin_1".
+                    const dataToUpload = jsonData.map(row => ({
+                        "Selection": row["Selection"],
+                        "Storage Bin": row["Storage Bin"], // Vezme první (a jediný potřebný) sloupec
+                        "Material": row["Material"],
+                        "Plant": row["Plant"],
+                        "Available stock": row["Available stock"],
+                        "Base Unit of Measure": row["Base Unit of Measure"],
+                        "Batch": row["Batch"],
+                        "Stock Category": row["Stock Category"],
+                        "Special Stock": row["Special Stock"],
+                        "Special Stock Number": row["Special Stock Number"],
+                        "Durat.": row["Durat."],
+                        "Storage Unit": row["Storage Unit"],
+                        "Storage Type": row["Storage Type"],
+                        "Storage Section": row["Storage Section"],
+                        "Storage bin type": row["Storage bin type"],
+                        "Bin section": row["Bin section"]
+                    }));
+
+                    resolve(dataToUpload);
                 } catch (error) {
                     reject(error);
                 }
