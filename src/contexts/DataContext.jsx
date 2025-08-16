@@ -4,6 +4,8 @@ import { getSupabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
 import { processData } from '@/lib/dataProcessor';
 import { processArrayForDisplay, processErrorDataForSupabase } from '@/lib/errorMonitorProcessor';
+// NOVÝ IMPORT PRO FUNKCIONALITU SKLADU
+import { processWarehouseData, processWarehouseFileForSupabase } from '@/lib/warehouseProcessor';
 import toast from 'react-hot-toast';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -11,6 +13,7 @@ export const DataContext = createContext(null);
 export const useData = () => useContext(DataContext);
 
 export const DataProvider = ({ children }) => {
+    // Původní stavy
     const [allOrdersData, setAllOrdersData] = useState([]);
     const [pickingData, setPickingData] = useState([]);
     const [summary, setSummary] = useState(null);
@@ -21,14 +24,18 @@ export const DataProvider = ({ children }) => {
     const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
     const [statusHistory, setStatusHistory] = useState({ isVisible: false, data: [] });
 
+    // NOVÉ STAVY PRO PŘEHLED SKLADU
+    const [warehouseStockData, setWarehouseStockData] = useState(null);
+    const [processedWarehouseData, setProcessedWarehouseData] = useState(null);
+    const [isLoadingWarehouseData, setIsLoadingWarehouseData] = useState(true);
+
     const { user, loading: authLoading, db, appId } = useAuth();
     const supabase = getSupabase();
 
     const fetchAllApplicationData = useCallback(async () => {
         setIsLoadingData(true);
-        setIsLoadingErrorData(true); // Spustíme oba načítací stavy
+        setIsLoadingErrorData(true);
         try {
-            // Používáme původní a správné názvy tabulek
             const [deliveriesResult, pickingResult, errorsResult, snapshotResult] = await Promise.all([
                 supabase.from("deliveries").select('*').eq('is_archived', false).limit(20000),
                 supabase.from('picking_dashboard_data').select('*'),
@@ -61,22 +68,38 @@ export const DataProvider = ({ children }) => {
                  console.error("Data fetch error:", error);
              }
         } finally {
-            // ===== ZDE JE KLÍČOVÁ OPRAVA =====
-            // Po dokončení (ať už úspěšně nebo s chybou) vypneme oba načítací stavy.
             setIsLoadingData(false);
             setIsLoadingErrorData(false);
+        }
+    }, [supabase]);
+
+    // NOVÁ FUNKCE PRO NAČTENÍ DAT SKLADU
+    const fetchWarehouseData = useCallback(async () => {
+        setIsLoadingWarehouseData(true);
+        try {
+            const { data, error } = await supabase.from('warehouse_stock').select('*');
+            if (error) throw error;
+            setWarehouseStockData(data);
+            const processed = processWarehouseData(data);
+            setProcessedWarehouseData(processed);
+        } catch (error) {
+            console.error("Chyba při načítání dat skladu:", error);
+            setProcessedWarehouseData(null);
+        } finally {
+            setIsLoadingWarehouseData(false);
         }
     }, [supabase]);
     
     useEffect(() => {
         if (user && !authLoading) {
             fetchAllApplicationData();
+            fetchWarehouseData(); // Načteme i data skladu
         } else if (!user && !authLoading) {
-            // Pokud není uživatel přihlášen, ukončíme načítání
             setIsLoadingData(false);
             setIsLoadingErrorData(false);
+            setIsLoadingWarehouseData(false);
         }
-    }, [user, authLoading, fetchAllApplicationData]);
+    }, [user, authLoading, fetchAllApplicationData, fetchWarehouseData]);
     
     const handleSaveNote = useCallback(async (deliveryNo, note) => {
         const { error } = await supabase.from('deliveries').update({ Note: note, updated_at: new Date().toISOString() }).eq('Delivery No', deliveryNo);
@@ -232,6 +255,31 @@ export const DataProvider = ({ children }) => {
             toast.error(`Chyba při nahrávání logu: ${error.message}`);
         }
     }, [supabase, user, fetchAllApplicationData]);
+
+    // NOVÁ FUNKCE PRO NAHRÁNÍ REPORTU SKLADU
+    const handleWarehouseFileUpload = useCallback(async (file) => {
+        if (!file) return;
+        setIsLoadingWarehouseData(true);
+        const toastId = toast.loading('Zpracovávám report skladu...');
+        try {
+            const { error: deleteError } = await supabase.from('warehouse_stock').delete().neq('Material', 'DUMMY_VALUE_TO_DELETE_ALL');
+            if (deleteError) throw deleteError;
+
+            const dataToUpload = await processWarehouseFileForSupabase(file);
+            const { error: insertError } = await supabase.from('warehouse_stock').insert(dataToUpload);
+            if (insertError) throw insertError;
+
+            await fetchWarehouseData();
+            
+            toast.success('Report skladu byl úspěšně nahrán a zpracován!', { id: toastId });
+        } catch (error) {
+            console.error("Chyba při nahrávání reportu skladu:", error);
+            toast.error(`Chyba: ${error.message}`, { id: toastId });
+            setProcessedWarehouseData(null);
+        } finally {
+            setIsLoadingWarehouseData(false);
+        }
+    }, [supabase, fetchWarehouseData]);
     
     const handleUpdateStatus = useCallback(async (deliveryNo, newStatus) => {
         const { data, error } = await supabase.from('deliveries').update({ Status: newStatus, updated_at: new Date().toISOString() }).eq('Delivery No', deliveryNo).select();
@@ -248,6 +296,7 @@ export const DataProvider = ({ children }) => {
     }, [supabase, fetchAllApplicationData]);
 
     const value = useMemo(() => ({
+        // Původní hodnoty
         allOrdersData, 
         pickingData,
         summary, 
@@ -267,11 +316,19 @@ export const DataProvider = ({ children }) => {
         setStatusHistory,
         fetchOrderComments, 
         addOrderComment,
+        // NOVÉ HODNOTY
+        warehouseStockData,
+        processedWarehouseData,
+        isLoadingWarehouseData,
+        handleWarehouseFileUpload,
     }), [
+        // Původní závislosti
         allOrdersData, pickingData, summary, previousSummary, isLoadingData,
         fetchAllApplicationData, handleFileUpload, handleErrorLogUpload, errorData, isLoadingErrorData,
         selectedOrderDetails, handleSaveNote, handleUpdateStatus,
-        statusHistory, fetchStatusHistory, fetchOrderComments, addOrderComment
+        statusHistory, fetchStatusHistory, fetchOrderComments, addOrderComment,
+        // NOVÉ ZÁVISLOSTI
+        warehouseStockData, processedWarehouseData, isLoadingWarehouseData, handleWarehouseFileUpload
     ]);
 
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
