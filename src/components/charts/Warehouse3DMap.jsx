@@ -16,20 +16,19 @@ const COLUMN_WIDTH = 1.2;
 const ROW_DEPTH = 1.2;
 
 // --- Komponenty pro stavbu ---
-
-const HorizontalBeam = ({ position }) => (
+const HorizontalBeam = React.memo(({ position }) => (
     <mesh position={position}>
         <boxGeometry args={[COLUMN_WIDTH, BEAM_THICKNESS, BEAM_THICKNESS]} />
         <meshStandardMaterial color="#f97316" />
     </mesh>
-);
+));
 
-const VerticalBeam = ({ position, height }) => (
+const VerticalBeam = React.memo(({ position, height }) => (
     <mesh position={position}>
         <boxGeometry args={[BEAM_THICKNESS, height, BEAM_THICKNESS]} />
         <meshStandardMaterial color="#3b82f6" />
     </mesh>
-);
+));
 
 const Pallet = ({ position, data, onClick, onPointerOver, onPointerOut, isFilteredOut }) => {
     const color = useMemo(() => {
@@ -95,22 +94,16 @@ export default function Warehouse3DMap({ stockData, onBinClick }) {
     const [hoveredData, setHoveredData] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // ======================== KLÍČOVÁ OPRAVA ZDE ========================
     const { grid, dimensions } = useMemo(() => {
-        // Pevně definujeme rozměry skladu podle zadání
         const dims = { minRow: 13, maxRow: 18, minCol: 1, maxCol: 37, minLevel: 1, maxLevel: 5 };
         const grid = new Map();
-        
-        // Vytvoříme mapu existujících dat pro rychlé vyhledávání
         const stockMap = new Map((stockData || []).map(item => [String(item['Storage Bin']), item]));
 
-        // Projdeme VŠECHNY možné pozice a vytvoříme pro ně záznam
+        // Oprava: validace dat před vytvářením
         for (let r = dims.minRow; r <= dims.maxRow; r++) {
             for (let c = dims.minCol; c <= dims.maxCol; c++) {
                 for (let l = dims.minLevel; l <= dims.maxLevel; l++) {
-                    // Sestavíme ID pozice (předpokládáme formát AABBCCDD, kde DD je '01')
                     const binId = `${String(r).padStart(2, '0')}${String(c).padStart(2, '0')}${String(l).padStart(2, '0')}1`;
-                    
                     const position = [
                         (r - dims.minRow) * COLUMN_WIDTH,
                         (l - dims.minLevel) * LEVEL_HEIGHT,
@@ -120,14 +113,13 @@ export default function Warehouse3DMap({ stockData, onBinClick }) {
                     grid.set(binId, {
                         id: binId,
                         position,
-                        data: stockMap.get(binId) || null // Pokud data existují, přiřadíme je, jinak null
+                        data: stockMap.get(binId) || null // Zajistíme, že pokud není data, bude null
                     });
                 }
             }
         }
         return { grid, dimensions: dims };
     }, [stockData]);
-    // ====================================================================
 
     const filteredMaterials = useMemo(() => {
         if (!searchTerm) return null;
@@ -171,7 +163,6 @@ export default function Warehouse3DMap({ stockData, onBinClick }) {
                     <meshStandardMaterial color="#475569" />
                 </mesh>
                 
-                {/* Vykreslení všech buněk (obsazených i prázdných) */}
                 {Array.from(grid.values()).map(({ id, position, data }) => (
                     <RackCell
                         key={id}
@@ -184,7 +175,6 @@ export default function Warehouse3DMap({ stockData, onBinClick }) {
                     />
                 ))}
 
-                {/* Vykreslení vertikálních stojin */}
                 {(() => {
                     const beams = [];
                     const { minRow, maxRow, minCol, maxCol, minLevel, maxLevel } = dimensions;
