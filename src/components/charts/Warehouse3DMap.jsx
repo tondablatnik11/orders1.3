@@ -33,7 +33,7 @@ const VerticalBeam = ({ position, height }) => (
 
 const Pallet = ({ position, data, onClick, onPointerOver, onPointerOut, isFilteredOut }) => {
     const color = useMemo(() => {
-        if (!data) return '#ffffff'; // Fallback, nemělo by nastat
+        if (!data) return '#ffffff'; // Fallback
         if (data.ageInDays > 180) return '#e11d48';
         if (data.ageInDays > 90) return '#f59e0b';
         return '#22c55e';
@@ -95,7 +95,7 @@ export default function Warehouse3DMap({ stockData, onBinClick }) {
 
     // ======================== KLÍČOVÁ OPRAVA ZDE ========================
     const { grid, dimensions } = useMemo(() => {
-        // Pevně definujeme rozměry skladu
+        // Pevně definujeme rozměry skladu podle zadání
         const dims = { minRow: 13, maxRow: 18, minCol: 1, maxCol: 37, minLevel: 1, maxLevel: 5 };
         const grid = new Map();
         
