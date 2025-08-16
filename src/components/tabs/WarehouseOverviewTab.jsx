@@ -1,142 +1,232 @@
-// src/components/tabs/WarehouseOverviewTab.jsx
+// src/components/charts/Warehouse3DMap.jsx
 "use client";
-import React, { useState, Suspense } from 'react';
-import { useData } from '@/hooks/useData';
-import { useUI } from '@/hooks/useUI';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@tremor/react';
-import { UploadCloud, Package, Boxes, Warehouse, Clock, AlertOctagon, Loader2 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell } from 'recharts';
-import ErrorDetailModal from '../modals/ErrorDetailModal'; // Budeme chtít zobrazovat detaily
-import Warehouse3DMap from '../charts/Warehouse3DMap'; // Import naší nové 3D komponenty
+import React, { useRef, useMemo, useState, Suspense } from 'react';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls, Text, Html } from '@react-three/drei';
+import * as THREE from 'three';
 
-const KPICard = ({ title, value, icon: Icon }) => (
-    <Card className="p-4">
-        <div className="flex items-center">
-            <Icon className="w-8 h-8 text-sky-400 mr-4" />
-            <div>
-                <p className="text-slate-400 text-sm">{title}</p>
-                <p className="text-2xl font-bold text-white">{(value || 0).toLocaleString('cs-CZ')}</p>
-            </div>
-        </div>
-    </Card>
+// --- Konfigurace rozměrů ---
+const BEAM_THICKNESS = 0.08;
+const PALLET_HEIGHT = 0.5;
+const PALLET_WIDTH = 0.9;
+const PALLET_DEPTH = 0.9;
+
+const LEVEL_HEIGHT = 1.2;
+const COLUMN_WIDTH = 1.2;
+const ROW_DEPTH = 1.2;
+
+// --- Komponenty pro stavbu regálu ---
+
+// Oranžový nosník, na kterém leží paleta
+const HorizontalBeam = ({ position }) => (
+    <mesh position={position}>
+        <boxGeometry args={[COLUMN_WIDTH, BEAM_THICKNESS, BEAM_THICKNESS]} />
+        <meshStandardMaterial color="#f97316" />
+    </mesh>
 );
 
-const ChartCard = ({ title, children }) => (
-    <Card className="p-6">
-        <h3 className="text-xl font-semibold text-white mb-4">{title}</h3>
-        <ResponsiveContainer width="100%" height={300}>
-            {children}
-        </ResponsiveContainer>
-    </Card>
+// Modrá vertikální stojina regálu
+const VerticalBeam = ({ position, height }) => (
+    <mesh position={position}>
+        <boxGeometry args={[BEAM_THICKNESS, height, BEAM_THICKNESS]} />
+        <meshStandardMaterial color="#3b82f6" />
+    </mesh>
 );
 
-export default function WarehouseOverviewTab() {
-    const { processedWarehouseData, handleWarehouseFileUpload, isLoadingWarehouseData } = useData();
-    const { t } = useUI();
-    const fileInputRef = React.useRef(null);
-    const [selectedBin, setSelectedBin] = useState(null); // Stav pro zobrazení detailu pozice
-
-    const handleFileChange = (e) => {
-        if (e.target.files && e.target.files[0]) {
-            handleWarehouseFileUpload(e.target.files[0]);
-        }
-        if(fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
-    };
-    
-    if (isLoadingWarehouseData) {
-        return (
-            <div className="flex flex-col items-center justify-center h-96">
-                <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
-                <p className="text-lg text-slate-400">Načítání dat skladu...</p>
-            </div>
-        );
-    }
-
-    if (!processedWarehouseData) {
-        return (
-            <div className="text-center p-8">
-                <p className="mb-4">Žádná data o skladu. Nahrajte prosím soubor s přehledem zásob.</p>
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".csv, .xlsx, .xls" />
-                <Button icon={UploadCloud} onClick={() => fileInputRef.current?.click()}>
-                    Nahrát Report Skladu
-                </Button>
-            </div>
-        );
-    }
-    
-    const { kpis, charts, detailedStock } = processedWarehouseData;
-    const COLORS = ["#3b82f6", "#16a34a", "#facc15", "#f97316", "#ef4444"];
+// Paleta reprezentující obsazenou pozici
+const Pallet = ({ position, data, onClick, onPointerOver, onPointerOut, isFiltered }) => {
+    const color = useMemo(() => {
+        if (data.ageInDays > 180) return '#e11d48'; // Červená
+        if (data.ageInDays > 90) return '#f59e0b'; // Oranžová
+        return '#22c55e'; // Zelená
+    }, [data.ageInDays]);
 
     return (
-        <div className="space-y-6">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-                <KPICard title="Celkem položek" value={kpis.totalStock} icon={Package} />
-                <KPICard title="Obsazené pozice" value={kpis.occupiedBins} icon={Boxes} />
-                <KPICard title="Unikátní materiály" value={kpis.uniqueMaterials} icon={Warehouse} />
-                <KPICard title="Celkem palet" value={kpis.totalPallets} icon={Boxes} />
-                <KPICard title="Staré zásoby (>180 dní)" value={kpis.deadStockCount} icon={AlertOctagon} />
-            </div>
+        <mesh
+            position={position}
+            onClick={(e) => { e.stopPropagation(); onClick(data); }}
+            onPointerOver={(e) => { e.stopPropagation(); onPointerOver(data); }}
+            onPointerOut={(e) => { e.stopPropagation(); onPointerOut(); }}
+            castShadow
+        >
+            <boxGeometry args={[PALLET_WIDTH, PALLET_HEIGHT, PALLET_DEPTH]} />
+            <meshStandardMaterial color={color} opacity={isFiltered ? 0.25 : 1} transparent />
+        </mesh>
+    );
+};
 
-            {/* Nahrazení placeholderu za reálnou 3D mapu */}
-            <Card className="p-6">
-                <h3 className="text-2xl font-bold text-center text-white mb-4">Interaktivní 3D Mapa Skladu</h3>
-                <Suspense fallback={<div className="h-[70vh] flex items-center justify-center">Načítání 3D modelu...</div>}>
-                    <Warehouse3DMap stockData={detailedStock} onBinClick={setSelectedBin} />
-                </Suspense>
-            </Card>
+// Celá regálová buňka (stojiny, nosníky a případně paleta)
+const RackCell = ({ data, position, onClick, onPointerOver, onPointerOut, isFiltered }) => {
+    const [x, y, z] = position;
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <ChartCard title="Stáří zásob (počet palet)">
-                    <BarChart data={charts.stockAgeDistribution}>
-                        <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                        <XAxis dataKey="name" stroke="#9CA3AF" />
-                        <YAxis stroke="#9CA3AF" allowDecimals={false} />
-                        <Tooltip contentStyle={{ backgroundColor: '#1F2937' }} cursor={{ fill: 'rgba(107, 114, 128, 0.2)' }}/>
-                        <Bar dataKey="Počet palet" fill="#3b82f6" />
-                    </BarChart>
-                </ChartCard>
-
-                <ChartCard title="Rozložení zásob podle typu skladu">
-                     <PieChart>
-                        <Pie data={charts.stockDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                            {charts.stockDistribution.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                        </Pie>
-                         <Tooltip contentStyle={{ backgroundColor: '#1F2937' }} />
-                        <Legend />
-                    </PieChart>
-                </ChartCard>
-            </div>
-
-            <ChartCard title="TOP 10 Materiálů podle množství">
-                <BarChart data={charts.top10Materials} layout="vertical" margin={{ left: 100 }}>
-                    <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                    <XAxis type="number" stroke="#9CA3AF" />
-                    <YAxis type="category" dataKey="name" stroke="#9CA3AF" width={120} tick={{ fontSize: 12 }} />
-                    <Tooltip contentStyle={{ backgroundColor: '#1F2937' }} cursor={{ fill: 'rgba(107, 114, 128, 0.2)' }}/>
-                    <Bar dataKey="Celkové množství" fill="#16a34a" />
-                </BarChart>
-            </ChartCard>
+    return (
+        <group>
+            {/* Oranžové nosníky */}
+            <HorizontalBeam position={[x, y - (LEVEL_HEIGHT / 2), z - (ROW_DEPTH / 2) + BEAM_THICKNESS]} />
+            <HorizontalBeam position={[x, y - (LEVEL_HEIGHT / 2), z + (ROW_DEPTH / 2) - BEAM_THICKNESS]} />
             
-            {/* Zobrazení modálního okna po kliknutí na pozici v 3D mapě */}
-            {selectedBin && (
-                 <ErrorDetailModal
-                    error={{
-                        description: `Detail pozice: ${selectedBin['Storage Bin']}`,
-                        timestamp: selectedBin.receptionDate,
-                        user: 'N/A',
-                        error_location: selectedBin['Storage Bin'],
-                        material: selectedBin.Material,
-                        order_refence: `Paleta: ${selectedBin['Storage Unit']}`,
-                        diff_qty: selectedBin['Available stock'],
-                    }}
-                    onClose={() => setSelectedBin(null)}
+            {/* Paleta, pokud je pozice obsazená */}
+            {data && (
+                <Pallet 
+                    position={[x, y - (LEVEL_HEIGHT / 2) + (PALLET_HEIGHT / 2) + BEAM_THICKNESS, z]} 
+                    data={data} 
+                    onClick={onClick}
+                    onPointerOver={onPointerOver}
+                    onPointerOut={onPointerOut}
+                    isFiltered={isFiltered}
                 />
             )}
+        </group>
+    );
+};
+
+// Tooltip při najetí myší
+const Tooltip = ({ data, position }) => {
+    if (!data) return null;
+    return (
+        <Html position={position}>
+            <div className="bg-slate-800 text-white p-2 rounded-md border border-slate-600 text-xs w-48 shadow-lg">
+                <p><strong>Pozice:</strong> {data['Storage Bin']}</p>
+                <p><strong>Materiál:</strong> {data.Material}</p>
+                <p><strong>Množství:</strong> {data['Available stock']}</p>
+                <p><strong>Stáří:</strong> {data.ageInDays} dní</p>
+            </div>
+        </Html>
+    );
+};
+
+// --- Hlavní komponenta ---
+export default function Warehouse3DMap({ stockData, onBinClick }) {
+    const [hoveredData, setHoveredData] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    // Generování kompletní mřížky skladu, včetně prázdných pozic
+    const { grid, dimensions } = useMemo(() => {
+        if (!stockData || stockData.length === 0) return { grid: new Map(), dimensions: {} };
+
+        const stockMap = new Map(stockData.map(item => [String(item['Storage Bin']), item]));
+        const grid = new Map();
+
+        let minRow = Infinity, maxRow = -Infinity, minCol = Infinity, maxCol = -Infinity, minLevel = Infinity, maxLevel = -Infinity;
+
+        stockData.forEach(item => {
+            const binId = String(item['Storage Bin']);
+            const row = parseInt(binId.substring(0, 2));
+            const col = parseInt(binId.substring(2, 4));
+            const level = parseInt(binId.substring(4, 6));
+
+            if (row < minRow) minRow = row;
+            if (row > maxRow) maxRow = row;
+            if (col < minCol) minCol = col;
+            if (col > maxCol) maxCol = col;
+            if (level < minLevel) minLevel = level;
+            if (level > maxLevel) maxLevel = level;
+        });
+
+        for (let r = minRow; r <= maxRow; r++) {
+            for (let c = minCol; c <= maxCol; c++) {
+                for (let l = minLevel; l <= maxLevel; l++) {
+                    const binId = `${String(r).padStart(2, '0')}${String(c).padStart(2, '0')}${String(l).padStart(2, '0')}1`; // Předpokládáme pozici 1
+                    
+                    const position = [
+                        (r - minRow) * COLUMN_WIDTH,
+                        (l - minLevel) * LEVEL_HEIGHT,
+                        (c - minCol) * ROW_DEPTH
+                    ];
+
+                    grid.set(binId, {
+                        id: binId,
+                        position,
+                        data: stockMap.get(binId) || null
+                    });
+                }
+            }
+        }
+
+        return { grid, dimensions: { minRow, maxRow, minCol, maxCol, minLevel, maxLevel } };
+    }, [stockData]);
+
+    const filteredGrid = useMemo(() => {
+        if (!searchTerm) return Array.from(grid.values());
+        const lowerCaseSearch = searchTerm.toLowerCase();
+        return Array.from(grid.values()).filter(cell =>
+            cell.data && (
+                String(cell.data.Material).toLowerCase().includes(lowerCaseSearch) ||
+                String(cell.data['Storage Bin']).includes(lowerCaseSearch)
+            )
+        );
+    }, [grid, searchTerm]);
+
+    const isFiltered = searchTerm !== '';
+
+    return (
+        <div className="relative h-[70vh] bg-slate-900 rounded-lg border border-slate-700">
+            <div className="absolute top-2 left-2 z-10">
+                <input
+                    type="text"
+                    placeholder="Hledat materiál nebo pozici..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="bg-slate-800 text-white p-2 rounded-md border border-slate-600"
+                />
+            </div>
+            <Canvas shadows camera={{ position: [20, 20, 40], fov: 50 }}>
+                <ambientLight intensity={0.7} />
+                <directionalLight position={[10, 20, 5]} intensity={1.5} castShadow />
+                <OrbitControls makeDefault />
+                
+                {/* Podlaha */}
+                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[
+                    ((dimensions.maxRow - dimensions.minRow) * COLUMN_WIDTH) / 2, 
+                    -LEVEL_HEIGHT/2, 
+                    ((dimensions.maxCol - dimensions.minCol) * ROW_DEPTH) / 2
+                ]} receiveShadow>
+                    <planeGeometry args={[ (dimensions.maxRow - dimensions.minRow + 2) * COLUMN_WIDTH, (dimensions.maxCol - dimensions.minCol + 2) * ROW_DEPTH ]} />
+                    <meshStandardMaterial color="#475569" />
+                </mesh>
+                
+                {/* Vykreslení všech buněk (obsazených i prázdných) */}
+                {Array.from(grid.values()).map(({ id, position, data }) => (
+                    <RackCell
+                        key={id}
+                        data={data}
+                        position={position}
+                        onClick={onBinClick}
+                        onPointerOver={setHoveredData}
+                        onPointerOut={() => setHoveredData(null)}
+                        isFiltered={isFiltered && !filteredGrid.some(cell => cell.id === id)}
+                    />
+                ))}
+
+                {/* Vykreslení vertikálních stojin */}
+                {(() => {
+                    const beams = [];
+                    const { minRow, maxRow, minCol, maxCol, minLevel, maxLevel } = dimensions;
+                    const height = (maxLevel - minLevel + 1) * LEVEL_HEIGHT;
+                    for (let r = minRow; r <= maxRow + 1; r++) {
+                        for (let c = minCol; c <= maxCol + 1; c++) {
+                            beams.push(
+                                <VerticalBeam 
+                                    key={`vbeam-${r}-${c}`}
+                                    position={[
+                                        (r - minRow - 0.5) * COLUMN_WIDTH, 
+                                        height/2 - LEVEL_HEIGHT/2, 
+                                        (c - minCol - 0.5) * ROW_DEPTH
+                                    ]}
+                                    height={height}
+                                />
+                            );
+                        }
+                    }
+                    return beams;
+                })()}
+
+                {hoveredData && (
+                    <Suspense fallback={null}>
+                         <Tooltip data={hoveredData} position={grid.get(hoveredData['Storage Bin'])?.position} />
+                    </Suspense>
+                )}
+            </Canvas>
         </div>
     );
 }
