@@ -57,9 +57,11 @@ const RackCell = ({ data, position, onClick, onPointerOver, onPointerOut, isFilt
     const [x, y, z] = position;
     return (
         <group>
+            {/* Vykreslíme nosníky pro každou buňku */}
             <HorizontalBeam position={[x, y - (LEVEL_HEIGHT / 2), z - (ROW_DEPTH / 2) + BEAM_THICKNESS]} />
             <HorizontalBeam position={[x, y - (LEVEL_HEIGHT / 2), z + (ROW_DEPTH / 2) - BEAM_THICKNESS]} />
             
+            {/* A paletu, POUZE pokud na pozici existují data */}
             {data && (
                 <Pallet 
                     position={[x, y - (LEVEL_HEIGHT / 2) + (PALLET_HEIGHT / 2) + BEAM_THICKNESS, z]} 
@@ -100,7 +102,7 @@ export default function Warehouse3DMap({ stockData, onBinClick }) {
         const grid = new Map();
         
         // Vytvoříme mapu existujících dat pro rychlé vyhledávání
-        const stockMap = new Map(stockData.map(item => [String(item['Storage Bin']), item]));
+        const stockMap = new Map((stockData || []).map(item => [String(item['Storage Bin']), item]));
 
         // Projdeme VŠECHNY možné pozice a vytvoříme pro ně záznam
         for (let r = dims.minRow; r <= dims.maxRow; r++) {
@@ -169,6 +171,7 @@ export default function Warehouse3DMap({ stockData, onBinClick }) {
                     <meshStandardMaterial color="#475569" />
                 </mesh>
                 
+                {/* Vykreslení všech buněk (obsazených i prázdných) */}
                 {Array.from(grid.values()).map(({ id, position, data }) => (
                     <RackCell
                         key={id}
@@ -181,6 +184,7 @@ export default function Warehouse3DMap({ stockData, onBinClick }) {
                     />
                 ))}
 
+                {/* Vykreslení vertikálních stojin */}
                 {(() => {
                     const beams = [];
                     const { minRow, maxRow, minCol, maxCol, minLevel, maxLevel } = dimensions;
