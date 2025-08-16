@@ -21,6 +21,7 @@ import SettingsTab from '../tabs/SettingsTab';
 import TicketsTab from '../tabs/TicketsTab';
 import PickingTab from '../tabs/PickingTab';
 import FaultyLabelsTab from '../tabs/FaultyLabelsTab';
+import WarehouseOverviewTab from '../tabs/WarehouseOverviewTab';
 
 const DashboardLayout = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -46,6 +47,7 @@ const DashboardLayout = () => {
             case 'warehouseActivities': return <WarehouseActivitiesTab />;
             case 'picking': return <PickingTab />;
             case 'faultyLabels': return <FaultyLabelsTab />;
+            case 'warehouseOverview': return <WarehouseOverviewTab />;
             case 'errorMonitor': return <ErrorMonitorTab />;
             case 'tickets': return <TicketsTab />;
             case 'chat': return <ChatTab />;

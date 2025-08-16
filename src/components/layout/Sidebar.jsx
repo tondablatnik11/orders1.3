@@ -16,6 +16,7 @@ const Sidebar = forwardRef(({ activeTab, onTabChange, isOpen, isCollapsed, setCo
         { id: 'faultyLabels', label: 'Chybné etikety', icon: Printer },
         { id: 'errorMonitor', label: 'Error Monitor', icon: AlertTriangle },
         { id: 'tickets', label: 'Tickety', icon: Ticket },
+        { id: 'warehouseOverview', label: 'Přehled Skladu', icon: Warehouse },
     ];
     
     const bottomMenuItems = [
