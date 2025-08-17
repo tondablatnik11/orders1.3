@@ -3,12 +3,12 @@ import React, { useMemo, useState, Suspense, useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Html, Box } from '@react-three/drei';
 
-// --- Konfigurace rozměrů podle reálného skladu ---
-const LEVEL_HEIGHT = 1.8;
+// --- Konfigurace rozměrů ---
+const LEVEL_HEIGHT = 1.6;    // VÝŠKA JEDNOHO PATRA - SNÍŽENO
 const BEAM_THICKNESS = 0.1;
 const PALLET_WIDTH = 1.2;
 const PALLET_DEPTH = 1.0;
-const PALLET_VISUAL_HEIGHT = 1.4; // Jak vysoká se má paleta zobrazit
+const PALLET_VISUAL_HEIGHT = 1.4;
 
 // --- Komponenty pro stavbu regálu ---
 const VerticalBeam = ({ position, height }) => (
@@ -25,23 +25,13 @@ const HorizontalBeam = ({ position, length }) => (
 
 const Pallet = ({ position, status, onClick, onPointerOver, onPointerOut, isFilteredOut }) => {
     const color = useMemo(() => (status === 'occupied' ? '#ef4444' : '#22c55e'), [status]);
-    // Paleta sedí na nosníku, takže její střed je polovina její VIZUÁLNÍ výšky nad ním
     const y_pos = position[1] + BEAM_THICKNESS / 2 + PALLET_VISUAL_HEIGHT / 2;
     return (
         <Box
             args={[PALLET_WIDTH, PALLET_VISUAL_HEIGHT, PALLET_DEPTH]}
             position={[position[0], y_pos, position[2]]}
-            onClick={onClick}
-            onPointerOver={onPointerOver}
-            onPointerOut={onPointerOut}
-        >
-            <meshStandardMaterial
-                color={color}
-                transparent
-                opacity={isFilteredOut ? 0.05 : (status === 'occupied' ? 0.85 : 0.4)}
-                metalness={0.1}
-                roughness={0.8}
-            />
+            onClick={onClick} onPointerOver={onPointerOver} onPointerOut={onPointerOut} >
+            <meshStandardMaterial color={color} transparent opacity={isFilteredOut ? 0.05 : (status === 'occupied' ? 0.85 : 0.4)} />
         </Box>
     );
 };
@@ -54,7 +44,7 @@ const CameraController = ({ dimensions }) => {
             const [centerX, centerY, centerZ] = dimensions.center;
             const [sizeX, sizeY, sizeZ] = dimensions.size;
             const maxDim = Math.max(sizeX, sizeY, sizeZ);
-            const cameraDistance = maxDim * 1.2;
+            const cameraDistance = maxDim * 1.5;
 
             camera.position.set(centerX + cameraDistance, centerY + cameraDistance, centerZ + cameraDistance);
             controls.target.set(centerX, centerY, centerZ);
@@ -88,7 +78,7 @@ export const Warehouse3DMap = ({ data, filteredIds, onBinClick, dimensions }) =>
     const [hoveredBin, setHoveredBin] = useState(null);
 
     const structure = useMemo(() => {
-        if (!data || data.length === 0) return { beams: [], verticals: [] };
+        if (!data || data.length === 0 || !dimensions) return { beams: [], verticals: [] };
 
         const verticals = new Map();
         const beams = new Map();
@@ -96,38 +86,38 @@ export const Warehouse3DMap = ({ data, filteredIds, onBinClick, dimensions }) =>
 
         // Seskupení pozic do sloupců regálů
         data.forEach(bin => {
-            const key = `${bin.position[0]}-${bin.position[2]}`; // Klíč pro sloupec (X, Z)
-            if (!rackLayout.has(key)) {
-                rackLayout.set(key, []);
-            }
+            const key = `${bin.position[0]}-${bin.position[2]}`;
+            if (!rackLayout.has(key)) rackLayout.set(key, []);
             rackLayout.get(key).push(bin.position[1]);
         });
+        
+        // --- KLÍČOVÁ ZMĚNA: Výška je sjednocena pro všechny nosníky ---
+        const maxWarehouseY = dimensions.maxLevelY || 0;
+        const totalUnifiedHeight = maxWarehouseY + LEVEL_HEIGHT;
 
         // Generování konstrukce pro každý sloupec
         rackLayout.forEach((levels, key) => {
             const [x, z] = key.split('-').map(Number);
-            const minLevelY = Math.min(...levels);
-            const maxLevelY = Math.max(...levels);
-            const totalHeight = maxLevelY - minLevelY + LEVEL_HEIGHT;
+            const y_center = totalUnifiedHeight / 2 - LEVEL_HEIGHT / 2; // Střed pro všechny nosníky
 
             // Vertikální stojiny
-            verticals.set(`${key}-1`, <VerticalBeam key={`v-${key}-1`} position={[x - PALLET_WIDTH / 2, totalHeight / 2 - LEVEL_HEIGHT / 2 + minLevelY, z]} height={totalHeight} />);
-            verticals.set(`${key}-2`, <VerticalBeam key={`v-${key}-2`} position={[x + PALLET_WIDTH / 2, totalHeight / 2 - LEVEL_HEIGHT / 2 + minLevelY, z]} height={totalHeight} />);
+            verticals.set(`${key}-1`, <VerticalBeam key={`v-${key}-1`} position={[x - PALLET_WIDTH / 2, y_center, z]} height={totalUnifiedHeight} />);
+            verticals.set(`${key}-2`, <VerticalBeam key={`v-${key}-2`} position={[x + PALLET_WIDTH / 2, y_center, z]} height={totalUnifiedHeight} />);
 
             // Horizontální nosníky
             levels.forEach(y => {
                 const beamKey = `${key}-${y}`;
                 if (!beams.has(beamKey)) {
-                    beams.set(beamKey, <>
+                    beams.set(beamKey, <React.Fragment key={`h-frag-${beamKey}`}>
                         <HorizontalBeam key={`h-${beamKey}-1`} position={[x, y, z - PALLET_DEPTH / 2]} length={PALLET_WIDTH} />
                         <HorizontalBeam key={`h-${beamKey}-2`} position={[x, y, z + PALLET_DEPTH / 2]} length={PALLET_WIDTH} />
-                    </>);
+                    </React.Fragment>);
                 }
             });
         });
 
         return { beams: Array.from(beams.values()), verticals: Array.from(verticals.values()) };
-    }, [data]);
+    }, [data, dimensions]);
 
     return (
         <div className="w-full h-full rounded-lg shadow-2xl">
@@ -137,11 +127,8 @@ export const Warehouse3DMap = ({ data, filteredIds, onBinClick, dimensions }) =>
                 <directionalLight position={[40, 50, 30]} intensity={2.5} />
                 <gridHelper args={[200, 200, '#374151', '#4b5563']} />
                 <Suspense fallback={null}>
-                    {/* Vykreslení struktury */}
                     {structure.verticals}
                     {structure.beams}
-
-                    {/* Vykreslení palet */}
                     {data.map((bin) => (
                         <Pallet
                             key={bin.id}
@@ -155,7 +142,7 @@ export const Warehouse3DMap = ({ data, filteredIds, onBinClick, dimensions }) =>
                     ))}
                 </Suspense>
                 {hoveredBin && <Tooltip data={hoveredBin} />}
-                <OrbitControls makeDefault minDistance={5} maxDistance={200} />
+                <OrbitControls makeDefault minDistance={5} maxDistance={300} />
                 <CameraController dimensions={dimensions} />
             </Canvas>
         </div>

@@ -1,16 +1,16 @@
 // src/lib/warehouseProcessor.js
 import * as XLSX from 'xlsx';
 
-// --- Konfigurace rozměrů, aby byly konzistentní s 3D mapou ---
-const LEVEL_HEIGHT = 1.8; // Výška jednoho patra
-const BEAM_THICKNESS = 0.1; // Tloušťka nosníku
+// --- Konfigurace rozměrů ---
+const RACK_WIDTH = 1.2;      // Šířka jednoho regálového sloupce
+const AISLE_WIDTH = 3.0;     // ŠÍŘKA ULIČKY MEZI REGÁLY - TUTO HODNOTU MŮŽETE MĚNIT
+const RACK_DEPTH = 1.0;      // Hloubka regálu
+const LEVEL_HEIGHT = 1.6;    // VÝŠKA JEDNOHO PATRA - SNÍŽENO PRO REALISTIČTĚJŠÍ VZHLED
+const BEAM_THICKNESS = 0.1;  // Tloušťka nosníku
+const HALL_OFFSET_X = 60;    // Mezera mezi halou 13 a 18
 
 /**
  * Sjednotí statická data o layoutu skladu s dynamickými daty o aktuálních zásobách.
- * Vytvoří komplexní datový model celého skladu a vypočítá jeho rozměry.
- * @param {Array<Object>} layoutData - Zpracovaná data z warehouse-layout.json.
- * @param {Array<Object>} stockData - Zpracovaná data z nahraného souboru LT10.
- * @returns {{grid: Map<string, Object>, dimensions: Object}} - Objekt obsahující mapu skladu a jeho rozměry.
  */
 export const createWarehouseSnapshot = (layoutData, stockData) => {
     if (!layoutData) return { grid: new Map(), dimensions: null };
@@ -34,7 +34,6 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
         const visualAddress = position.address;
 
         if (!visualAddress || typeof visualAddress !== 'string' || !binId || binId.length < 8) {
-            console.warn(`Varování: Přeskakuji řádek v layoutu, chybí adresa nebo ID.`);
             return;
         }
 
@@ -46,11 +45,11 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
         const levelString = binId.substring(4, 6);
         const ebene = parseInt(levelString, 10);
         
-        // Y souřadnice nosníku, na kterém paleta sedí
         const y = (ebene - 1) * LEVEL_HEIGHT;
 
-        const x = (haus === 18 ? 50 : 0) + (regal - 1) * 1.2;
-        const z = (platz - 1) * 1.0;
+        // --- KLÍČOVÁ ZMĚNA: Přidána mezera pro uličku ---
+        const x = (haus === 18 ? HALL_OFFSET_X : 0) + (regal - 1) * (RACK_WIDTH + AISLE_WIDTH);
+        const z = (platz - 1) * RACK_DEPTH;
 
         minX = Math.min(minX, x); maxX = Math.max(maxX, x);
         minY = Math.min(minY, y); maxY = Math.max(maxY, y);
@@ -69,6 +68,7 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
     const dimensions = {
         center: [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2],
         size: [maxX - minX, maxY - minY, maxZ - minZ],
+        maxLevelY: maxY, // Předáváme maximální výšku pro sjednocení nosníků
     };
 
     return { grid: warehouseGrid, dimensions };
@@ -76,8 +76,6 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
 
 /**
  * Vypočítá klíčové ukazatele (KPI) z kompletního snapshotu skladu.
- * @param {Map<string, Object>} gridData - Mapa celého skladu.
- * @returns {Object} Objekt s KPI.
  */
 export const calculateKPIs = (gridData) => {
     if (!gridData || gridData.size === 0) {
@@ -99,8 +97,6 @@ export const calculateKPIs = (gridData) => {
 
 /**
  * Pomocná funkce pro parsování XLSX souboru (jako LT10).
- * @param {File} file - Soubor nahraný uživatelem.
- * @returns {Promise<Array<Object>>}
  */
 export const parseStockFile = (file) => {
     return new Promise((resolve, reject) => {
