@@ -1,12 +1,12 @@
 // src/lib/warehouseProcessor.js
 import * as XLSX from 'xlsx';
 
-// --- Finální Konfigurace Rozměrů ---
-const RACK_WIDTH = 1.2;
-const AISLE_WIDTH = 5.0;     // VÝRAZNĚ ZVĚTŠENO pro jasné oddělení řad
-const RACK_DEPTH = 1.0;
-const LEVEL_HEIGHT = 1.6;    // Mírně upraveno pro lepší proporce
-const HALL_OFFSET_X = 100;   // Zvětšená mezera mezi halami
+// --- UPRAVENÁ KONFIGURACE ROZMĚRŮ ---
+const RACK_WIDTH = 1.2;      // Šířka samotného regálu (zachováno)
+const AISLE_WIDTH = 8.0;     // ZVĚTŠENO: Šířka uličky pro lepší oddělení řad (původně 5.0)
+const RACK_DEPTH = 1.2;      // UPRAVENO: Hloubka jedné paletové pozice (původně 1.0)
+const LEVEL_HEIGHT = 2.2;    // ZVĚTŠENO: Výška jednoho patra (původně 1.6)
+const HALL_OFFSET_X = 100;   // Mezera mezi halami (zachováno)
 
 /**
  * Zpracovává data a vrací snapshot skladu, jeho rozměry a data pro popisky.
@@ -48,8 +48,10 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
 
         const labelKey = `${haus}-${regal}`;
         if (!labelData.has(labelKey)) {
-            // Umístění popisku před daný regál
-            labelData.set(labelKey, { text: `R${regal}`, position: [x, 0.01, minZ - RACK_DEPTH * 2.5] });
+            // VYLEPŠENO: Popisek se nyní umisťuje doprostřed uličky před regál
+            const labelX = x > 0 ? x - (AISLE_WIDTH / 2) : x;
+            const labelZ = minZ - RACK_DEPTH * 3; // Posunuto více dopředu
+            labelData.set(labelKey, { text: `R${regal}`, position: [labelX, 0.01, labelZ] });
         }
 
         warehouseGrid.set(binId, {
