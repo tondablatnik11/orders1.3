@@ -1,11 +1,11 @@
 // src/lib/warehouseProcessor.js
 import * as XLSX from 'xlsx';
 
-// --- UPRAVENÁ KONFIGURACE ROZMĚRŮ ---
-const RACK_WIDTH = 1.2;      // Šířka samotného regálu (zachováno)
-const AISLE_WIDTH = 8.0;     // ZVĚTŠENO: Šířka uličky pro lepší oddělení řad (původně 5.0)
-const RACK_DEPTH = 1.2;      // UPRAVENO: Hloubka jedné paletové pozice (původně 1.0)
-const LEVEL_HEIGHT = 2.2;    // ZVĚTŠENO: Výška jednoho patra (původně 1.6)
+// --- FINÁLNÍ KONFIGURACE DLE NÁKRESU ---
+const RACK_WIDTH = 2.8;      // UPRAVENO: Šířka oboustranného regálu (původně 1.2)
+const AISLE_WIDTH = 3.8;     // UPRAVENO: Reálná šířka uličky mezi regály (původně 8.0)
+const RACK_DEPTH = 1.2;      // Hloubka jedné paletové pozice (zachováno)
+const LEVEL_HEIGHT = 2.0;    // Výška jednoho patra (upraveno z 2.2)
 const HALL_OFFSET_X = 100;   // Mezera mezi halami (zachováno)
 
 /**
@@ -38,8 +38,9 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
         const levelString = binId.substring(4, 6);
         const ebene = parseInt(levelString, 10);
         
-        const y = (ebene - 1) * LEVEL_HEIGHT;
+        // Výpočet pozice osy X je klíčový: každý krok je součet šířky regálu a uličky
         const x = (haus === 18 ? HALL_OFFSET_X : 0) + (regal - 1) * (RACK_WIDTH + AISLE_WIDTH);
+        const y = (ebene - 1) * LEVEL_HEIGHT;
         const z = (platz - 1) * RACK_DEPTH;
 
         minX = Math.min(minX, x); maxX = Math.max(maxX, x);
@@ -48,9 +49,9 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
 
         const labelKey = `${haus}-${regal}`;
         if (!labelData.has(labelKey)) {
-            // VYLEPŠENO: Popisek se nyní umisťuje doprostřed uličky před regál
+            // Popisek se umisťuje doprostřed uličky PŘED aktuální regál
             const labelX = x > 0 ? x - (AISLE_WIDTH / 2) : x;
-            const labelZ = minZ - RACK_DEPTH * 3; // Posunuto více dopředu
+            const labelZ = minZ - RACK_DEPTH * 3;
             labelData.set(labelKey, { text: `R${regal}`, position: [labelX, 0.01, labelZ] });
         }
 
