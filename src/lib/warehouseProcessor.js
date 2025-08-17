@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 
 // --- Finální Konfigurace Rozměrů ---
 const RACK_WIDTH = 1.2;      // Šířka jednoho regálového sloupce
-const AISLE_WIDTH = 20.0;     // ZVĚTŠENO pro realistickou šířku uličky
+const AISLE_WIDTH = 200;     // ZVĚTŠENO pro realistickou šířku uličky
 const RACK_DEPTH = 1.0;      // Hloubka regálu
 const LEVEL_HEIGHT = 1.3;    // SNÍŽENO pro realističtější proporce regálů
 const HALL_OFFSET_X = 500;    // Mezera mezi halou 13 a 18
