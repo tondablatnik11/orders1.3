@@ -1,16 +1,25 @@
 // src/lib/warehouseProcessor.js
 import * as XLSX from 'xlsx';
 
-// Konfigurace rozměrů zůstává stejná jako v minulém kroku
+// --- Konfigurace rozměrů ---
+const KLT_ACTUAL_HEIGHT = 0.4;
 const PALLET_LEVEL_HEIGHT = 2.0;    
 const KLT_LEVEL_HEIGHT = 0.8;       
 const CELL_DEPTH = 1.4;             
 const POSITION_WIDTH = 1.2;         
 const RACK_DEPTH = 1.4;             
-const AISLE_WIDTH = 9.0;            
-const RACK_SPINE_GAP = 0.6; 
+const AISLE_WIDTH = 4.0;            
+const RACK_SPINE_GAP = 0.2; 
 
-// Funkce createWarehouseSnapshot zůstává beze změny od posledně
+// Mapa pro převod typů pozic na reálné výšky v metrech
+export const binTypeToHeightMap = {
+    'K1': KLT_ACTUAL_HEIGHT,
+    'EP1': 0.7,
+    'EP2': 1.0,
+    'EP3': 1.2,
+    'EP4': 1.5,
+};
+
 export const createWarehouseSnapshot = (layoutData, stockData) => {
     if (!layoutData) return { grid: new Map(), dimensions: null, labels: [] };
     const stockMap = new Map();
@@ -68,7 +77,8 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
         }
 
         warehouseGrid.set(binId, {
-            id: binId, address: visualAddress, type: isKltLevel ? 'KLT' : 'Pallet',
+            id: binId, address: visualAddress, 
+            type: position.type || (isKltLevel ? 'K1' : 'EP3'), // fallback type
             position: [x, y, z], status: stockInfo ? 'occupied' : 'empty', stockData: stockInfo,
         });
     });
@@ -77,27 +87,21 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
         center: [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2],
         size: [maxX - minX, maxY - minY, maxZ - minZ],
         maxLevelY: maxY,
-        minZ, maxZ,
-        rackLayout: { AISLE_WIDTH, RACK_DEPTH, RACK_SPINE_GAP, POSITION_WIDTH, CELL_DEPTH }
     };
     return { grid: warehouseGrid, dimensions, labels: Array.from(labelData.values()) };
 };
 
-
-/**
- * NOVÁ FUNKCE: Vypočítá detailní KPI pro analytickou záložku.
- */
 export const calculateDetailedKPIs = (gridData) => {
     if (!gridData || gridData.size === 0) return null;
 
     const gridArray = Array.from(gridData.values());
     const allStockItems = gridArray.flatMap(bin => bin.stockData || []).filter(Boolean);
 
-    // Celkové statistiky
+    // --- Celkové statistiky ---
     const totalBins = gridData.size;
     const occupiedBins = gridArray.filter(bin => bin.status === 'occupied').length;
     
-    // Statistika podle řad
+    // --- Analýza po řadách ---
     const byRow = {};
     gridArray.forEach(bin => {
         const [regal] = bin.address.split('-').map(Number);
@@ -106,37 +110,61 @@ export const calculateDetailedKPIs = (gridData) => {
         if (bin.status === 'occupied') byRow[regal].occupied++;
     });
     Object.values(byRow).forEach(row => {
-        row.rate = row.total > 0 ? ((row.occupied / row.total) * 100).toFixed(1) : 0;
+        row.rate = row.total > 0 ? ((row.occupied / row.total) * 100) : 0;
     });
 
-    // Statistika podle typu pozice
-    const byLevelType = {
-        pallet: { total: 0, occupied: 0 },
-        klt: { total: 0, occupied: 0 }
-    };
+    // --- Analýza podle typu a objemu pozic ---
+    const byBinType = {};
+    let totalVolume = 0;
+    let occupiedVolume = 0;
+
     gridArray.forEach(bin => {
-        const target = bin.type === 'KLT' ? byLevelType.klt : byLevelType.pallet;
-        target.total++;
-        if (bin.status === 'occupied') target.occupied++;
-    });
-    byLevelType.pallet.rate = byLevelType.pallet.total > 0 ? ((byLevelType.pallet.occupied / byLevelType.pallet.total) * 100).toFixed(1) : 0;
-    byLevelType.klt.rate = byLevelType.klt.total > 0 ? ((byLevelType.klt.occupied / byLevelType.klt.total) * 100).toFixed(1) : 0;
+        const type = bin.type;
+        if (!byBinType[type]) byBinType[type] = { total: 0, occupied: 0 };
+        byBinType[type].total++;
+        
+        const binHeight = binTypeToHeightMap[type] || 0;
+        const binVolume = POSITION_WIDTH * RACK_DEPTH * binHeight;
+        totalVolume += binVolume;
 
-    // Průměrné stáří
+        if (bin.status === 'occupied') {
+            byBinType[type].occupied++;
+            occupiedVolume += binVolume;
+        }
+    });
+    Object.values(byBinType).forEach(typeStats => {
+        typeStats.rate = typeStats.total > 0 ? ((typeStats.occupied / typeStats.total) * 100) : 0;
+    });
+
+    // --- Analýza stáří zásob ---
+    const oldestStock = allStockItems
+        .map(item => ({...item, duration: Number(item['Durat.']) || 0}))
+        .sort((a, b) => b.duration - a.duration)
+        .slice(0, 10);
+    
     const totalAge = allStockItems.reduce((acc, item) => acc + (Number(item['Durat.']) || 0), 0);
     const averageAge = allStockItems.length > 0 ? totalAge / allStockItems.length : 0;
+    
+    // --- Analýza obsazenosti materiálem ---
+     const byMaterial = allStockItems.reduce((acc, item) => {
+        acc[item.Material] = (acc[item.Material] || 0) + 1;
+        return acc;
+    }, {});
+    const topMaterials = Object.entries(byMaterial)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 10)
+        .map(([material, count]) => ({ material, count }));
+
 
     return {
         overall: {
-            totalBins,
-            occupiedBins,
+            totalBins, occupiedBins, totalVolume, occupiedVolume,
             occupancyRate: totalBins > 0 ? ((occupiedBins / totalBins) * 100).toFixed(1) : 0,
+            volumeOccupancyRate: totalVolume > 0 ? ((occupiedVolume / totalVolume) * 100).toFixed(1) : 0,
             uniqueSKUs: new Set(allStockItems.map(item => item.Material)).size,
             totalPallets: new Set(allStockItems.map(item => item['Storage Unit'])).size,
         },
-        byRow,
-        byLevelType,
-        averageAge
+        byRow, byBinType, oldestStock, topMaterials, averageAge
     };
 };
 
@@ -149,11 +177,7 @@ export const parseStockFile = (file) => {
                 const workbook = XLSX.read(data, { type: 'array' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, {
-                    // Důležité: Zajistí, že se sloupce načtou se správnými jmény
-                    header: ["Storage Type", "Storage Bin", "Material", "Plant", "Storage location", "Batch", "Stock category", "Special Stock", "Available stock", "Base Unit of Measure", "Storage Unit", "GR Date", "Durat.", "Time of GR"],
-                    range: 1 // Přeskočí první řádek (nadpisy)
-                });
+                const jsonData = XLSX.utils.sheet_to_json(worksheet);
                 resolve(jsonData);
             } catch (error) { reject(error); }
         };
