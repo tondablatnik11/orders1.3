@@ -24,18 +24,27 @@
   --ring: 215 20% 65%;
   --radius: 0.75rem;
 
-  /* Nové barevné proměnné pro grafy a efekty */
+  /* Vaše Nové barevné proměnné pro grafy a efekty jsou ZACHOVÁNY */
   --chart-1: 199 89% 49%;
   --chart-2: 175 80% 42%;
   --chart-3: 44 98% 59%;
   --chart-4: 28 99% 62%;
   --chart-5: 262 76% 59%;
+
+  /* --- ZDE PŘIDÁVÁME NOVÉ SPECIFICKÉ PROMĚNNÉ PRO PŘEHLED SKLADU --- */
+  --wh-bg: #111827; /* Tmavě modré pozadí pro záložku */
+  --wh-card: #1f2937; /* Mírně světlejší karty */
+  --wh-border: #374151; /* Jemné ohraničení */
+  --wh-text-primary: #f9fafb; /* Hlavní text */
+  --wh-text-secondary: #9ca3af; /* Druhořadý text */
+  --wh-brand-blue: #3b82f6;
 }
 
 body {
-  @apply bg-slate-900 text-slate-50 antialiased;
+  @apply bg-background text-foreground antialiased; /* Používáme vaše HSL proměnné */
 }
 
+/* Vaše existující utility a animace jsou ZACHOVÁNY */
 @layer utilities {
   .glow-cyan {
     box-shadow: 0 0 20px rgba(34, 211, 238, 0.4), 0 0 8px rgba(34, 211, 238, 0.3);

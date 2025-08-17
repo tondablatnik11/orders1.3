@@ -6,7 +6,7 @@ module.exports = {
     './components/**/*.{js,jsx}',
     './app/**/*.{js,jsx}',
     './src/**/*.{js,jsx}',
-	],
+  ],
   prefix: "",
   theme: {
     container: {
@@ -17,6 +17,7 @@ module.exports = {
       },
     },
     extend: {
+      // VAŠE PŮVODNÍ STRUKTURA BAREV JE ZACHOVÁNA
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -51,30 +52,35 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // PŘIDÁVÁME NOVÉ SPECIFICKÉ BARVY S ODKAZEM NA CSS PROMĚNNÉ
+        'wh-bg': 'var(--wh-bg)',
+        'wh-card': 'var(--wh-card)',
+        'wh-border': 'var(--wh-border)',
+        'wh-text-primary': 'var(--wh-text-primary)',
+        'wh-text-secondary': 'var(--wh-text-secondary)',
+        'wh-brand-blue': 'var(--wh-brand-blue)',
       },
+      // VAŠE PŮVODNÍ NASTAVENÍ borderRadius JE ZACHOVÁNO
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      // VAŠE PŮVODNÍ KLÍČOVÉ SNÍMKY A ANIMACE JSOU ZACHOVÁNY (BEZ DUPLICIT)
       keyframes: {
-        "accordion-down": {
-          from: { height: "0" },
-          to: { height: "var(--radix-accordion-content-height)" },
-        },
-        "accordion-up": {
-          from: { height: "var(--radix-accordion-content-height)" },
-          to: { height: "0" },
-        },
+        "accordion-down": { from: { height: "0" }, to: { height: "var(--radix-accordion-content-height)" } },
+        "accordion-up": { from: { height: "var(--radix-accordion-content-height)" }, to: { height: "0" } },
+        "fade-in": { "0%": { opacity: "0", transform: "translateY(10px)" }, "100%": { opacity: "1", transform: "translateY(0)" } },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-in": "fade-in 0.5s ease-out forwards",
       },
     },
   },
   plugins: [
     require("tailwindcss-animate"),
-    require('tailwindcss-glassmorphism') // Přidán nový plugin
+    require('tailwindcss-glassmorphism')
   ],
 }
