@@ -2,23 +2,19 @@
 import * as XLSX from 'xlsx';
 
 // --- FINÁLNÍ KONFIGURACE DLE DETAILNÍHO POPISU STRUKTURY ---
-// Adresa: REGÁL - DŮM - VÝŠKA - POZICE (např. 13-37-50-03)
-
-// --- Konfigurace rozměrů ---
-const PALLET_LEVEL_HEIGHT = 2.0;    // Výška jednoho paletového patra (pro výšky 10, 20, ...)
-const KLT_LEVEL_HEIGHT = 0.8;       // Výška jednoho KLT patra (pro výšky 01-06)
-const CELL_DEPTH = 1.4;             // Hloubka jedné buňky/domu (osa Z)
-const POSITION_WIDTH = 1.2;         // Šířka jedné pozice (01/02/03) v buňce (osa X)
-const RACK_DEPTH = 1.4;             // Hloubka samotného regálu (jedna strana)
-const AISLE_WIDTH = 4.0;            // Šířka uličky mezi páry regálů
-const HALL_OFFSET_X = 100;          // Mezera pro oddělení hal (pokud se použije)
+const PALLET_LEVEL_HEIGHT = 2.0;
+const KLT_LEVEL_HEIGHT = 0.8;
+const CELL_DEPTH = 1.4;
+const POSITION_WIDTH = 1.2;
+const RACK_DEPTH = 1.4;
+const AISLE_WIDTH = 4.0;
+const RACK_SPINE_GAP = 0.2; // ZMENŠENO: Minimální mezera mezi regály v páru (13-14)
 
 /**
  * Zpracovává data a vrací snapshot skladu, jeho rozměry a data pro popisky.
  */
 export const createWarehouseSnapshot = (layoutData, stockData) => {
     if (!layoutData) return { grid: new Map(), dimensions: null, labels: [] };
-
     const stockMap = new Map();
     if (stockData) {
         stockData.forEach(item => {
@@ -32,10 +28,6 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
     const labelData = new Map();
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
 
-    // Pomocná mapa pro normalizaci výšek
-    const levelMap = new Map();
-    let currentLevelIndex = 0;
-
     layoutData.forEach((position) => {
         const binId = position.id;
         const visualAddress = position.address;
@@ -43,51 +35,39 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
 
         const stockInfo = stockMap.get(binId) || null;
         const addressParts = visualAddress.split('-').map(Number);
-        
         if (addressParts.length < 4) return;
         const [regal, dum, vyska, pozice] = addressParts;
-
-        // --- VÝPOČET SOUŘADNICE Y (VÝŠKA) ---
-        if (!levelMap.has(vyska)) {
-            levelMap.set(vyska, currentLevelIndex++);
-        }
         const isKltLevel = vyska <= 6;
+        
         const y = isKltLevel 
             ? (vyska - 1) * KLT_LEVEL_HEIGHT
             : (6 * KLT_LEVEL_HEIGHT) + ((vyska / 10) - 1) * PALLET_LEVEL_HEIGHT;
-
-        // --- VÝPOČET SOUŘADNICE Z (HLOUBKA V ULIČCE) ---
         const z = (dum - 1) * CELL_DEPTH;
-
-        // --- VÝPOČET SOUŘADNICE X (ULIČKA A POZICE V REGÁLU) ---
-        const rackPairIndex = Math.floor((regal - 13) / 2); // 0 pro pár 13/14, 1 pro 15/16 atd.
-        const isRightSideInPair = regal % 2 === 0; // Je to pravá strana páru? (14, 16, 18)
         
-        // Šířka kompletního bloku (2 regály + 1 ulička)
-        const blockWidth = (RACK_DEPTH * 2) + AISLE_WIDTH;
+        const rackPairIndex = Math.floor((regal - 13) / 2);
+        const isRightSideInPair = regal % 2 === 0;
+        
+        const blockWidth = (RACK_DEPTH * 2) + RACK_SPINE_GAP + AISLE_WIDTH;
         const baseX = rackPairIndex * blockWidth;
 
-        let x = baseX;
+        let x;
         if (isRightSideInPair) {
-            // Pravá strana páru (např. 14) - začíná za levou stranou a mezerou
-            x += RACK_DEPTH;
+            // Pravá strana páru (např. 14) začíná za levou + páteřní mezerou
+            x = baseX + RACK_DEPTH + RACK_SPINE_GAP + ((pozice - 1) * POSITION_WIDTH);
+        } else {
+            // Levá strana páru (např. 13)
+            x = baseX + ((pozice - 1) * POSITION_WIDTH);
         }
-        
-        // Přidáme posun na základě pozice (01/02/03)
-        // Předpokládáme, že pozice jsou řazeny od kraje regálu do středu
-        const xOffset = (pozice - 1) * POSITION_WIDTH;
-        x += xOffset;
-
 
         minX = Math.min(minX, x); maxX = Math.max(maxX, x);
         minY = Math.min(minY, y); maxY = Math.max(maxY, y);
         minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
 
-        const labelKey = `${regal}`;
+        const labelKey = `AISLE-${rackPairIndex}`;
         if (!labelData.has(labelKey)) {
-             const labelX = baseX + RACK_DEPTH - (POSITION_WIDTH / 2);
-             const labelZ = -CELL_DEPTH * 2; // Umístění popisku před regál
-             labelData.set(labelKey, { text: `R${regal}`, position: [labelX, 0.01, labelZ] });
+             const labelX = baseX + RACK_DEPTH + (RACK_SPINE_GAP / 2);
+             const labelZ = -CELL_DEPTH * 2;
+             labelData.set(labelKey, { text: `R${regal}/${regal+1}`, position: [labelX, 0.01, labelZ] });
         }
 
         warehouseGrid.set(binId, {
@@ -100,14 +80,13 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
         center: [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2],
         size: [maxX - minX, maxY - minY, maxZ - minZ],
         maxLevelY: maxY,
+        minZ, maxZ,
+        rackLayout: { AISLE_WIDTH, RACK_DEPTH, RACK_SPINE_GAP, POSITION_WIDTH, CELL_DEPTH }
     };
-
     return { grid: warehouseGrid, dimensions, labels: Array.from(labelData.values()) };
 };
 
-/**
- * Vypočítá klíčové ukazatele (KPI) z kompletního snapshotu skladu.
- */
+// Funkce calculateKPIs a parseStockFile zůstávají beze změny
 export const calculateKPIs = (gridData) => {
     if (!gridData || gridData.size === 0) return { totalBins: 0, occupiedBins: 0, occupancyRate: 0, uniqueSKUs: 0, totalPallets: 0 };
     const gridArray = Array.from(gridData.values());
@@ -121,10 +100,6 @@ export const calculateKPIs = (gridData) => {
         uniqueSKUs, totalPallets,
     };
 };
-
-/**
- * Pomocná funkce pro parsování XLSX souboru (jako LT10).
- */
 export const parseStockFile = (file) => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();

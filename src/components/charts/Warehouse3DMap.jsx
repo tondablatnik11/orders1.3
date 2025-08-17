@@ -1,131 +1,139 @@
 // src/components/charts/Warehouse3DMap.jsx
-"use client";
-import React, { useMemo, useState, Suspense, useEffect, useRef } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Html, Box, Instances, Instance, Text, Grid } from '@react-three/drei';
+import React, { useMemo, useRef, useEffect } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
+import { MapControls, Text } from '@react-three/drei';
 import * as THREE from 'three';
 
-// --- Konfigurace Vzhledu ---
-const LEVEL_HEIGHT = 1.6;
-const BIN_WIDTH = 1.2;
-const BIN_DEPTH = 1.0;
-const BIN_VISUAL_HEIGHT = 1.5; // Výška jednoho bloku pozice
+const BOX_DEPTH = 1.2;
+const BOX_WIDTH = 1.2;
+const PALLET_HEIGHT = 0.8;
+const KLT_HEIGHT = 0.7;
 
-// --- Komponenty pro stavbu ---
-const CameraController = ({ focusedPosition, initialDimensions }) => {
-    const { camera, controls } = useThree();
-    const initialTarget = useRef(new THREE.Vector3());
-    const initialPosition = useRef(new THREE.Vector3());
+const Bin = ({ data, isVisible, onClick }) => {
+    const { position, status, type } = data;
+    const color = status === 'occupied' ? '#EF4444' : '#22C55E';
+    const height = type === 'KLT' ? KLT_HEIGHT : PALLET_HEIGHT;
 
-    useEffect(() => {
-        if (controls && initialDimensions && initialDimensions.center && initialDimensions.size) {
-            const [centerX, centerY, centerZ] = initialDimensions.center;
-            const [sizeX, sizeY, sizeZ] = initialDimensions.size;
-            const maxDim = Math.max(sizeX, sizeY, sizeZ);
-            const cameraDistance = maxDim * 1.2;
-            
-            initialTarget.current.set(centerX, centerY > 0 ? centerY : 0, centerZ);
-            initialPosition.current.set(centerX + cameraDistance, centerY + cameraDistance, centerZ + cameraDistance);
+    if (!isVisible) return null;
 
-            camera.position.copy(initialPosition.current);
-            controls.target.copy(initialTarget.current);
-            controls.update();
-        }
-    }, [camera, controls, initialDimensions]);
-    
-    useFrame(() => {
-        const targetPos = focusedPosition 
-            ? new THREE.Vector3(focusedPosition[0], focusedPosition[1], focusedPosition[2]) 
-            : initialTarget.current;
-            
-        const cameraPos = focusedPosition
-            ? new THREE.Vector3(targetPos.x + 10, targetPos.y + 10, targetPos.z + 10)
-            : initialPosition.current;
-
-        if (controls.target.distanceTo(targetPos) > 0.01) {
-            controls.target.lerp(targetPos, 0.05);
-            camera.position.lerp(cameraPos, 0.05);
-        }
-        controls.update();
-    });
-
-    return null;
-};
-
-const Tooltip = ({ data }) => {
-    if (!data) return null;
     return (
-        <Html position={[data.position[0], data.position[1] + BIN_VISUAL_HEIGHT, data.position[2]]} center>
-            <div className="bg-wh-card text-wh-text-primary p-2 rounded-md shadow-lg text-xs w-48 border border-wh-border">
-                <p className="font-bold text-wh-brand-blue">{data.address}</p>
-                <p>{data.status === 'occupied' ? 'Obsazeno' : 'Volné'}</p>
-                {data.stockData && data.stockData.map((item, index) => (
-                    <div key={index} className="mt-1 pt-1 border-t border-wh-border">
-                        <p><span className="font-semibold">Materiál:</span> {item.Material}</p>
-                        <p><span className="font-semibold">Paleta:</span> {item['Storage Unit']}</p>
-                    </div>
-                ))}
-            </div>
-        </Html>
+        <mesh position={[position[0] + BOX_WIDTH / 2, position[1] + height / 2, position[2] + BOX_DEPTH / 2]} onClick={() => onClick(data)}>
+            <boxGeometry args={[BOX_WIDTH, height, BOX_DEPTH]} />
+            <meshStandardMaterial color={color} transparent opacity={status === 'occupied' ? 0.85 : 0.3} roughness={0.5} metalness={0.1} />
+        </mesh>
     );
 };
 
-// --- Hlavní komponenta ---
-export const Warehouse3DMap = ({ data, filteredIds, onBinClick, dimensions, focusedPosition, labels }) => {
-    const [hoveredBin, setHoveredBin] = useState(null);
+const RackStructure = ({ data, dimensions }) => {
+    if (!data.length || !dimensions?.rackLayout) return null;
+
+    const structure = useMemo(() => {
+        const racks = {};
+        data.forEach(bin => {
+            const [regal, dum] = bin.address.split('-').map(Number);
+            const key = `${regal}-${dum}`;
+            if (!racks[key]) {
+                racks[key] = { minLevelY: bin.position[1], maxLevelY: bin.position[1], x: bin.position[0], z: bin.position[2] };
+            } else {
+                racks[key].minLevelY = Math.min(racks[key].minLevelY, bin.position[1]);
+                racks[key].maxLevelY = Math.max(racks[key].maxLevelY, bin.position[1]);
+            }
+        });
+        return Object.values(racks);
+    }, [data]);
+
+    const { RACK_DEPTH } = dimensions.rackLayout;
+    const beamHeight = 0.1;
 
     return (
-        <div className="w-full h-full rounded-lg shadow-2xl">
-            <Canvas camera={{ fov: 50 }}>
-                <color attach="background" args={['#1a202c']} />
-                <fog attach="fog" args={['#1a202c', 60, 250]} />
-                <ambientLight intensity={2.5} />
-                <directionalLight position={[50, 50, 50]} intensity={3.5} />
-                
-                <Grid
-                    position={[dimensions?.center[0] || 0, -0.01, dimensions?.center[2] || 0]}
-                    args={[300, 300]} cellSize={2} cellThickness={1} cellColor={"#6f6f6f"}
-                    sectionSize={10} sectionThickness={1.5} sectionColor={"#3b82f6"}
-                    fadeDistance={180} fadeStrength={1} infiniteGrid
-                />
-                
-                <Suspense fallback={null}>
-                    {/* Skladové pozice (Instanced) */}
-                    <Instances limit={data.length} range={data.length}>
-                        <boxGeometry args={[BIN_WIDTH, BIN_VISUAL_HEIGHT, BIN_DEPTH]} />
-                        <meshStandardMaterial />
-                        {data.map((bin) => {
-                            const isFilteredOut = !filteredIds.has(bin.id);
-                            const y_pos = bin.position[1] + BIN_VISUAL_HEIGHT / 2;
-                            return (
-                                <Instance 
-                                    key={bin.id} 
-                                    position={[bin.position[0], y_pos, bin.position[2]]}
-                                    color={bin.status === 'occupied' ? '#ef4444' : '#22c55e'}
-                                    scale={isFilteredOut ? 0.001 : 1}
-                                    onClick={(e) => { e.stopPropagation(); onBinClick(bin); }}
-                                    onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer'; setHoveredBin(bin); }}
-                                    onPointerOut={() => { document.body.style.cursor = 'default'; setHoveredBin(null); }}
-                                />
-                            );
-                        })}
-                    </Instances>
+        <group>
+            {structure.map((rack, index) => (
+                <group key={index}>
+                    {/* Svislé stojiny */}
+                    <mesh position={[rack.x, rack.maxLevelY / 2, rack.z]}>
+                        <boxGeometry args={[0.1, rack.maxLevelY, 0.1]} />
+                        <meshStandardMaterial color="#64748B" roughness={0.6} />
+                    </mesh>
+                     <mesh position={[rack.x + BOX_WIDTH, rack.maxLevelY / 2, rack.z]}>
+                        <boxGeometry args={[0.1, rack.maxLevelY, 0.1]} />
+                        <meshStandardMaterial color="#64748B" roughness={0.6} />
+                    </mesh>
+                     <mesh position={[rack.x, rack.maxLevelY / 2, rack.z + RACK_DEPTH]}>
+                        <boxGeometry args={[0.1, rack.maxLevelY, 0.1]} />
+                        <meshStandardMaterial color="#64748B" roughness={0.6} />
+                    </mesh>
+                     <mesh position={[rack.x + BOX_WIDTH, rack.maxLevelY / 2, rack.z + RACK_DEPTH]}>
+                        <boxGeometry args={[0.1, rack.maxLevelY, 0.1]} />
+                        <meshStandardMaterial color="#64748B" roughness={0.6} />
+                    </mesh>
+                </group>
+            ))}
+        </group>
+    );
+};
 
-                    {/* Popisky na podlaze */}
-                    {labels && labels.map((label, index) => (
-                        <Text
-                            key={index} position={label.position} rotation={[-Math.PI / 2, 0, 0]}
-                            fontSize={3} color="#f9fafb" anchorX="center" anchorY="middle"
-                        >
-                            {label.text}
-                        </Text>
-                    ))}
-                </Suspense>
-                
-                {hoveredBin && <Tooltip data={hoveredBin} />}
-                <OrbitControls makeDefault minDistance={10} maxDistance={200} enableDamping dampingFactor={0.1} />
-                <CameraController focusedPosition={focusedPosition} initialDimensions={dimensions} />
-            </Canvas>
-        </div>
+
+const CameraSetup = ({ dimensions, focusedPosition }) => {
+    const { camera } = useThree();
+    useEffect(() => {
+        if (dimensions) {
+            if (focusedPosition) {
+                 camera.position.set(focusedPosition[0], focusedPosition[1] + 15, focusedPosition[2] + 15);
+                 camera.lookAt(focusedPosition[0], focusedPosition[1], focusedPosition[2]);
+            } else {
+                const { center, size } = dimensions;
+                camera.position.set(center[0], size[1] + 20, size[2] + 30);
+                camera.lookAt(center[0], center[1], center[2]);
+            }
+            camera.updateProjectionMatrix();
+        }
+    }, [dimensions, focusedPosition, camera]);
+    return null;
+};
+
+export const Warehouse3DMap = ({ data, filteredIds, onBinClick, dimensions, focusedPosition, labels }) => {
+    return (
+        <Canvas shadows>
+            <CameraSetup dimensions={dimensions} focusedPosition={focusedPosition} />
+            <ambientLight intensity={1.5} />
+            <directionalLight
+                position={[50, 50, 50]}
+                intensity={2}
+                castShadow
+                shadow-mapSize-width={2048}
+                shadow-mapSize-height={2048}
+            />
+            <hemisphereLight skyColor={"#a1c4fd"} groundColor={"#6b7280"} intensity={0.8} />
+
+            <group>
+                {data.map(bin => (
+                    <Bin key={bin.id} data={bin} isVisible={filteredIds.has(bin.id)} onClick={onBinClick} />
+                ))}
+            </group>
+
+            <RackStructure data={data} dimensions={dimensions} />
+            
+            {labels.map((label, index) => (
+                <Text
+                    key={index}
+                    position={label.position}
+                    fontSize={3}
+                    color="black"
+                    anchorX="center"
+                    anchorY="middle"
+                    rotation={[-Math.PI / 2, 0, 0]}
+                >
+                    {label.text}
+                </Text>
+            ))}
+
+            <MapControls makeDefault />
+
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[dimensions.center[0], -0.1, dimensions.center[2]]} receiveShadow>
+                <planeGeometry args={[dimensions.size[0]*2, dimensions.size[2]*2]} />
+                <shadowMaterial opacity={0.3} />
+            </mesh>
+             <gridHelper args={[500, 100]} position={[0,-0.05,0]}/>
+        </Canvas>
     );
 };
