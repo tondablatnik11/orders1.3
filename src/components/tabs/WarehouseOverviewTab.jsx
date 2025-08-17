@@ -47,6 +47,7 @@ const WarehouseOverviewTab = () => {
     const [warehouseLayout, setWarehouseLayout] = useState(null);
     const [gridData, setGridData] = useState(null);
     const [dimensions, setDimensions] = useState(null);
+    const [labels, setLabels] = useState([]);
     const [kpis, setKpis] = useState(null);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -58,12 +59,13 @@ const WarehouseOverviewTab = () => {
         const loadLayout = async () => {
             try {
                 const response = await fetch('/data/warehouse-layout.json');
-                if (!response.ok) throw new Error('Nepodařilo se načíst soubor s layoutem skladu (warehouse-layout.json).');
+                if (!response.ok) throw new Error('Nepodařilo se načíst soubor s layoutem skladu.');
                 const layoutData = await response.json();
                 setWarehouseLayout(layoutData);
-                const { grid, dimensions } = createWarehouseSnapshot(layoutData, null);
+                const { grid, dimensions, labels } = createWarehouseSnapshot(layoutData, null);
                 setGridData(grid);
                 setDimensions(dimensions);
+                setLabels(labels);
                 setKpis(calculateKPIs(grid));
             } catch (error) {
                 toast.error(`Chyba při načítání layoutu: ${error.message}`);
@@ -80,9 +82,10 @@ const WarehouseOverviewTab = () => {
             const toastId = toast.loading('Zpracovávám soubor LT10...');
             try {
                 const stockData = await parseStockFile(file);
-                const { grid, dimensions } = createWarehouseSnapshot(warehouseLayout, stockData);
+                const { grid, dimensions, labels } = createWarehouseSnapshot(warehouseLayout, stockData);
                 setGridData(grid);
                 setDimensions(dimensions);
+                setLabels(labels);
                 setKpis(calculateKPIs(grid));
                 toast.success('Stav skladu byl úspěšně aktualizován!', { id: toastId });
             } catch (error) {
@@ -171,6 +174,7 @@ const WarehouseOverviewTab = () => {
                                 onBinClick={(bin) => setSelectedBin(bin)}
                                 dimensions={dimensions}
                                 focusedPosition={focusedPosition}
+                                labels={labels}
                             />
                         }
                     </Suspense>
