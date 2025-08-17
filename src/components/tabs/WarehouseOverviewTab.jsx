@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
-import { Upload, BarChart, Users, Package, Search, Layout3d, PieChart } from 'lucide-react';
+// ZMĚNA ZDE: Nahradil jsem 'Layout3d' za 'View'
+import { Upload, BarChart, Users, Package, Search, View, PieChart } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import { createWarehouseSnapshot, calculateDetailedKPIs, parseStockFile } from '../../lib/warehouseProcessor';
 
@@ -27,7 +28,7 @@ const WarehouseOverviewTab = () => {
     const [labels, setLabels] = useState([]);
     const [kpis, setKpis] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('analytics'); // Začínáme na analytice
+    const [activeTab, setActiveTab] = useState('analytics');
     const fileInputRef = React.useRef(null);
 
     const loadInitialData = useCallback(async (stockData = null) => {
@@ -62,7 +63,7 @@ const WarehouseOverviewTab = () => {
 
     useEffect(() => {
         if (warehouseLayout) {
-            loadInitialData(null); // Načteme prázdný layout po načtení JSON
+            loadInitialData(null);
         }
     }, [warehouseLayout, loadInitialData]);
 
@@ -89,7 +90,6 @@ const WarehouseOverviewTab = () => {
         <>
             <Toaster position="bottom-right" toastOptions={{ className: 'bg-card text-foreground border border-border' }} />
             <div className="h-full w-full flex flex-col gap-4">
-                {/* Horní lišta s KPI a nahráváním souboru */}
                 <div className="bg-card rounded-xl shadow-lg p-4 flex flex-col xl:flex-row items-center gap-4 border border-border">
                     <div className="grid gap-4 w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 flex-grow">
                          {kpis?.overall ? (
@@ -108,15 +108,14 @@ const WarehouseOverviewTab = () => {
                              <Upload size={20} />
                              Nahrát LT10 Report
                          </button>
-                         {/* Přepínač záložek */}
                          <div className="flex w-full sm:w-auto bg-background rounded-lg p-1 border border-border">
                              <button onClick={() => setActiveTab('analytics')} className={`flex-1 sm:flex-auto px-4 py-1.5 text-sm font-semibold rounded-md transition-colors ${activeTab === 'analytics' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:bg-card/50'}`}><PieChart className="inline h-4 w-4 mr-2"/>Analytika</button>
-                             <button onClick={() => setActiveTab('3d_view')} className={`flex-1 sm:flex-auto px-4 py-1.5 text-sm font-semibold rounded-md transition-colors ${activeTab === '3d_view' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:bg-card/50'}`}><Layout3d className="inline h-4 w-4 mr-2"/>3D Pohled</button>
+                             {/* ZMĚNA ZDE: Použita opravená ikona 'View' */}
+                             <button onClick={() => setActiveTab('3d_view')} className={`flex-1 sm:flex-auto px-4 py-1.5 text-sm font-semibold rounded-md transition-colors ${activeTab === '3d_view' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground hover:bg-card/50'}`}><View className="inline h-4 w-4 mr-2"/>3D Pohled</button>
                          </div>
                      </div>
                 </div>
 
-                {/* Kontejner pro aktivní záložku */}
                 <div className="flex-grow w-full h-full rounded-lg overflow-hidden relative min-h-0 bg-card border border-border shadow-lg">
                     <Suspense fallback={<div className="flex justify-center items-center h-full">Načítám zobrazení...</div>}>
                         {activeTab === 'analytics' && <WarehouseAnalyticsTab kpis={kpis} isLoading={!kpis} />}
