@@ -4,16 +4,14 @@ import * as XLSX from 'xlsx';
 /**
  * Sjednotí statická data o layoutu skladu s dynamickými daty o aktuálních zásobách.
  * Vytvoří komplexní datový model celého skladu.
- * @param {Array<Object>} layoutData - Zpracovaná data z Regalplätze.csv (nebo budoucího warehouse-layout.json).
+ * @param {Array<Object>} layoutData - Zpracovaná data z warehouse-layout.json.
  * @param {Array<Object>} stockData - Zpracovaná data z nahraného souboru LT10.
  * @returns {Map<string, Object>} Mapa, kde klíč je ID pozice a hodnota je objekt s kompletními informacemi.
  */
 export const createWarehouseSnapshot = (layoutData, stockData) => {
     if (!layoutData) return new Map();
 
-    // Krok 1: Vytvoříme mapu pro rychlý přístup k datům o zásobách. Klíčem je 'Storage Bin'.
     const stockMap = new Map();
-    // Pokud stockData existují, naplníme mapu
     if (stockData) {
         stockData.forEach(item => {
             const binId = String(item['Storage Bin']);
@@ -24,13 +22,22 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
         });
     }
 
-    // Krok 2: Vytvoříme finální mapu celého skladu, obohacenou o data ze zásob.
     const warehouseGrid = new Map();
-    layoutData.forEach(position => {
-        const binId = String(position['Platzadresse im Barcode ohne Bindestrich -> Stellplatz']);
-        const stockInfo = stockMap.get(binId) || null;
+    layoutData.forEach((position, index) => {
+        const binId = String(position.id);
+        const visualAddress = position.address;
 
-        const [haus, regal, ebene, platz] = position['Platzadresse visuelle Darstellung'].split('-').map(Number);
+        // --- ZDE JE KLÍČOVÁ OPRAVA ---
+        // Než se pokusíme adresu rozdělit, zkontrolujeme, jestli vůbec existuje.
+        if (!visualAddress || typeof visualAddress !== 'string') {
+            console.warn(`Varování: Přeskakuji řádek #${index + 2} v layoutu, protože chybí nebo je neplatná adresa ('Platzadresse visuelle Darstellung').`);
+            return; // Přeskočí zpracování tohoto jednoho řádku a pokračuje dál
+        }
+        // --- KONEC OPRAVY ---
+
+        const stockInfo = stockMap.get(binId) || null;
+        const addressParts = visualAddress.split('-').map(Number);
+        const [haus, regal, ebene, platz] = addressParts;
 
         const x = (regal - 1) * 1.2;
         const y = (ebene - 1) * 1.8;
@@ -38,10 +45,10 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
 
         warehouseGrid.set(binId, {
             id: binId,
-            address: position['Platzadresse visuelle Darstellung'],
-            type: position.KLT || 'Pallet',
+            address: visualAddress,
+            type: position.type || 'Pallet',
             position: [x, y, z],
-            size: getBinSize(position.KLT),
+            size: getBinSize(position.type),
             status: stockInfo ? 'occupied' : 'empty',
             stockData: stockInfo,
         });
