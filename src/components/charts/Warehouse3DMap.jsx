@@ -1,56 +1,52 @@
 "use client";
-import React, { useMemo, useState, Suspense, useEffect } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
-import { OrbitControls, Html, Box } from '@react-three/drei';
+import React, { useMemo, useState, Suspense, useEffect, useRef } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls, Html, Box, Instances, Instance } from '@react-three/drei';
+import * as THREE from 'three';
 
-// --- Konfigurace rozměrů ---
-const LEVEL_HEIGHT = 1.6;    // VÝŠKA JEDNOHO PATRA - SNÍŽENO
+// --- Finální Konfigurace Rozměrů ---
+const LEVEL_HEIGHT = 1.5;
 const BEAM_THICKNESS = 0.1;
 const PALLET_WIDTH = 1.2;
 const PALLET_DEPTH = 1.0;
-const PALLET_VISUAL_HEIGHT = 1.4;
+const PALLET_VISUAL_HEIGHT = 1.3;
 
-// --- Komponenty pro stavbu regálu ---
-const VerticalBeam = ({ position, height }) => (
-    <Box position={position} args={[BEAM_THICKNESS * 2, height, BEAM_THICKNESS * 2]}>
-        <meshStandardMaterial color="#3b82f6" metalness={0.6} roughness={0.4} />
-    </Box>
-);
-
-const HorizontalBeam = ({ position, length }) => (
-    <Box position={position} args={[length, BEAM_THICKNESS, BEAM_THICKNESS * 2]}>
-        <meshStandardMaterial color="#f97316" metalness={0.4} roughness={0.5} />
-    </Box>
-);
-
-const Pallet = ({ position, status, onClick, onPointerOver, onPointerOut, isFilteredOut }) => {
-    const color = useMemo(() => (status === 'occupied' ? '#ef4444' : '#22c55e'), [status]);
-    const y_pos = position[1] + BEAM_THICKNESS / 2 + PALLET_VISUAL_HEIGHT / 2;
-    return (
-        <Box
-            args={[PALLET_WIDTH, PALLET_VISUAL_HEIGHT, PALLET_DEPTH]}
-            position={[position[0], y_pos, position[2]]}
-            onClick={onClick} onPointerOver={onPointerOver} onPointerOut={onPointerOut} >
-            <meshStandardMaterial color={color} transparent opacity={isFilteredOut ? 0.05 : (status === 'occupied' ? 0.85 : 0.4)} />
-        </Box>
-    );
-};
-
-// Komponenta pro automatické nastavení kamery
-const CameraController = ({ dimensions }) => {
+// --- Komponenta pro plynulý pohyb a zoom kamery ---
+const CameraController = ({ focusedPosition, initialDimensions }) => {
     const { camera, controls } = useThree();
-    useEffect(() => {
-        if (controls && dimensions && dimensions.center && dimensions.size) {
-            const [centerX, centerY, centerZ] = dimensions.center;
-            const [sizeX, sizeY, sizeZ] = dimensions.size;
-            const maxDim = Math.max(sizeX, sizeY, sizeZ);
-            const cameraDistance = maxDim * 1.5;
+    const initialTarget = useRef(new THREE.Vector3());
+    const initialPosition = useRef(new THREE.Vector3());
 
-            camera.position.set(centerX + cameraDistance, centerY + cameraDistance, centerZ + cameraDistance);
-            controls.target.set(centerX, centerY, centerZ);
+    useEffect(() => {
+        if (controls && initialDimensions && initialDimensions.center && initialDimensions.size) {
+            const [centerX, centerY, centerZ] = initialDimensions.center;
+            const [sizeX, sizeY, sizeZ] = initialDimensions.size;
+            const maxDim = Math.max(sizeX, sizeY, sizeZ);
+            const cameraDistance = maxDim * 1.2;
+            
+            initialTarget.current.set(centerX, centerY, centerZ);
+            initialPosition.current.set(centerX + cameraDistance, centerY + cameraDistance, centerZ + cameraDistance);
+
+            camera.position.copy(initialPosition.current);
+            controls.target.copy(initialTarget.current);
             controls.update();
         }
-    }, [camera, controls, dimensions]);
+    }, [camera, controls, initialDimensions]);
+    
+    useFrame(() => {
+        const targetPos = focusedPosition 
+            ? new THREE.Vector3(focusedPosition[0], focusedPosition[1] + 1, focusedPosition[2]) 
+            : initialTarget.current;
+            
+        const cameraPos = focusedPosition
+            ? new THREE.Vector3(focusedPosition[0] + 10, focusedPosition[1] + 10, focusedPosition[2] + 10)
+            : initialPosition.current;
+
+        controls.target.lerp(targetPos, 0.05);
+        camera.position.lerp(cameraPos, 0.05);
+        controls.update();
+    });
+
     return null;
 };
 
@@ -74,76 +70,97 @@ const Tooltip = ({ data }) => {
 };
 
 // --- Hlavní komponenta ---
-export const Warehouse3DMap = ({ data, filteredIds, onBinClick, dimensions }) => {
+export const Warehouse3DMap = ({ data, filteredIds, onBinClick, dimensions, focusedPosition }) => {
     const [hoveredBin, setHoveredBin] = useState(null);
 
     const structure = useMemo(() => {
-        if (!data || data.length === 0 || !dimensions) return { beams: [], verticals: [] };
+        if (!data || data.length === 0 || !dimensions) return { verticals: [], horizontals: [], pallets: [] };
 
-        const verticals = new Map();
-        const beams = new Map();
+        const verticalsMap = new Map();
+        const horizontalsMap = new Map();
+        const pallets = data; // Palety už máme
         const rackLayout = new Map();
 
-        // Seskupení pozic do sloupců regálů
         data.forEach(bin => {
             const key = `${bin.position[0]}-${bin.position[2]}`;
             if (!rackLayout.has(key)) rackLayout.set(key, []);
             rackLayout.get(key).push(bin.position[1]);
         });
         
-        // --- KLÍČOVÁ ZMĚNA: Výška je sjednocena pro všechny nosníky ---
         const maxWarehouseY = dimensions.maxLevelY || 0;
         const totalUnifiedHeight = maxWarehouseY + LEVEL_HEIGHT;
 
-        // Generování konstrukce pro každý sloupec
         rackLayout.forEach((levels, key) => {
             const [x, z] = key.split('-').map(Number);
-            const y_center = totalUnifiedHeight / 2 - LEVEL_HEIGHT / 2; // Střed pro všechny nosníky
-
-            // Vertikální stojiny
-            verticals.set(`${key}-1`, <VerticalBeam key={`v-${key}-1`} position={[x - PALLET_WIDTH / 2, y_center, z]} height={totalUnifiedHeight} />);
-            verticals.set(`${key}-2`, <VerticalBeam key={`v-${key}-2`} position={[x + PALLET_WIDTH / 2, y_center, z]} height={totalUnifiedHeight} />);
-
-            // Horizontální nosníky
+            const y_center = totalUnifiedHeight / 2 - LEVEL_HEIGHT / 2;
+            verticalsMap.set(`${key}-1`, { position: [x - PALLET_WIDTH / 2, y_center, z], height: totalUnifiedHeight });
+            verticalsMap.set(`${key}-2`, { position: [x + PALLET_WIDTH / 2, y_center, z], height: totalUnifiedHeight });
             levels.forEach(y => {
                 const beamKey = `${key}-${y}`;
-                if (!beams.has(beamKey)) {
-                    beams.set(beamKey, <React.Fragment key={`h-frag-${beamKey}`}>
-                        <HorizontalBeam key={`h-${beamKey}-1`} position={[x, y, z - PALLET_DEPTH / 2]} length={PALLET_WIDTH} />
-                        <HorizontalBeam key={`h-${beamKey}-2`} position={[x, y, z + PALLET_DEPTH / 2]} length={PALLET_WIDTH} />
-                    </React.Fragment>);
+                if (!horizontalsMap.has(beamKey)) {
+                    horizontalsMap.set(beamKey, [
+                        { position: [x, y, z - PALLET_DEPTH / 2] },
+                        { position: [x, y, z + PALLET_DEPTH / 2] },
+                    ]);
                 }
             });
         });
 
-        return { beams: Array.from(beams.values()), verticals: Array.from(verticals.values()) };
+        return { 
+            verticals: Array.from(verticalsMap.values()), 
+            horizontals: Array.from(horizontalsMap.values()).flat(), 
+            pallets 
+        };
     }, [data, dimensions]);
 
     return (
         <div className="w-full h-full rounded-lg shadow-2xl">
-            <Canvas>
+            <Canvas camera={{ fov: 50 }}>
                 <color attach="background" args={['#111827']} />
                 <ambientLight intensity={1.8} />
-                <directionalLight position={[40, 50, 30]} intensity={2.5} />
-                <gridHelper args={[200, 200, '#374151', '#4b5563']} />
+                <directionalLight position={[50, 50, 50]} intensity={2.5} />
+                <gridHelper args={[300, 300, '#374151', '#4b5563']} />
+                
                 <Suspense fallback={null}>
-                    {structure.verticals}
-                    {structure.beams}
-                    {data.map((bin) => (
-                        <Pallet
-                            key={bin.id}
-                            position={bin.position}
-                            status={bin.status}
-                            onClick={(e) => { e.stopPropagation(); onBinClick(bin); }}
-                            onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer'; setHoveredBin(bin); }}
-                            onPointerOut={() => { document.body.style.cursor = 'default'; setHoveredBin(null); }}
-                            isFilteredOut={!filteredIds.has(bin.id)}
-                        />
-                    ))}
+                    {/* Vertikální nosníky (Instanced) */}
+                    <Instances limit={structure.verticals.length} range={structure.verticals.length}>
+                        <boxGeometry args={[BEAM_THICKNESS * 2, 1, BEAM_THICKNESS * 2]} />
+                        <meshStandardMaterial color="#3b82f6" metalness={0.6} roughness={0.4} />
+                        {structure.verticals.map((v, i) => <Instance key={i} scale-y={v.height} position={v.position} />)}
+                    </Instances>
+
+                    {/* Horizontální nosníky (Instanced) */}
+                    <Instances limit={structure.horizontals.length} range={structure.horizontals.length}>
+                        <boxGeometry args={[PALLET_WIDTH, BEAM_THICKNESS, BEAM_THICKNESS * 2]} />
+                        <meshStandardMaterial color="#f97316" metalness={0.4} roughness={0.5} />
+                        {structure.horizontals.map((h, i) => <Instance key={i} position={h.position} />)}
+                    </Instances>
+
+                    {/* Palety (Instanced) */}
+                    <Instances limit={structure.pallets.length} range={structure.pallets.length}>
+                        <boxGeometry args={[PALLET_WIDTH, PALLET_VISUAL_HEIGHT, PALLET_DEPTH]} />
+                        <meshStandardMaterial transparent />
+                        {structure.pallets.map((bin) => {
+                            const isFilteredOut = !filteredIds.has(bin.id);
+                            const y_pos = bin.position[1] + BEAM_THICKNESS / 2 + PALLET_VISUAL_HEIGHT / 2;
+                            return (
+                                <Instance 
+                                    key={bin.id} 
+                                    position={[bin.position[0], y_pos, bin.position[2]]}
+                                    color={bin.status === 'occupied' ? '#ef4444' : '#22c55e'}
+                                    scale={isFilteredOut ? 0.001 : 1}
+                                    onClick={(e) => { e.stopPropagation(); onBinClick(bin); }}
+                                    onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer'; setHoveredBin(bin); }}
+                                    onPointerOut={() => { document.body.style.cursor = 'default'; setHoveredBin(null); }}
+                                />
+                            );
+                        })}
+                    </Instances>
                 </Suspense>
+                
                 {hoveredBin && <Tooltip data={hoveredBin} />}
-                <OrbitControls makeDefault minDistance={5} maxDistance={300} />
-                <CameraController dimensions={dimensions} />
+                <OrbitControls makeDefault minDistance={5} maxDistance={300} enableDamping dampingFactor={0.1} />
+                <CameraController focusedPosition={focusedPosition} initialDimensions={dimensions} />
             </Canvas>
         </div>
     );

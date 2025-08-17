@@ -1,4 +1,3 @@
-// src/components/tabs/WarehouseOverviewTab.jsx
 "use client";
 import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { Warehouse3DMap } from '../charts/Warehouse3DMap';
@@ -44,7 +43,6 @@ const KpiCard = ({ title, value, subtext, icon: Icon }) => (
     </div>
 );
 
-
 const WarehouseOverviewTab = () => {
     const [warehouseLayout, setWarehouseLayout] = useState(null);
     const [gridData, setGridData] = useState(null);
@@ -54,6 +52,7 @@ const WarehouseOverviewTab = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedBin, setSelectedBin] = useState(null);
     const fileInputRef = useRef(null);
+    const [focusedPosition, setFocusedPosition] = useState(null);
 
     useEffect(() => {
         const loadLayout = async () => {
@@ -96,17 +95,34 @@ const WarehouseOverviewTab = () => {
     const filteredGrid = useMemo(() => {
         if (!gridData) return [];
         const gridArray = Array.from(gridData.values());
-        if (!searchTerm.trim()) return gridArray;
-        const lowerCaseSearch = searchTerm.toLowerCase();
-        if (lowerCaseSearch === 'empty' || lowerCaseSearch === 'volné') {
-            return gridArray.filter(bin => bin.status === 'empty');
+
+        if (!searchTerm.trim()) {
+            setFocusedPosition(null);
+            return gridArray;
         }
-        return gridArray.filter(bin => 
-            bin.stockData && bin.stockData.some(item =>
-                String(item.Material)?.toLowerCase().includes(lowerCaseSearch) ||
-                String(item['Storage Unit'])?.toLowerCase().includes(lowerCaseSearch)
+
+        const lowerCaseSearch = searchTerm.toLowerCase();
+        
+        const result = gridArray.filter(bin => {
+            if (lowerCaseSearch === 'empty' || lowerCaseSearch === 'volné') {
+                return bin.status === 'empty';
+            }
+            return (
+                bin.address.toLowerCase().includes(lowerCaseSearch) ||
+                (bin.stockData && bin.stockData.some(item =>
+                    String(item.Material)?.toLowerCase().includes(lowerCaseSearch) ||
+                    String(item['Storage Unit'])?.toLowerCase().includes(lowerCaseSearch)
+                ))
             )
-        );
+        });
+        
+        if (result.length === 1) {
+            setFocusedPosition(result[0].position);
+        } else {
+            setFocusedPosition(null);
+        }
+
+        return result;
     }, [gridData, searchTerm]);
 
     if (loading) {
@@ -130,7 +146,7 @@ const WarehouseOverviewTab = () => {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                         <input
                             type="text"
-                            placeholder="Hledat materiál, paletu (SU) nebo 'empty'..."
+                            placeholder="Hledat pozici, materiál, paletu (SU) nebo 'empty'..."
                             className="w-full bg-background p-2 pl-10 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -154,6 +170,7 @@ const WarehouseOverviewTab = () => {
                                 filteredIds={new Set(filteredGrid.map(bin => bin.id))}
                                 onBinClick={(bin) => setSelectedBin(bin)}
                                 dimensions={dimensions}
+                                focusedPosition={focusedPosition}
                             />
                         }
                     </Suspense>
