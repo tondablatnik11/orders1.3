@@ -24,28 +24,33 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
 
     const warehouseGrid = new Map();
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    const LEVEL_HEIGHT = 1.8; // Definuje výšku jednoho patra
 
     layoutData.forEach((position, index) => {
-        const binId = position.id; // Toto je již string z JSONu
+        const binId = position.id;
         const visualAddress = position.address;
 
-        if (!visualAddress || typeof visualAddress !== 'string') {
-            console.warn(`Varování: Přeskakuji řádek v layoutu, chybí adresa.`);
+        if (!visualAddress || typeof visualAddress !== 'string' || binId.length < 8) {
+            console.warn(`Varování: Přeskakuji řádek v layoutu, chybí adresa nebo ID.`);
             return;
         }
 
-        // KLÍČOVÁ OPRAVA: Spojujeme data pomocí 'binId', které je nyní shodné v obou zdrojích.
         const stockInfo = stockMap.get(binId) || null;
         
         const addressParts = visualAddress.split('-').map(Number);
-        const [haus, regal, ebene, platz] = addressParts;
+        const [haus, regal, platz] = [addressParts[0], addressParts[1], addressParts[3]];
 
-        // KLÍČOVÁ OPRAVA: Upravený souřadnicový systém, který odděluje haly 13 a 18.
+        // --- ZDE JE KLÍČOVÁ OPRAVA ---
+        // Vertikální pozici (patro) odvozujeme z 5. a 6. číslice ID
+        const levelString = binId.substring(4, 6);
+        const ebene = parseInt(levelString, 10);
+        // Souřadnice Y se nyní počítá jako (patro - 1) * výška patra
+        const y = (ebene - 1) * LEVEL_HEIGHT;
+        // --- KONEC OPRAVY ---
+
         const x = (haus === 18 ? 50 : 0) + (regal - 1) * 1.2;
-        const y = (ebene - 1) * 1.8;
         const z = (platz - 1) * 1.0;
 
-        // Aktualizace minimálních a maximálních souřadnic pro výpočet rozměrů
         minX = Math.min(minX, x); maxX = Math.max(maxX, x);
         minY = Math.min(minY, y); maxY = Math.max(maxY, y);
         minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
@@ -56,12 +61,11 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
             type: position.type || 'Pallet',
             position: [x, y, z],
             size: getBinSize(position.type),
-            status: stockInfo ? 'occupied' : 'empty', // Toto bude nyní fungovat správně
+            status: stockInfo ? 'occupied' : 'empty',
             stockData: stockInfo,
         });
     });
     
-    // Vypočítáme střed a velikost celého skladu pro správné zobrazení kamery
     const dimensions = {
         center: [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2],
         size: [maxX - minX, maxY - minY, maxZ - minZ],
@@ -70,11 +74,7 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
     return { grid: warehouseGrid, dimensions };
 };
 
-/**
- * Vypočítá klíčové ukazatele (KPI) z kompletního snapshotu skladu.
- * @param {Map<string, Object>} gridData - Mapa celého skladu.
- * @returns {Object} Objekt s KPI.
- */
+// Ostatní funkce zůstávají beze změny
 export const calculateKPIs = (gridData) => {
     if (!gridData || gridData.size === 0) {
         return { totalBins: 0, occupiedBins: 0, occupancyRate: 0, uniqueSKUs: 0, totalPallets: 0 };
@@ -93,11 +93,6 @@ export const calculateKPIs = (gridData) => {
     };
 };
 
-/**
- * Pomocná funkce pro parsování XLSX souboru (jako LT10).
- * @param {File} file - Soubor nahraný uživatelem.
- * @returns {Promise<Array<Object>>}
- */
 export const parseStockFile = (file) => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -118,11 +113,6 @@ export const parseStockFile = (file) => {
     });
 };
 
-/**
- * Pomocná funkce pro určení rozměrů pozice podle typu.
- * @param {string} type - Typ pozice (KLT, Pallet, atd.)
- * @returns {Array<number>} Pole s rozměry [šířka, výška, hloubka]
- */
 const getBinSize = (type) => {
     switch (type) {
         case 'Pallet': return [1.2, 1.8, 1.0];
