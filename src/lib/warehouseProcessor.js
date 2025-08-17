@@ -1,4 +1,3 @@
-// src/lib/warehouseProcessor.js
 import * as XLSX from 'xlsx';
 
 // --- Konfigurace rozměrů ---
@@ -11,13 +10,9 @@ const RACK_DEPTH = 1.4;
 const AISLE_WIDTH = 4.0;            
 const RACK_SPINE_GAP = 0.2; 
 
-// Mapa pro převod typů pozic na reálné výšky v metrech
 export const binTypeToHeightMap = {
-    'K1': KLT_ACTUAL_HEIGHT,
-    'EP1': 0.7,
-    'EP2': 1.0,
-    'EP3': 1.2,
-    'EP4': 1.5,
+    'K1': KLT_ACTUAL_HEIGHT, 'KLT': KLT_ACTUAL_HEIGHT,
+    'EP1': 0.7, 'EP2': 1.0, 'EP3': 1.2, 'EP4': 1.5,
 };
 
 export const createWarehouseSnapshot = (layoutData, stockData) => {
@@ -78,7 +73,7 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
 
         warehouseGrid.set(binId, {
             id: binId, address: visualAddress, 
-            type: position.type || (isKltLevel ? 'K1' : 'EP3'), // fallback type
+            type: position.type || (isKltLevel ? 'K1' : 'EP3'),
             position: [x, y, z], status: stockInfo ? 'occupied' : 'empty', stockData: stockInfo,
         });
     });
@@ -95,65 +90,61 @@ export const calculateDetailedKPIs = (gridData) => {
     if (!gridData || gridData.size === 0) return null;
 
     const gridArray = Array.from(gridData.values());
-    const allStockItems = gridArray.flatMap(bin => bin.stockData || []).filter(Boolean);
+    const allStockItems = gridArray.flatMap(bin => {
+        const binType = bin.type;
+        return (bin.stockData || []).map(item => ({...item, binType}));
+    }).filter(Boolean);
 
-    // --- Celkové statistiky ---
     const totalBins = gridData.size;
     const occupiedBins = gridArray.filter(bin => bin.status === 'occupied').length;
     
-    // --- Analýza po řadách ---
-    const byRow = {};
-    gridArray.forEach(bin => {
+    const byRow = gridArray.reduce((acc, bin) => {
         const [regal] = bin.address.split('-').map(Number);
-        if (!byRow[regal]) byRow[regal] = { total: 0, occupied: 0 };
-        byRow[regal].total++;
-        if (bin.status === 'occupied') byRow[regal].occupied++;
-    });
-    Object.values(byRow).forEach(row => {
-        row.rate = row.total > 0 ? ((row.occupied / row.total) * 100) : 0;
-    });
+        if (!acc[regal]) acc[regal] = { total: 0, occupied: 0 };
+        acc[regal].total++;
+        if (bin.status === 'occupied') acc[regal].occupied++;
+        return acc;
+    }, {});
+    Object.values(byRow).forEach(row => { row.rate = row.total > 0 ? (row.occupied / row.total) * 100 : 0; });
 
-    // --- Analýza podle typu a objemu pozic ---
-    const byBinType = {};
-    let totalVolume = 0;
-    let occupiedVolume = 0;
-
-    gridArray.forEach(bin => {
+    const byBinType = gridArray.reduce((acc, bin) => {
         const type = bin.type;
-        if (!byBinType[type]) byBinType[type] = { total: 0, occupied: 0 };
-        byBinType[type].total++;
-        
-        const binHeight = binTypeToHeightMap[type] || 0;
+        if (!acc[type]) acc[type] = { total: 0, occupied: 0 };
+        acc[type].total++;
+        if (bin.status === 'occupied') acc[type].occupied++;
+        return acc;
+    }, {});
+    Object.values(byBinType).forEach(stats => { stats.rate = stats.total > 0 ? (stats.occupied / stats.total) * 100 : 0; });
+
+    let totalVolume = 0, occupiedVolume = 0;
+    gridArray.forEach(bin => {
+        const binHeight = binTypeToHeightMap[bin.type] || 0;
         const binVolume = POSITION_WIDTH * RACK_DEPTH * binHeight;
         totalVolume += binVolume;
-
-        if (bin.status === 'occupied') {
-            byBinType[type].occupied++;
-            occupiedVolume += binVolume;
-        }
-    });
-    Object.values(byBinType).forEach(typeStats => {
-        typeStats.rate = typeStats.total > 0 ? ((typeStats.occupied / typeStats.total) * 100) : 0;
+        if (bin.status === 'occupied') occupiedVolume += binVolume;
     });
 
-    // --- Analýza stáří zásob ---
-    const oldestStock = allStockItems
-        .map(item => ({...item, duration: Number(item['Durat.']) || 0}))
-        .sort((a, b) => b.duration - a.duration)
-        .slice(0, 10);
-    
-    const totalAge = allStockItems.reduce((acc, item) => acc + (Number(item['Durat.']) || 0), 0);
-    const averageAge = allStockItems.length > 0 ? totalAge / allStockItems.length : 0;
-    
-    // --- Analýza obsazenosti materiálem ---
-     const byMaterial = allStockItems.reduce((acc, item) => {
+    const materialCounts = allStockItems.reduce((acc, item) => {
         acc[item.Material] = (acc[item.Material] || 0) + 1;
         return acc;
     }, {});
-    const topMaterials = Object.entries(byMaterial)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 10)
-        .map(([material, count]) => ({ material, count }));
+    const topMaterialsByBins = Object.entries(materialCounts).sort(([, a], [, b]) => b - a).slice(0, 10).map(([material, count]) => ({ material, count }));
+    
+    const materialDistributionByBinType = allStockItems.reduce((acc, item) => {
+        const type = item.binType;
+        if (!acc[type]) acc[type] = new Set();
+        acc[type].add(item.Material);
+        return acc;
+    }, {});
+    Object.keys(materialDistributionByBinType).forEach(type => {
+        materialDistributionByBinType[type] = materialDistributionByBinType[type].size;
+    });
+
+    const emptyBinsByType = gridArray.filter(bin => bin.status === 'empty').reduce((acc, bin) => {
+        const type = bin.type;
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+    }, {});
 
 
     return {
@@ -162,9 +153,8 @@ export const calculateDetailedKPIs = (gridData) => {
             occupancyRate: totalBins > 0 ? ((occupiedBins / totalBins) * 100).toFixed(1) : 0,
             volumeOccupancyRate: totalVolume > 0 ? ((occupiedVolume / totalVolume) * 100).toFixed(1) : 0,
             uniqueSKUs: new Set(allStockItems.map(item => item.Material)).size,
-            totalPallets: new Set(allStockItems.map(item => item['Storage Unit'])).size,
         },
-        byRow, byBinType, oldestStock, topMaterials, averageAge
+        byRow, byBinType, topMaterialsByBins, materialDistributionByBinType, emptyBinsByType
     };
 };
 

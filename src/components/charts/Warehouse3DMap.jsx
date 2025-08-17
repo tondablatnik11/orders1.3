@@ -1,25 +1,22 @@
-// src/components/charts/Warehouse3DMap.jsx
 import React, { useMemo, useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { MapControls, Text } from '@react-three/drei';
 import * as THREE from 'three';
-import { binTypeToHeightMap } from '../../lib/warehouseProcessor'; // Importujeme mapu výšek
+import { binTypeToHeightMap } from '../../lib/warehouseProcessor';
 
-const BOX_WIDTH = 1.2;
-const BOX_DEPTH = 1.2;
+const BOX_WIDTH = 1.1; // Mírně zmenšeno pro vizuální mezeru
+const BOX_DEPTH = 1.1; // Mírně zmenšeno pro vizuální mezeru
 
 const Bin = ({ data, isVisible, onClick }) => {
     const { position, status, type } = data;
     const color = status === 'occupied' ? '#EF4444' : '#22C55E';
-    
-    // ZMĚNA: Výška se bere dynamicky podle typu pozice
-    const height = binTypeToHeightMap[type] || 1.0; // Fallback na 1.0m
+    const height = binTypeToHeightMap[type] || 1.0;
 
     if (!isVisible) return null;
 
     return (
         <mesh 
-            position={[position[0] + BOX_WIDTH / 2, position[1] + height / 2, position[2] + BOX_DEPTH / 2]} 
+            position={[position[0] + 1.2 / 2, position[1] + height / 2, position[2] + 1.2 / 2]} 
             onClick={() => onClick(data)}
         >
             <boxGeometry args={[BOX_WIDTH, height, BOX_DEPTH]} />
@@ -28,14 +25,13 @@ const Bin = ({ data, isVisible, onClick }) => {
                 transparent 
                 opacity={status === 'occupied' ? 0.9 : 0.4} 
                 roughness={0.5} 
-                metalness={0.1} 
             />
         </mesh>
     );
 };
 
 const RackStructure = ({ data }) => {
-    const structure = useMemo(() => {
+     const structure = useMemo(() => {
         const racks = {};
         data.forEach(bin => {
             const [regal, dum] = bin.address.split('-').map(Number);
@@ -44,7 +40,8 @@ const RackStructure = ({ data }) => {
                 racks[key] = { maxY: 0, x: bin.position[0], z: bin.position[2] };
             }
             const binHeight = binTypeToHeightMap[bin.type] || 0;
-            racks[key].maxY = Math.max(racks[key].maxY, bin.position[1] + binHeight);
+            const topPosition = bin.position[1] + binHeight;
+            racks[key].maxY = Math.max(racks[key].maxY, topPosition + 0.2); // +0.2m pro nosník
         });
         return Object.values(racks);
     }, [data]);
@@ -53,8 +50,9 @@ const RackStructure = ({ data }) => {
         <group>
             {structure.map((rack, index) => (
                 <group key={index}>
-                    {[0, BOX_WIDTH].map(xOffset => 
-                        [0, BOX_DEPTH].map(zOffset => (
+                     {/* Svislé stojiny */}
+                    {[0, 1.2].map(xOffset => 
+                        [0, 1.2].map(zOffset => (
                             <mesh key={`${xOffset}-${zOffset}`} position={[rack.x + xOffset, rack.maxY / 2, rack.z + zOffset]}>
                                 <boxGeometry args={[0.1, rack.maxY, 0.1]} />
                                 <meshStandardMaterial color="#64748B" roughness={0.6} />
@@ -66,6 +64,7 @@ const RackStructure = ({ data }) => {
         </group>
     );
 };
+
 
 const CameraSetup = ({ dimensions, focusedPosition }) => {
     const { camera, controls } = useThree();
