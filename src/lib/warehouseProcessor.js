@@ -3,13 +3,13 @@ import * as XLSX from 'xlsx';
 
 /**
  * Sjednotí statická data o layoutu skladu s dynamickými daty o aktuálních zásobách.
- * Vytvoří komplexní datový model celého skladu.
+ * Vytvoří komplexní datový model celého skladu a vypočítá jeho rozměry.
  * @param {Array<Object>} layoutData - Zpracovaná data z warehouse-layout.json.
  * @param {Array<Object>} stockData - Zpracovaná data z nahraného souboru LT10.
- * @returns {Map<string, Object>} Mapa, kde klíč je ID pozice a hodnota je objekt s kompletními informacemi.
+ * @returns {{grid: Map<string, Object>, dimensions: Object}} - Objekt obsahující mapu skladu a jeho rozměry.
  */
 export const createWarehouseSnapshot = (layoutData, stockData) => {
-    if (!layoutData) return new Map();
+    if (!layoutData) return { grid: new Map(), dimensions: null };
 
     const stockMap = new Map();
     if (stockData) {
@@ -23,25 +23,32 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
     }
 
     const warehouseGrid = new Map();
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+
     layoutData.forEach((position, index) => {
-        const binId = String(position.id);
+        const binId = position.id; // Toto je již string z JSONu
         const visualAddress = position.address;
 
-        // --- ZDE JE KLÍČOVÁ OPRAVA ---
-        // Než se pokusíme adresu rozdělit, zkontrolujeme, jestli vůbec existuje.
         if (!visualAddress || typeof visualAddress !== 'string') {
-            console.warn(`Varování: Přeskakuji řádek #${index + 2} v layoutu, protože chybí nebo je neplatná adresa ('Platzadresse visuelle Darstellung').`);
-            return; // Přeskočí zpracování tohoto jednoho řádku a pokračuje dál
+            console.warn(`Varování: Přeskakuji řádek v layoutu, chybí adresa.`);
+            return;
         }
-        // --- KONEC OPRAVY ---
 
+        // KLÍČOVÁ OPRAVA: Spojujeme data pomocí 'binId', které je nyní shodné v obou zdrojích.
         const stockInfo = stockMap.get(binId) || null;
+        
         const addressParts = visualAddress.split('-').map(Number);
         const [haus, regal, ebene, platz] = addressParts;
 
-        const x = (regal - 1) * 1.2;
+        // KLÍČOVÁ OPRAVA: Upravený souřadnicový systém, který odděluje haly 13 a 18.
+        const x = (haus === 18 ? 50 : 0) + (regal - 1) * 1.2;
         const y = (ebene - 1) * 1.8;
         const z = (platz - 1) * 1.0;
+
+        // Aktualizace minimálních a maximálních souřadnic pro výpočet rozměrů
+        minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+        minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
 
         warehouseGrid.set(binId, {
             id: binId,
@@ -49,12 +56,18 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
             type: position.type || 'Pallet',
             position: [x, y, z],
             size: getBinSize(position.type),
-            status: stockInfo ? 'occupied' : 'empty',
+            status: stockInfo ? 'occupied' : 'empty', // Toto bude nyní fungovat správně
             stockData: stockInfo,
         });
     });
+    
+    // Vypočítáme střed a velikost celého skladu pro správné zobrazení kamery
+    const dimensions = {
+        center: [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2],
+        size: [maxX - minX, maxY - minY, maxZ - minZ],
+    };
 
-    return warehouseGrid;
+    return { grid: warehouseGrid, dimensions };
 };
 
 /**
@@ -66,14 +79,11 @@ export const calculateKPIs = (gridData) => {
     if (!gridData || gridData.size === 0) {
         return { totalBins: 0, occupiedBins: 0, occupancyRate: 0, uniqueSKUs: 0, totalPallets: 0 };
     }
-
     const gridArray = Array.from(gridData.values());
     const occupiedBins = gridArray.filter(bin => bin.status === 'occupied').length;
     const allStockItems = gridArray.flatMap(bin => bin.stockData || []);
-    
     const uniqueSKUs = new Set(allStockItems.map(item => item.Material)).size;
     const totalPallets = new Set(allStockItems.map(item => item['Storage Unit'])).size;
-
     return {
         totalBins: gridData.size,
         occupiedBins,
@@ -100,7 +110,6 @@ export const parseStockFile = (file) => {
                 const jsonData = XLSX.utils.sheet_to_json(worksheet);
                 resolve(jsonData);
             } catch (error) {
-                console.error("Chyba při parsování XLSX souboru:", error);
                 reject(error);
             }
         };

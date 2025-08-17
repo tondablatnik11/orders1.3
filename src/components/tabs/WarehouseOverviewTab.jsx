@@ -52,6 +52,7 @@ const KpiCard = ({ title, value, subtext, icon: Icon }) => (
 const WarehouseOverviewTab = () => {
     const [warehouseLayout, setWarehouseLayout] = useState(null);
     const [gridData, setGridData] = useState(null);
+    const [dimensions, setDimensions] = useState(null);
     const [kpis, setKpis] = useState(null);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -65,9 +66,10 @@ const WarehouseOverviewTab = () => {
                 if (!response.ok) throw new Error('Nepodařilo se načíst soubor s layoutem skladu (warehouse-layout.json).');
                 const layoutData = await response.json();
                 setWarehouseLayout(layoutData);
-                const emptySnapshot = createWarehouseSnapshot(layoutData, null);
-                setGridData(emptySnapshot);
-                setKpis(calculateKPIs(emptySnapshot));
+                const { grid, dimensions } = createWarehouseSnapshot(layoutData, null);
+                setGridData(grid);
+                setDimensions(dimensions);
+                setKpis(calculateKPIs(grid));
             } catch (error) {
                 toast.error(`Chyba při načítání layoutu: ${error.message}`);
             } finally {
@@ -83,9 +85,10 @@ const WarehouseOverviewTab = () => {
             const toastId = toast.loading('Zpracovávám soubor LT10...');
             try {
                 const stockData = await parseStockFile(file);
-                const snapshot = createWarehouseSnapshot(warehouseLayout, stockData);
-                setGridData(snapshot);
-                setKpis(calculateKPIs(snapshot));
+                const { grid, dimensions } = createWarehouseSnapshot(warehouseLayout, stockData);
+                setGridData(grid);
+                setDimensions(dimensions);
+                setKpis(calculateKPIs(grid));
                 toast.success('Stav skladu byl úspěšně aktualizován!', { id: toastId });
             } catch (error) {
                 toast.error(`Chyba při zpracování souboru: ${error.message}`, { id: toastId });
@@ -116,10 +119,8 @@ const WarehouseOverviewTab = () => {
 
     return (
         <>
-            <Toaster position="bottom-right" toastOptions={{
-                className: 'bg-wh-card text-wh-text-primary border border-wh-border',
-            }} />
-            <div className="p-4 lg:p-6 h-full flex flex-col gap-4 bg-wh-bg text-wh-text-primary">
+            <Toaster position="bottom-right" toastOptions={{ className: 'bg-wh-card text-wh-text-primary border border-wh-border' }} />
+            <div className="p-4 lg:p-6 h-full flex flex-col gap-4 bg-wh-bg text-wh-text-primary overflow-hidden">
                 <header>
                     {kpis && (
                         <div className="grid gap-4 w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -130,7 +131,7 @@ const WarehouseOverviewTab = () => {
                     )}
                 </header>
                 
-                <main className="flex-grow flex flex-col gap-4">
+                <main className="flex-grow flex flex-col gap-4 min-h-0">
                      <div className="bg-wh-card rounded-xl shadow-lg p-4 flex flex-col md:flex-row items-center gap-4 border border-wh-border">
                         <div className="relative w-full md:flex-grow">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-wh-text-secondary" />
@@ -152,13 +153,14 @@ const WarehouseOverviewTab = () => {
                         </button>
                     </div>
 
-                    <div className="flex-grow w-full h-full min-h-[70vh] rounded-lg overflow-hidden">
+                    <div className="flex-grow w-full h-full rounded-lg overflow-hidden relative">
                         <Suspense fallback={<div className="flex justify-center items-center h-full">Načítám 3D model...</div>}>
                             {gridData && 
                                 <Warehouse3DMap
                                     data={Array.from(gridData.values())}
                                     filteredIds={new Set(filteredGrid.map(bin => bin.id))}
                                     onBinClick={(bin) => setSelectedBin(bin)}
+                                    dimensions={dimensions}
                                 />
                             }
                         </Suspense>

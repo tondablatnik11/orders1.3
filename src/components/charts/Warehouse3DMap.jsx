@@ -1,7 +1,25 @@
 "use client";
-import React, { useMemo, useState, Suspense } from 'react';
-import { Canvas } from '@react-three/fiber';
+import React, { useMemo, useState, Suspense, useEffect } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Html, Box } from '@react-three/drei';
+
+// Komponenta pro automatické nastavení kamery
+const CameraController = ({ dimensions }) => {
+    const { camera, controls } = useThree();
+    useEffect(() => {
+        if (controls && dimensions && dimensions.center && dimensions.size) {
+            const [centerX, centerY, centerZ] = dimensions.center;
+            const [sizeX, sizeY, sizeZ] = dimensions.size;
+            const maxDim = Math.max(sizeX, sizeY, sizeZ);
+            const cameraDistance = maxDim * 1.5;
+
+            camera.position.set(centerX + cameraDistance, centerY + cameraDistance, centerZ + cameraDistance);
+            controls.target.set(centerX, centerY, centerZ);
+            controls.update();
+        }
+    }, [camera, controls, dimensions]);
+    return null;
+};
 
 const Tooltip = ({ data }) => {
     if (!data) return null;
@@ -57,17 +75,14 @@ const Bin = ({ data, isFilteredOut, onBinClick, onPointerOver, onPointerOut }) =
     );
 };
 
-export const Warehouse3DMap = ({ data, filteredIds, onBinClick }) => {
+export const Warehouse3DMap = ({ data, filteredIds, onBinClick, dimensions }) => {
     const [hoveredBin, setHoveredBin] = useState(null);
     return (
         <div className="w-full h-full rounded-lg shadow-2xl">
-            <Canvas camera={{ position: [25, 25, 25], fov: 50 }}>
+            <Canvas>
                 <color attach="background" args={['#111827']} />
                 <ambientLight intensity={1.8} />
-                <directionalLight position={[10, 15, 5]} intensity={2.5} />
-                <directionalLight position={[-10, -5, -10]} intensity={1} />
-                <pointLight position={[0, 20, 0]} intensity={2} color="#3b82f6" distance={50} />
-                <OrbitControls makeDefault minDistance={5} maxDistance={100} enablePan={true} panSpeed={0.8} />
+                <directionalLight position={[40, 50, 30]} intensity={2.5} />
                 <gridHelper args={[200, 200, '#374151', '#4b5563']} />
                 <Suspense fallback={null}>
                     {data.map((bin) => (
@@ -82,6 +97,8 @@ export const Warehouse3DMap = ({ data, filteredIds, onBinClick }) => {
                     ))}
                 </Suspense>
                 {hoveredBin && <Tooltip data={hoveredBin} />}
+                <OrbitControls makeDefault minDistance={5} maxDistance={200} />
+                <CameraController dimensions={dimensions} />
             </Canvas>
         </div>
     );
