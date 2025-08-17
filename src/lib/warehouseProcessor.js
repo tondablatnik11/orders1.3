@@ -1,6 +1,10 @@
 // src/lib/warehouseProcessor.js
 import * as XLSX from 'xlsx';
 
+// --- Konfigurace rozměrů, aby byly konzistentní s 3D mapou ---
+const LEVEL_HEIGHT = 1.8; // Výška jednoho patra
+const BEAM_THICKNESS = 0.1; // Tloušťka nosníku
+
 /**
  * Sjednotí statická data o layoutu skladu s dynamickými daty o aktuálních zásobách.
  * Vytvoří komplexní datový model celého skladu a vypočítá jeho rozměry.
@@ -24,13 +28,12 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
 
     const warehouseGrid = new Map();
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
-    const LEVEL_HEIGHT = 1.8; // Definuje výšku jednoho patra
 
-    layoutData.forEach((position, index) => {
+    layoutData.forEach((position) => {
         const binId = position.id;
         const visualAddress = position.address;
 
-        if (!visualAddress || typeof visualAddress !== 'string' || binId.length < 8) {
+        if (!visualAddress || typeof visualAddress !== 'string' || !binId || binId.length < 8) {
             console.warn(`Varování: Přeskakuji řádek v layoutu, chybí adresa nebo ID.`);
             return;
         }
@@ -40,13 +43,11 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
         const addressParts = visualAddress.split('-').map(Number);
         const [haus, regal, platz] = [addressParts[0], addressParts[1], addressParts[3]];
 
-        // --- ZDE JE KLÍČOVÁ OPRAVA ---
-        // Vertikální pozici (patro) odvozujeme z 5. a 6. číslice ID
         const levelString = binId.substring(4, 6);
         const ebene = parseInt(levelString, 10);
-        // Souřadnice Y se nyní počítá jako (patro - 1) * výška patra
+        
+        // Y souřadnice nosníku, na kterém paleta sedí
         const y = (ebene - 1) * LEVEL_HEIGHT;
-        // --- KONEC OPRAVY ---
 
         const x = (haus === 18 ? 50 : 0) + (regal - 1) * 1.2;
         const z = (platz - 1) * 1.0;
@@ -60,7 +61,6 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
             address: visualAddress,
             type: position.type || 'Pallet',
             position: [x, y, z],
-            size: getBinSize(position.type),
             status: stockInfo ? 'occupied' : 'empty',
             stockData: stockInfo,
         });
@@ -74,7 +74,11 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
     return { grid: warehouseGrid, dimensions };
 };
 
-// Ostatní funkce zůstávají beze změny
+/**
+ * Vypočítá klíčové ukazatele (KPI) z kompletního snapshotu skladu.
+ * @param {Map<string, Object>} gridData - Mapa celého skladu.
+ * @returns {Object} Objekt s KPI.
+ */
 export const calculateKPIs = (gridData) => {
     if (!gridData || gridData.size === 0) {
         return { totalBins: 0, occupiedBins: 0, occupancyRate: 0, uniqueSKUs: 0, totalPallets: 0 };
@@ -93,6 +97,11 @@ export const calculateKPIs = (gridData) => {
     };
 };
 
+/**
+ * Pomocná funkce pro parsování XLSX souboru (jako LT10).
+ * @param {File} file - Soubor nahraný uživatelem.
+ * @returns {Promise<Array<Object>>}
+ */
 export const parseStockFile = (file) => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -111,13 +120,4 @@ export const parseStockFile = (file) => {
         reader.onerror = (error) => reject(error);
         reader.readAsArrayBuffer(file);
     });
-};
-
-const getBinSize = (type) => {
-    switch (type) {
-        case 'Pallet': return [1.2, 1.8, 1.0];
-        case 'KLT': return [0.6, 0.4, 0.4];
-        case 'Multi SKU': return [1.2, 0.8, 1.0];
-        default: return [1.0, 1.0, 1.0];
-    }
 };
