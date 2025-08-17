@@ -1,233 +1,160 @@
-// src/components/charts/Warehouse3DMap.jsx
+// src/components/tabs/WarehouseOverviewTab.jsx
 "use client";
-import React, { useRef, useMemo, useState, Suspense } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Html } from '@react-three/drei';
-import * as THREE from 'three';
+import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
+import Papa from 'papaparse';
+import { Warehouse3DMap } from '../charts/Warehouse3DMap';
+import { createWarehouseSnapshot, parseStockFile, calculateKPIs } from '../../lib/warehouseProcessor';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { BarChart, Users, Archive, Package, Upload } from 'lucide-react';
+import toast from 'react-hot-toast';
 
-// --- Konfigurace rozměrů ---
-const BEAM_THICKNESS = 0.08;
-const PALLET_HEIGHT = 0.5;
-const PALLET_WIDTH = 0.9;
-const PALLET_DEPTH = 0.9;
-
-const LEVEL_HEIGHT = 1.2;
-const COLUMN_WIDTH = 1.2;
-const ROW_DEPTH = 1.2;
-
-// --- Komponenty pro stavbu regálu ---
-const HorizontalBeam = ({ position }) => (
-    <mesh position={position}>
-        <boxGeometry args={[COLUMN_WIDTH, BEAM_THICKNESS, BEAM_THICKNESS]} />
-        <meshStandardMaterial color="#f97316" />
-    </mesh>
-);
-
-const VerticalBeam = ({ position, height }) => (
-    <mesh position={position}>
-        <boxGeometry args={[BEAM_THICKNESS, height, BEAM_THICKNESS]} />
-        <meshStandardMaterial color="#3b82f6" />
-    </mesh>
-);
-
-const Pallet = ({ position, data, onClick, onPointerOver, onPointerOut, isFiltered }) => {
-    const color = useMemo(() => {
-        if (data.ageInDays > 180) return '#e11d48'; // Červená
-        if (data.ageInDays > 90) return '#f59e0b'; // Oranžová
-        return '#22c55e'; // Zelená
-    }, [data.ageInDays]);
-
+// Detailní modální okno (beze změny)
+const BinDetailModal = ({ data, onClose }) => {
+    if (!data) return null;
     return (
-        <mesh
-            position={position}
-            onClick={(e) => { e.stopPropagation(); onClick(data); }}
-            onPointerOver={(e) => { e.stopPropagation(); onPointerOver(data); }}
-            onPointerOut={(e) => { e.stopPropagation(); onPointerOut(); }}
-            castShadow
-        >
-            <boxGeometry args={[PALLET_WIDTH, PALLET_HEIGHT, PALLET_DEPTH]} />
-            <meshStandardMaterial color={color} opacity={isFiltered ? 0.25 : 1} transparent />
-        </mesh>
-    );
-};
-
-const RackCell = ({ data, position, onClick, onPointerOver, onPointerOut, isFiltered }) => {
-    const [x, y, z] = position;
-
-    return (
-        <group>
-            <HorizontalBeam position={[x, y - (LEVEL_HEIGHT / 2), z - (ROW_DEPTH / 2) + BEAM_THICKNESS]} />
-            <HorizontalBeam position={[x, y - (LEVEL_HEIGHT / 2), z + (ROW_DEPTH / 2) - BEAM_THICKNESS]} />
-            
-            {data && (
-                <Pallet 
-                    position={[x, y - (LEVEL_HEIGHT / 2) + (PALLET_HEIGHT / 2) + BEAM_THICKNESS, z]} 
-                    data={data} 
-                    onClick={onClick}
-                    onPointerOver={onPointerOver}
-                    onPointerOut={onPointerOut}
-                    isFiltered={isFiltered}
-                />
-            )}
-        </group>
-    );
-};
-
-const Tooltip = ({ data, position }) => {
-    if (!data || !position) return null;
-    return (
-        <Html position={position}>
-            <div className="bg-slate-800 text-white p-2 rounded-md border border-slate-600 text-xs w-48 shadow-lg pointer-events-none">
-                <p><strong>Pozice:</strong> {data['Storage Bin']}</p>
-                <p><strong>Materiál:</strong> {data.Material}</p>
-                <p><strong>Množství:</strong> {data['Available stock']}</p>
-                <p><strong>Stáří:</strong> {data.ageInDays} dní</p>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-xl max-w-lg w-full">
+                <h2 className="text-xl font-bold mb-4">Detail Pozice: {data.address}</h2>
+                <div className="space-y-2">
+                    <p><strong>Status:</strong> {data.status === 'occupied' ? 'Obsazeno' : 'Volno'}</p>
+                    {data.stockData && data.stockData.map((item, index) => (
+                        <div key={index} className="border-t pt-2 mt-2">
+                            <p><strong>Paleta (SU):</strong> {item['Storage Unit']}</p>
+                            <p><strong>Materiál:</strong> {item.Material}</p>
+                            <p><strong>Množství:</strong> {item['Available stock']} {item['Base Unit of Measure']}</p>
+                            <p><strong>Stáří (dny):</strong> {item['Durat.']}</p>
+                        </div>
+                    ))}
+                </div>
+                <button onClick={onClose} className="mt-6 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+                    Zavřít
+                </button>
             </div>
-        </Html>
-    );
-};
-
-// --- Hlavní komponenta ---
-export default function Warehouse3DMap({ stockData, onBinClick }) {
-    const [hoveredData, setHoveredData] = useState(null);
-    const [searchTerm, setSearchTerm] = useState('');
-
-    const { grid, dimensions } = useMemo(() => {
-        if (!stockData || stockData.length === 0) {
-            return { grid: new Map(), dimensions: { minRow: 1, maxRow: 1, minCol: 1, maxCol: 1, minLevel: 1, maxLevel: 1 } };
-        }
-
-        const stockMap = new Map(stockData.map(item => [String(item['Storage Bin']), item]));
-        const grid = new Map();
-
-        let minRow = Infinity, maxRow = -Infinity, minCol = Infinity, maxCol = -Infinity, minLevel = Infinity, maxLevel = -Infinity;
-
-        stockData.forEach(item => {
-            const binId = String(item['Storage Bin']);
-            if (!binId || binId.length < 6) return; // Ochrana před neplatnými daty
-
-            const row = parseInt(binId.substring(0, 2));
-            const col = parseInt(binId.substring(2, 4));
-            const level = parseInt(binId.substring(4, 6));
-
-            // KLÍČOVÁ OPRAVA: Přeskakujeme, pokud parsování selže a vrátí NaN
-            if (isNaN(row) || isNaN(col) || isNaN(level)) return;
-
-            if (row < minRow) minRow = row;
-            if (row > maxRow) maxRow = row;
-            if (col < minCol) minCol = col;
-            if (col > maxCol) maxCol = col;
-            if (level < minLevel) minLevel = level;
-            if (level > maxLevel) maxLevel = level;
-        });
-        
-        // Pokud se nepodařilo najít žádné platné pozice
-        if (maxRow === -Infinity) {
-            return { grid: new Map(), dimensions: { minRow: 1, maxRow: 1, minCol: 1, maxCol: 1, minLevel: 1, maxLevel: 1 } };
-        }
-
-        for (let r = minRow; r <= maxRow; r++) {
-            for (let c = minCol; c <= maxCol; c++) {
-                for (let l = minLevel; l <= maxLevel; l++) {
-                    // Předpokládáme, že pozice v rámci patra je '01', ale ID generujeme komplexnější
-                    const binId = `${String(r).padStart(2, '0')}${String(c).padStart(2, '0')}${String(l).padStart(2, '0')}1`;
-                    
-                    const position = [
-                        (r - minRow) * COLUMN_WIDTH,
-                        l * LEVEL_HEIGHT,
-                        (c - minCol) * ROW_DEPTH
-                    ];
-
-                    grid.set(binId, {
-                        id: binId,
-                        position,
-                        data: stockMap.get(binId) || null
-                    });
-                }
-            }
-        }
-
-        return { grid, dimensions: { minRow, maxRow, minCol, maxCol, minLevel, maxLevel } };
-    }, [stockData]);
-
-    const filteredGrid = useMemo(() => {
-        if (!searchTerm) return Array.from(grid.values());
-        const lowerCaseSearch = searchTerm.toLowerCase();
-        return Array.from(grid.values()).filter(cell =>
-            cell.data && (
-                String(cell.data.Material).toLowerCase().includes(lowerCaseSearch) ||
-                String(cell.data['Storage Bin']).includes(lowerCaseSearch)
-            )
-        );
-    }, [grid, searchTerm]);
-
-    const isFiltered = searchTerm !== '';
-
-    return (
-        <div className="relative h-[70vh] bg-slate-900 rounded-lg border border-slate-700">
-            <div className="absolute top-2 left-2 z-10">
-                <input
-                    type="text"
-                    placeholder="Hledat materiál nebo pozici..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="bg-slate-800 text-white p-2 rounded-md border border-slate-600"
-                />
-            </div>
-            <Canvas shadows camera={{ position: [20, 20, 40], fov: 50 }}>
-                <ambientLight intensity={0.7} />
-                <directionalLight position={[10, 20, 5]} intensity={1.5} castShadow />
-                <OrbitControls makeDefault />
-                
-                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[
-                    ((dimensions.maxRow - dimensions.minRow) * COLUMN_WIDTH) / 2, 
-                    -BEAM_THICKNESS, 
-                    ((dimensions.maxCol - dimensions.minCol) * ROW_DEPTH) / 2
-                ]} receiveShadow>
-                    <planeGeometry args={[ (dimensions.maxRow - dimensions.minRow + 2) * COLUMN_WIDTH, (dimensions.maxCol - dimensions.minCol + 2) * ROW_DEPTH ]} />
-                    <meshStandardMaterial color="#475569" />
-                </mesh>
-                
-                {Array.from(grid.values()).map(({ id, position, data }) => (
-                    <RackCell
-                        key={id}
-                        data={data}
-                        position={position}
-                        onClick={onBinClick}
-                        onPointerOver={setHoveredData}
-                        onPointerOut={() => setHoveredData(null)}
-                        isFiltered={isFiltered && !filteredGrid.some(cell => cell.id === id)}
-                    />
-                ))}
-
-                {(() => {
-                    const beams = [];
-                    const { minRow, maxRow, minCol, maxCol, minLevel, maxLevel } = dimensions;
-                    const height = (maxLevel + 1) * LEVEL_HEIGHT;
-                    for (let r = minRow; r <= maxRow + 1; r++) {
-                        for (let c = minCol; c <= maxCol + 1; c++) {
-                            beams.push(
-                                <VerticalBeam 
-                                    key={`vbeam-${r}-${c}`}
-                                    position={[
-                                        (r - minRow - 0.5) * COLUMN_WIDTH, 
-                                        height/2 - LEVEL_HEIGHT/2, 
-                                        (c - minCol - 0.5) * ROW_DEPTH
-                                    ]}
-                                    height={height}
-                                />
-                            );
-                        }
-                    }
-                    return beams;
-                })()}
-
-                {hoveredData && (
-                    <Suspense fallback={null}>
-                         <Tooltip data={hoveredData} position={grid.get(hoveredData['Storage Bin'])?.position} />
-                    </Suspense>
-                )}
-            </Canvas>
         </div>
     );
-}
+};
+
+
+const WarehouseOverviewTab = () => {
+    const [warehouseLayout, setWarehouseLayout] = useState(null);
+    const [gridData, setGridData] = useState(null);
+    const [kpis, setKpis] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedBin, setSelectedBin] = useState(null);
+    const fileInputRef = useRef(null);
+
+    // Krok 1: Načtení statického layoutu skladu (pouze jednou)
+    useEffect(() => {
+        const loadLayout = async () => {
+            try {
+                toast.loading('Načítám layout skladu...', { id: 'layout_load' });
+                const response = await fetch('/data/Regalplaetze.csv');
+                if (!response.ok) throw new Error('Nepodařilo se načíst soubor s layoutem skladu.');
+                
+                const csvText = await response.text();
+                Papa.parse(csvText, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: (results) => {
+                        setWarehouseLayout(results.data);
+                        // Zobrazit prázdný sklad
+                        const emptySnapshot = createWarehouseSnapshot(results.data, null);
+                        setGridData(emptySnapshot);
+                        setKpis(calculateKPIs(emptySnapshot));
+                        setLoading(false);
+                        toast.success('Layout skladu načten. Nahrajte soubor LT10 pro zobrazení zásob.', { id: 'layout_load' });
+                    }
+                });
+            } catch (error) {
+                setLoading(false);
+                toast.error(`Chyba při načítání layoutu: ${error.message}`, { id: 'layout_load' });
+            }
+        };
+        loadLayout();
+    }, []);
+
+    // Krok 2: Zpracování nahraného souboru LT10
+    const handleFileChange = async (event) => {
+        const file = event.target.files[0];
+        if (file && warehouseLayout) {
+            try {
+                toast.loading('Zpracovávám soubor LT10...', { id: 'stock_load' });
+                const stockData = await parseStockFile(file);
+                const snapshot = createWarehouseSnapshot(warehouseLayout, stockData);
+                setGridData(snapshot);
+                setKpis(calculateKPIs(snapshot));
+                toast.success('Stav skladu byl úspěšně aktualizován!', { id: 'stock_load' });
+            } catch (error) {
+                toast.error(`Chyba při zpracování souboru: ${error.message}`, { id: 'stock_load' });
+            }
+        }
+    };
+    
+    const filteredGrid = useMemo(() => {
+        if (!gridData) return [];
+        const gridArray = Array.from(gridData.values());
+
+        if (!searchTerm.trim()) return gridArray;
+
+        const lowerCaseSearch = searchTerm.toLowerCase();
+        if (lowerCaseSearch === 'empty' || lowerCaseSearch === 'volné') {
+            return gridArray.filter(bin => bin.status === 'empty');
+        }
+
+        return gridArray.filter(bin => 
+            bin.stockData && bin.stockData.some(item =>
+                String(item.Material)?.toLowerCase().includes(lowerCaseSearch) ||
+                String(item['Storage Unit'])?.toLowerCase().includes(lowerCaseSearch)
+            )
+        );
+    }, [gridData, searchTerm]);
+
+    if (loading) {
+        return <div className="flex justify-center items-center h-full">Načítám layout skladu...</div>;
+    }
+
+    return (
+        <div className="p-4 h-full flex flex-col gap-4 bg-gray-50">
+            {kpis && (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  {/* KPI Karty */}
+              </div>
+            )}
+            
+            <div className="flex-grow flex flex-col gap-4">
+                <div className="bg-white rounded-lg shadow-md p-4 flex flex-col md:flex-row items-center gap-4">
+                    <input
+                        type="text"
+                        placeholder="Hledat materiál, paletu (SU) nebo 'empty'..."
+                        className="w-full md:w-1/3 p-2 border rounded-md focus:outline-none"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".xlsx, .xls" className="hidden"/>
+                    <button 
+                        onClick={() => fileInputRef.current.click()}
+                        className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        <Upload size={20} />
+                        Nahrát LT10 Report
+                    </button>
+                </div>
+
+                <div className="flex-grow w-full h-full min-h-[600px] rounded-lg overflow-hidden shadow-lg">
+                    <Suspense fallback={<div>Načítám 3D model...</div>}>
+                        <Warehouse3DMap
+                            data={Array.from(gridData.values())}
+                            filteredIds={new Set(filteredGrid.map(bin => bin.id))}
+                            onBinClick={(bin) => setSelectedBin(bin)}
+                        />
+                    </Suspense>
+                </div>
+            </div>
+            
+            <BinDetailModal data={selectedBin} onClose={() => setSelectedBin(null)} />
+        </div>
+    );
+};
+
+export default WarehouseOverviewTab;
