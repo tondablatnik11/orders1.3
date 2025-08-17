@@ -1,3 +1,4 @@
+// src/components/layout/DashboardLayout.jsx
 'use client';
 import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
@@ -27,7 +28,7 @@ const DashboardLayout = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [globalSearchQuery, setGlobalSearchQuery] = useState('');
     const [isSidebarOpen, setSidebarOpen] = useState(false);
-    const [isSidebarCollapsed, setSidebarCollapsed] = useState(false); // <-- NOVÝ STAV
+    const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
 
     const { selectedOrderDetails, setSelectedOrderDetails, statusHistory, setStatusHistory, fetchStatusHistory } = useData();
 
@@ -69,8 +70,8 @@ const DashboardLayout = () => {
                 activeTab={activeTab} 
                 onTabChange={setActiveTab} 
                 isOpen={isSidebarOpen} 
-                isCollapsed={isSidebarCollapsed} // <-- Předání stavu
-                setCollapsed={setSidebarCollapsed} // <-- Předání funkce
+                isCollapsed={isSidebarCollapsed}
+                setCollapsed={setSidebarCollapsed}
             />
             
             <div className="flex flex-col flex-1 min-w-0">
@@ -82,11 +83,13 @@ const DashboardLayout = () => {
                     activeTab={activeTab}
                     onMenuClick={() => setSidebarOpen(!isSidebarOpen)}
                 />
-                <main className="flex-1 overflow-y-auto p-4 md:p-6">
-                    <div className="animate-fadeInUp">
+                {/* --- KLÍČOVÁ OPRAVA ZDE --- */}
+                <main className="flex-1 overflow-y-auto p-4 md:p-6 h-full">
+                    <div className="animate-fadeInUp h-full">
                         {renderActiveTab()}
                     </div>
                 </main>
+                {/* --- KONEC OPRAVY --- */}
             </div>
             
             {selectedOrderDetails && (

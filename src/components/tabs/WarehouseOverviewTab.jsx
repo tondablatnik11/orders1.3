@@ -1,3 +1,4 @@
+// src/components/tabs/WarehouseOverviewTab.jsx
 "use client";
 import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { Warehouse3DMap } from '../charts/Warehouse3DMap';
@@ -8,14 +9,8 @@ import { Toaster, toast } from 'react-hot-toast';
 const BinDetailModal = ({ data, onClose }) => {
     if (!data) return null;
     return (
-        <div 
-            className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 animate-fadeInUp"
-            onClick={onClose}
-        >
-            <div 
-                className="bg-wh-card text-wh-text-primary p-6 rounded-xl shadow-2xl max-w-lg w-full border border-wh-border"
-                onClick={e => e.stopPropagation()}
-            >
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 animate-fadeInUp" onClick={onClose}>
+            <div className="bg-wh-card text-wh-text-primary p-6 rounded-xl shadow-2xl max-w-lg w-full border border-wh-border" onClick={e => e.stopPropagation()}>
                 <h2 className="text-2xl font-bold mb-4 text-wh-brand-blue">Detail Pozice: {data.address}</h2>
                 <div className="space-y-3">
                     <p className="bg-wh-bg p-2 rounded-md"><strong>Status:</strong> <span className={data.status === 'occupied' ? 'text-red-400' : 'text-green-400'}>{data.status === 'occupied' ? 'Obsazeno' : 'Volno'}</span></p>
@@ -37,17 +32,18 @@ const BinDetailModal = ({ data, onClose }) => {
 };
 
 const KpiCard = ({ title, value, subtext, icon: Icon }) => (
-    <div className="bg-wh-card p-4 rounded-xl shadow-lg border border-wh-border flex items-center gap-4 animate-fadeInUp transition-transform hover:scale-105">
-        <div className="bg-wh-bg p-3 rounded-full">
-            <Icon className="h-6 w-6 text-wh-brand-blue" />
+    <div className="bg-card p-4 rounded-xl shadow-lg border border-border flex items-center gap-4 animate-fadeInUp transition-transform hover:scale-105">
+        <div className="bg-background p-3 rounded-full">
+            <Icon className="h-6 w-6 text-primary" />
         </div>
         <div>
-            <p className="text-sm text-wh-text-secondary">{title}</p>
-            <p className="text-2xl font-bold text-wh-text-primary">{value}</p>
-            <p className="text-xs text-wh-text-secondary">{subtext}</p>
+            <p className="text-sm text-muted-foreground">{title}</p>
+            <p className="text-2xl font-bold text-foreground">{value}</p>
+            <p className="text-xs text-muted-foreground">{subtext}</p>
         </div>
     </div>
 );
+
 
 const WarehouseOverviewTab = () => {
     const [warehouseLayout, setWarehouseLayout] = useState(null);
@@ -114,58 +110,54 @@ const WarehouseOverviewTab = () => {
     }, [gridData, searchTerm]);
 
     if (loading) {
-        return <div className="flex justify-center items-center h-full text-wh-text-primary">Načítám layout skladu...</div>;
+        return <div className="flex justify-center items-center h-full">Načítám layout skladu...</div>;
     }
 
     return (
         <>
-            <Toaster position="bottom-right" toastOptions={{ className: 'bg-wh-card text-wh-text-primary border border-wh-border' }} />
-            <div className="p-4 lg:p-6 h-full flex flex-col gap-4 bg-wh-bg text-wh-text-primary overflow-hidden">
-                <header>
-                    {kpis && (
-                        <div className="grid gap-4 w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                            <KpiCard title="Obsazenost Skladu" value={`${kpis.occupancyRate}%`} subtext={`${kpis.occupiedBins} / ${kpis.totalBins} pozic`} icon={BarChart} />
-                            <KpiCard title="Počet Palet (SU)" value={kpis.totalPallets} subtext="Unikátních skladových jednotek" icon={Users} />
-                            <KpiCard title="Unikátní Materiály" value={kpis.uniqueSKUs} subtext="Různých typů materiálu (SKU)" icon={Package} />
-                        </div>
-                    )}
-                </header>
+            <Toaster position="bottom-right" toastOptions={{ className: 'bg-card text-foreground border border-border' }} />
+            <div className="h-full w-full flex flex-col gap-4">
+                {kpis && (
+                    <div className="grid gap-4 w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                        <KpiCard title="Obsazenost Skladu" value={`${kpis.occupancyRate}%`} subtext={`${kpis.occupiedBins} / ${kpis.totalBins} pozic`} icon={BarChart} />
+                        <KpiCard title="Počet Palet (SU)" value={kpis.totalPallets} subtext="Unikátních skladových jednotek" icon={Users} />
+                        <KpiCard title="Unikátní Materiály (SKU)" value={kpis.uniqueSKUs} subtext="Různých typů materiálu" icon={Package} />
+                    </div>
+                )}
                 
-                <main className="flex-grow flex flex-col gap-4 min-h-0">
-                     <div className="bg-wh-card rounded-xl shadow-lg p-4 flex flex-col md:flex-row items-center gap-4 border border-wh-border">
-                        <div className="relative w-full md:flex-grow">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-wh-text-secondary" />
-                            <input
-                                type="text"
-                                placeholder="Hledat materiál, paletu (SU) nebo 'empty'..."
-                                className="w-full bg-wh-bg p-2 pl-10 border border-wh-border rounded-lg focus:outline-none focus:ring-2 focus:ring-wh-brand-blue"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".xlsx, .xls" className="hidden"/>
-                        <button 
-                            onClick={() => fileInputRef.current.click()}
-                            className="w-full md:w-auto flex items-center justify-center gap-2 bg-wh-brand-blue text-white font-semibold py-2 px-6 rounded-lg hover:bg-opacity-80 transition-all"
-                        >
-                            <Upload size={20} />
-                            Nahrát LT10 Report
-                        </button>
+                <div className="bg-card rounded-xl shadow-lg p-4 flex flex-col md:flex-row items-center gap-4 border border-border">
+                    <div className="relative w-full md:flex-grow">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <input
+                            type="text"
+                            placeholder="Hledat materiál, paletu (SU) nebo 'empty'..."
+                            className="w-full bg-background p-2 pl-10 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
                     </div>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".xlsx, .xls" className="hidden"/>
+                    <button 
+                        onClick={() => fileInputRef.current.click()}
+                        className="w-full md:w-auto flex items-center justify-center gap-2 bg-primary text-primary-foreground font-semibold py-2 px-6 rounded-lg hover:bg-opacity-80 transition-all"
+                    >
+                        <Upload size={20} />
+                        Nahrát LT10 Report
+                    </button>
+                </div>
 
-                    <div className="flex-grow w-full h-full rounded-lg overflow-hidden relative">
-                        <Suspense fallback={<div className="flex justify-center items-center h-full">Načítám 3D model...</div>}>
-                            {gridData && 
-                                <Warehouse3DMap
-                                    data={Array.from(gridData.values())}
-                                    filteredIds={new Set(filteredGrid.map(bin => bin.id))}
-                                    onBinClick={(bin) => setSelectedBin(bin)}
-                                    dimensions={dimensions}
-                                />
-                            }
-                        </Suspense>
-                    </div>
-                </main>
+                <div className="flex-grow w-full h-full rounded-lg overflow-hidden relative min-h-0">
+                    <Suspense fallback={<div className="flex justify-center items-center h-full">Načítám 3D model...</div>}>
+                        {gridData && 
+                            <Warehouse3DMap
+                                data={Array.from(gridData.values())}
+                                filteredIds={new Set(filteredGrid.map(bin => bin.id))}
+                                onBinClick={(bin) => setSelectedBin(bin)}
+                                dimensions={dimensions}
+                            />
+                        }
+                    </Suspense>
+                </div>
             </div>
             
             <BinDetailModal data={selectedBin} onClose={() => setSelectedBin(null)} />
