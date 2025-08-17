@@ -48,6 +48,7 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
 
         const labelKey = `${haus}-${regal}`;
         if (!labelData.has(labelKey)) {
+            // Umístění popisku před daný regál
             labelData.set(labelKey, { text: `R${regal}`, position: [x, 0.01, minZ - RACK_DEPTH * 2.5] });
         }
 
