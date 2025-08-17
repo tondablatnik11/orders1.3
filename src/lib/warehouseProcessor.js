@@ -1,18 +1,16 @@
 // src/lib/warehouseProcessor.js
 import * as XLSX from 'xlsx';
 
-// --- FINÁLNÍ KONFIGURACE DLE DETAILNÍHO POPISU STRUKTURY ---
-const PALLET_LEVEL_HEIGHT = 2.0;
-const KLT_LEVEL_HEIGHT = 0.8;
-const CELL_DEPTH = 1.4;
-const POSITION_WIDTH = 1.2;
-const RACK_DEPTH = 1.4;
-const AISLE_WIDTH = 8.0;
-const RACK_SPINE_GAP = 0.6; // ZMENŠENO: Minimální mezera mezi regály v páru (13-14)
+// Konfigurace rozměrů zůstává stejná jako v minulém kroku
+const PALLET_LEVEL_HEIGHT = 2.0;    
+const KLT_LEVEL_HEIGHT = 0.8;       
+const CELL_DEPTH = 1.4;             
+const POSITION_WIDTH = 1.2;         
+const RACK_DEPTH = 1.4;             
+const AISLE_WIDTH = 9.0;            
+const RACK_SPINE_GAP = 0.6; 
 
-/**
- * Zpracovává data a vrací snapshot skladu, jeho rozměry a data pro popisky.
- */
+// Funkce createWarehouseSnapshot zůstává beze změny od posledně
 export const createWarehouseSnapshot = (layoutData, stockData) => {
     if (!layoutData) return { grid: new Map(), dimensions: null, labels: [] };
     const stockMap = new Map();
@@ -52,10 +50,8 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
 
         let x;
         if (isRightSideInPair) {
-            // Pravá strana páru (např. 14) začíná za levou + páteřní mezerou
             x = baseX + RACK_DEPTH + RACK_SPINE_GAP + ((pozice - 1) * POSITION_WIDTH);
         } else {
-            // Levá strana páru (např. 13)
             x = baseX + ((pozice - 1) * POSITION_WIDTH);
         }
 
@@ -67,7 +63,8 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
         if (!labelData.has(labelKey)) {
              const labelX = baseX + RACK_DEPTH + (RACK_SPINE_GAP / 2);
              const labelZ = -CELL_DEPTH * 2;
-             labelData.set(labelKey, { text: `R${regal}/${regal+1}`, position: [labelX, 0.01, labelZ] });
+             const pairRegal = 13 + rackPairIndex*2;
+             labelData.set(labelKey, { text: `R${pairRegal}/${pairRegal+1}`, position: [labelX, 0.01, labelZ] });
         }
 
         warehouseGrid.set(binId, {
@@ -86,20 +83,63 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
     return { grid: warehouseGrid, dimensions, labels: Array.from(labelData.values()) };
 };
 
-// Funkce calculateKPIs a parseStockFile zůstávají beze změny
-export const calculateKPIs = (gridData) => {
-    if (!gridData || gridData.size === 0) return { totalBins: 0, occupiedBins: 0, occupancyRate: 0, uniqueSKUs: 0, totalPallets: 0 };
+
+/**
+ * NOVÁ FUNKCE: Vypočítá detailní KPI pro analytickou záložku.
+ */
+export const calculateDetailedKPIs = (gridData) => {
+    if (!gridData || gridData.size === 0) return null;
+
     const gridArray = Array.from(gridData.values());
-    const occupiedBins = gridArray.filter(bin => bin.status === 'occupied').length;
     const allStockItems = gridArray.flatMap(bin => bin.stockData || []).filter(Boolean);
-    const uniqueSKUs = new Set(allStockItems.map(item => item.Material)).size;
-    const totalPallets = new Set(allStockItems.map(item => item['Storage Unit'])).size;
+
+    // Celkové statistiky
+    const totalBins = gridData.size;
+    const occupiedBins = gridArray.filter(bin => bin.status === 'occupied').length;
+    
+    // Statistika podle řad
+    const byRow = {};
+    gridArray.forEach(bin => {
+        const [regal] = bin.address.split('-').map(Number);
+        if (!byRow[regal]) byRow[regal] = { total: 0, occupied: 0 };
+        byRow[regal].total++;
+        if (bin.status === 'occupied') byRow[regal].occupied++;
+    });
+    Object.values(byRow).forEach(row => {
+        row.rate = row.total > 0 ? ((row.occupied / row.total) * 100).toFixed(1) : 0;
+    });
+
+    // Statistika podle typu pozice
+    const byLevelType = {
+        pallet: { total: 0, occupied: 0 },
+        klt: { total: 0, occupied: 0 }
+    };
+    gridArray.forEach(bin => {
+        const target = bin.type === 'KLT' ? byLevelType.klt : byLevelType.pallet;
+        target.total++;
+        if (bin.status === 'occupied') target.occupied++;
+    });
+    byLevelType.pallet.rate = byLevelType.pallet.total > 0 ? ((byLevelType.pallet.occupied / byLevelType.pallet.total) * 100).toFixed(1) : 0;
+    byLevelType.klt.rate = byLevelType.klt.total > 0 ? ((byLevelType.klt.occupied / byLevelType.klt.total) * 100).toFixed(1) : 0;
+
+    // Průměrné stáří
+    const totalAge = allStockItems.reduce((acc, item) => acc + (Number(item['Durat.']) || 0), 0);
+    const averageAge = allStockItems.length > 0 ? totalAge / allStockItems.length : 0;
+
     return {
-        totalBins: gridData.size, occupiedBins,
-        occupancyRate: ((occupiedBins / gridData.size) * 100).toFixed(1),
-        uniqueSKUs, totalPallets,
+        overall: {
+            totalBins,
+            occupiedBins,
+            occupancyRate: totalBins > 0 ? ((occupiedBins / totalBins) * 100).toFixed(1) : 0,
+            uniqueSKUs: new Set(allStockItems.map(item => item.Material)).size,
+            totalPallets: new Set(allStockItems.map(item => item['Storage Unit'])).size,
+        },
+        byRow,
+        byLevelType,
+        averageAge
     };
 };
+
 export const parseStockFile = (file) => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -109,7 +149,11 @@ export const parseStockFile = (file) => {
                 const workbook = XLSX.read(data, { type: 'array' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+                    // Důležité: Zajistí, že se sloupce načtou se správnými jmény
+                    header: ["Storage Type", "Storage Bin", "Material", "Plant", "Storage location", "Batch", "Stock category", "Special Stock", "Available stock", "Base Unit of Measure", "Storage Unit", "GR Date", "Durat.", "Time of GR"],
+                    range: 1 // Přeskočí první řádek (nadpisy)
+                });
                 resolve(jsonData);
             } catch (error) { reject(error); }
         };
