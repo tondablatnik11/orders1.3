@@ -1,138 +1,130 @@
+// src/components/charts/Warehouse3DMap.jsx
 "use client";
-import React, { useMemo, useState, Suspense, useEffect } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
-import { OrbitControls, Html, Box } from '@react-three/drei';
+import React, { useMemo, useState, Suspense, useEffect, useRef } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls, Html, Box, Instances, Instance, Text, Grid } from '@react-three/drei';
+import * as THREE from 'three';
 
-// --- Konfigurace rozměrů ---
-const LEVEL_HEIGHT = 1.8;
-const BEAM_THICKNESS = 0.1;
-const PALLET_SIZE = [1.2, 1.4, 1.0]; // Šířka, Výška, Hloubka reálné palety
+// --- Konfigurace Vzhledu ---
+const LEVEL_HEIGHT = 1.6;
+const BIN_WIDTH = 1.2;
+const BIN_DEPTH = 1.0;
+const BIN_VISUAL_HEIGHT = 1.5; // Výška jednoho bloku pozice
 
-// --- Komponenty pro stavbu regálu ---
-const VerticalBeam = ({ position, height }) => (
-    <Box position={position} args={[BEAM_THICKNESS, height, BEAM_THICKNESS]}>
-        <meshStandardMaterial color="#3b82f6" metalness={0.6} roughness={0.4} />
-    </Box>
-);
+// --- Komponenty pro stavbu ---
+const CameraController = ({ focusedPosition, initialDimensions }) => {
+    const { camera, controls } = useThree();
+    const initialTarget = useRef(new THREE.Vector3());
+    const initialPosition = useRef(new THREE.Vector3());
 
-const HorizontalBeam = ({ position, length }) => (
-    <Box position={position} args={[length, BEAM_THICKNESS, BEAM_THICKNESS]}>
-        <meshStandardMaterial color="#f97316" metalness={0.4} roughness={0.5} />
-    </Box>
-);
+    useEffect(() => {
+        if (controls && initialDimensions && initialDimensions.center && initialDimensions.size) {
+            const [centerX, centerY, centerZ] = initialDimensions.center;
+            const [sizeX, sizeY, sizeZ] = initialDimensions.size;
+            const maxDim = Math.max(sizeX, sizeY, sizeZ);
+            const cameraDistance = maxDim * 1.2;
+            
+            initialTarget.current.set(centerX, centerY > 0 ? centerY : 0, centerZ);
+            initialPosition.current.set(centerX + cameraDistance, centerY + cameraDistance, centerZ + cameraDistance);
 
-const Pallet = ({ position, status, onClick, onPointerOver, onPointerOut, isFilteredOut }) => {
-    const color = useMemo(() => (status === 'occupied' ? '#ef4444' : '#22c55e'), [status]);
+            camera.position.copy(initialPosition.current);
+            controls.target.copy(initialTarget.current);
+            controls.update();
+        }
+    }, [camera, controls, initialDimensions]);
+    
+    useFrame(() => {
+        const targetPos = focusedPosition 
+            ? new THREE.Vector3(focusedPosition[0], focusedPosition[1], focusedPosition[2]) 
+            : initialTarget.current;
+            
+        const cameraPos = focusedPosition
+            ? new THREE.Vector3(targetPos.x + 10, targetPos.y + 10, targetPos.z + 10)
+            : initialPosition.current;
+
+        if (controls.target.distanceTo(targetPos) > 0.01) {
+            controls.target.lerp(targetPos, 0.05);
+            camera.position.lerp(cameraPos, 0.05);
+        }
+        controls.update();
+    });
+
+    return null;
+};
+
+const Tooltip = ({ data }) => {
+    if (!data) return null;
     return (
-        <Box
-            args={PALLET_SIZE}
-            position={[position[0], position[1] + PALLET_SIZE[1] / 2, position[2]]}
-            onClick={onClick}
-            onPointerOver={onPointerOver}
-            onPointerOut={onPointerOut}
-        >
-            <meshStandardMaterial
-                color={color}
-                transparent
-                opacity={isFilteredOut ? 0.1 : (status === 'occupied' ? 0.85 : 0.6)}
-                metalness={0.1}
-                roughness={0.8}
-            />
-        </Box>
+        <Html position={[data.position[0], data.position[1] + BIN_VISUAL_HEIGHT, data.position[2]]} center>
+            <div className="bg-wh-card text-wh-text-primary p-2 rounded-md shadow-lg text-xs w-48 border border-wh-border">
+                <p className="font-bold text-wh-brand-blue">{data.address}</p>
+                <p>{data.status === 'occupied' ? 'Obsazeno' : 'Volné'}</p>
+                {data.stockData && data.stockData.map((item, index) => (
+                    <div key={index} className="mt-1 pt-1 border-t border-wh-border">
+                        <p><span className="font-semibold">Materiál:</span> {item.Material}</p>
+                        <p><span className="font-semibold">Paleta:</span> {item['Storage Unit']}</p>
+                    </div>
+                ))}
+            </div>
+        </Html>
     );
 };
 
-// Komponenta pro automatické nastavení kamery
-const CameraController = ({ dimensions }) => { /* ... (beze změny) ... */ };
-const Tooltip = ({ data }) => { /* ... (beze změny) ... */ };
-
 // --- Hlavní komponenta ---
-export const Warehouse3DMap = ({ data, filteredIds, onBinClick, dimensions }) => {
+export const Warehouse3DMap = ({ data, filteredIds, onBinClick, dimensions, focusedPosition, labels }) => {
     const [hoveredBin, setHoveredBin] = useState(null);
-
-    const structure = useMemo(() => {
-        if (!data || data.length === 0) return { beams: [], verticals: [] };
-
-        const verticals = new Map();
-        const beams = [];
-        const uniqueLevels = new Set();
-        const uniqueX = new Set();
-        const uniqueZ = new Set();
-
-        data.forEach(bin => {
-            const [x, y, z] = bin.position;
-            uniqueLevels.add(y - BEAM_THICKNESS / 2);
-            uniqueX.add(x);
-            uniqueZ.add(z);
-        });
-
-        const levels = Array.from(uniqueLevels).sort((a, b) => a - b);
-        const xCoords = Array.from(uniqueX).sort((a, b) => a - b);
-        const zCoords = Array.from(uniqueZ).sort((a, b) => a - b);
-        const totalHeight = (levels.length) * LEVEL_HEIGHT;
-
-        // Vytvoření vertikálních stojin
-        xCoords.forEach(x => {
-            zCoords.forEach(z => {
-                const key = `${x.toFixed(2)}-${z.toFixed(2)}`;
-                if (!verticals.has(key)) {
-                    verticals.set(key, 
-                        <VerticalBeam 
-                            key={`v-${key}`}
-                            position={[x - PALLET_SIZE[0]/2, totalHeight/2 - LEVEL_HEIGHT, z]}
-                            height={totalHeight}
-                        />
-                    );
-                    verticals.set(`${(x + PALLET_SIZE[0]).toFixed(2)}-${z.toFixed(2)}`,
-                         <VerticalBeam 
-                            key={`v-${(x + PALLET_SIZE[0]).toFixed(2)}-${z}`}
-                            position={[x + PALLET_SIZE[0]/2, totalHeight/2 - LEVEL_HEIGHT, z]}
-                            height={totalHeight}
-                        />
-                    );
-                }
-            });
-        });
-        
-        // Vytvoření horizontálních nosníků
-        data.forEach(bin => {
-            const [x, y, z] = bin.position;
-            const beamY = y - BEAM_THICKNESS / 2;
-            beams.push(<HorizontalBeam key={`h-${bin.id}-1`} position={[x, beamY, z - PALLET_SIZE[2]/2]} length={PALLET_SIZE[0]} />);
-            beams.push(<HorizontalBeam key={`h-${bin.id}-2`} position={[x, beamY, z + PALLET_SIZE[2]/2]} length={PALLET_SIZE[0]} />);
-        });
-
-        return { beams, verticals: Array.from(verticals.values()) };
-    }, [data]);
 
     return (
         <div className="w-full h-full rounded-lg shadow-2xl">
-            <Canvas>
-                <color attach="background" args={['#111827']} />
-                <ambientLight intensity={1.8} />
-                <directionalLight position={[40, 50, 30]} intensity={2.5} />
-                <gridHelper args={[200, 200, '#374151', '#4b5563']} />
+            <Canvas camera={{ fov: 50 }}>
+                <color attach="background" args={['#1a202c']} />
+                <fog attach="fog" args={['#1a202c', 60, 250]} />
+                <ambientLight intensity={2.5} />
+                <directionalLight position={[50, 50, 50]} intensity={3.5} />
+                
+                <Grid
+                    position={[dimensions?.center[0] || 0, -0.01, dimensions?.center[2] || 0]}
+                    args={[300, 300]} cellSize={2} cellThickness={1} cellColor={"#6f6f6f"}
+                    sectionSize={10} sectionThickness={1.5} sectionColor={"#3b82f6"}
+                    fadeDistance={180} fadeStrength={1} infiniteGrid
+                />
+                
                 <Suspense fallback={null}>
-                    {/* Vykreslení struktury */}
-                    {structure.verticals}
-                    {structure.beams}
+                    {/* Skladové pozice (Instanced) */}
+                    <Instances limit={data.length} range={data.length}>
+                        <boxGeometry args={[BIN_WIDTH, BIN_VISUAL_HEIGHT, BIN_DEPTH]} />
+                        <meshStandardMaterial />
+                        {data.map((bin) => {
+                            const isFilteredOut = !filteredIds.has(bin.id);
+                            const y_pos = bin.position[1] + BIN_VISUAL_HEIGHT / 2;
+                            return (
+                                <Instance 
+                                    key={bin.id} 
+                                    position={[bin.position[0], y_pos, bin.position[2]]}
+                                    color={bin.status === 'occupied' ? '#ef4444' : '#22c55e'}
+                                    scale={isFilteredOut ? 0.001 : 1}
+                                    onClick={(e) => { e.stopPropagation(); onBinClick(bin); }}
+                                    onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer'; setHoveredBin(bin); }}
+                                    onPointerOut={() => { document.body.style.cursor = 'default'; setHoveredBin(null); }}
+                                />
+                            );
+                        })}
+                    </Instances>
 
-                    {/* Vykreslení palet */}
-                    {data.map((bin) => (
-                        <Pallet
-                            key={bin.id}
-                            position={bin.position}
-                            status={bin.status}
-                            onClick={(e) => { e.stopPropagation(); onBinClick(bin); }}
-                            onPointerOver={(e) => { e.stopPropagation(); setHoveredBin(bin); }}
-                            onPointerOut={() => setHoveredBin(null)}
-                            isFilteredOut={!filteredIds.has(bin.id)}
-                        />
+                    {/* Popisky na podlaze */}
+                    {labels && labels.map((label, index) => (
+                        <Text
+                            key={index} position={label.position} rotation={[-Math.PI / 2, 0, 0]}
+                            fontSize={3} color="#f9fafb" anchorX="center" anchorY="middle"
+                        >
+                            {label.text}
+                        </Text>
                     ))}
                 </Suspense>
+                
                 {hoveredBin && <Tooltip data={hoveredBin} />}
-                <OrbitControls makeDefault minDistance={5} maxDistance={200} />
-                <CameraController dimensions={dimensions} />
+                <OrbitControls makeDefault minDistance={10} maxDistance={200} enableDamping dampingFactor={0.1} />
+                <CameraController focusedPosition={focusedPosition} initialDimensions={dimensions} />
             </Canvas>
         </div>
     );
