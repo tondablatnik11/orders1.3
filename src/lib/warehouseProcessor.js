@@ -1,12 +1,17 @@
 // src/lib/warehouseProcessor.js
 import * as XLSX from 'xlsx';
 
-// --- FINÁLNÍ KONFIGURACE DLE NÁKRESU ---
-const RACK_WIDTH = 2.8;      // UPRAVENO: Šířka oboustranného regálu (původně 1.2)
-const AISLE_WIDTH = 3.8;     // UPRAVENO: Reálná šířka uličky mezi regály (původně 8.0)
-const RACK_DEPTH = 1.2;      // Hloubka jedné paletové pozice (zachováno)
-const LEVEL_HEIGHT = 2.0;    // Výška jednoho patra (upraveno z 2.2)
-const HALL_OFFSET_X = 100;   // Mezera mezi halami (zachováno)
+// --- FINÁLNÍ KONFIGURACE DLE DETAILNÍHO POPISU STRUKTURY ---
+// Adresa: REGÁL - DŮM - VÝŠKA - POZICE (např. 13-37-50-03)
+
+// --- Konfigurace rozměrů ---
+const PALLET_LEVEL_HEIGHT = 2.0;    // Výška jednoho paletového patra (pro výšky 10, 20, ...)
+const KLT_LEVEL_HEIGHT = 0.8;       // Výška jednoho KLT patra (pro výšky 01-06)
+const CELL_DEPTH = 1.4;             // Hloubka jedné buňky/domu (osa Z)
+const POSITION_WIDTH = 1.2;         // Šířka jedné pozice (01/02/03) v buňce (osa X)
+const RACK_DEPTH = 1.4;             // Hloubka samotného regálu (jedna strana)
+const AISLE_WIDTH = 4.0;            // Šířka uličky mezi páry regálů
+const HALL_OFFSET_X = 100;          // Mezera pro oddělení hal (pokud se použije)
 
 /**
  * Zpracovává data a vrací snapshot skladu, jeho rozměry a data pro popisky.
@@ -27,36 +32,66 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
     const labelData = new Map();
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
 
+    // Pomocná mapa pro normalizaci výšek
+    const levelMap = new Map();
+    let currentLevelIndex = 0;
+
     layoutData.forEach((position) => {
         const binId = position.id;
         const visualAddress = position.address;
-        if (!visualAddress || typeof visualAddress !== 'string' || !binId || binId.length < 8) return;
+        if (!visualAddress || typeof visualAddress !== 'string' || !binId) return;
 
         const stockInfo = stockMap.get(binId) || null;
         const addressParts = visualAddress.split('-').map(Number);
-        const [haus, regal, platz] = [addressParts[0], addressParts[1], addressParts[3]];
-        const levelString = binId.substring(4, 6);
-        const ebene = parseInt(levelString, 10);
         
-        // Výpočet pozice osy X je klíčový: každý krok je součet šířky regálu a uličky
-        const x = (haus === 18 ? HALL_OFFSET_X : 0) + (regal - 1) * (RACK_WIDTH + AISLE_WIDTH);
-        const y = (ebene - 1) * LEVEL_HEIGHT;
-        const z = (platz - 1) * RACK_DEPTH;
+        if (addressParts.length < 4) return;
+        const [regal, dum, vyska, pozice] = addressParts;
+
+        // --- VÝPOČET SOUŘADNICE Y (VÝŠKA) ---
+        if (!levelMap.has(vyska)) {
+            levelMap.set(vyska, currentLevelIndex++);
+        }
+        const isKltLevel = vyska <= 6;
+        const y = isKltLevel 
+            ? (vyska - 1) * KLT_LEVEL_HEIGHT
+            : (6 * KLT_LEVEL_HEIGHT) + ((vyska / 10) - 1) * PALLET_LEVEL_HEIGHT;
+
+        // --- VÝPOČET SOUŘADNICE Z (HLOUBKA V ULIČCE) ---
+        const z = (dum - 1) * CELL_DEPTH;
+
+        // --- VÝPOČET SOUŘADNICE X (ULIČKA A POZICE V REGÁLU) ---
+        const rackPairIndex = Math.floor((regal - 13) / 2); // 0 pro pár 13/14, 1 pro 15/16 atd.
+        const isRightSideInPair = regal % 2 === 0; // Je to pravá strana páru? (14, 16, 18)
+        
+        // Šířka kompletního bloku (2 regály + 1 ulička)
+        const blockWidth = (RACK_DEPTH * 2) + AISLE_WIDTH;
+        const baseX = rackPairIndex * blockWidth;
+
+        let x = baseX;
+        if (isRightSideInPair) {
+            // Pravá strana páru (např. 14) - začíná za levou stranou a mezerou
+            x += RACK_DEPTH;
+        }
+        
+        // Přidáme posun na základě pozice (01/02/03)
+        // Předpokládáme, že pozice jsou řazeny od kraje regálu do středu
+        const xOffset = (pozice - 1) * POSITION_WIDTH;
+        x += xOffset;
+
 
         minX = Math.min(minX, x); maxX = Math.max(maxX, x);
         minY = Math.min(minY, y); maxY = Math.max(maxY, y);
         minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
 
-        const labelKey = `${haus}-${regal}`;
+        const labelKey = `${regal}`;
         if (!labelData.has(labelKey)) {
-            // Popisek se umisťuje doprostřed uličky PŘED aktuální regál
-            const labelX = x > 0 ? x - (AISLE_WIDTH / 2) : x;
-            const labelZ = minZ - RACK_DEPTH * 3;
-            labelData.set(labelKey, { text: `R${regal}`, position: [labelX, 0.01, labelZ] });
+             const labelX = baseX + RACK_DEPTH - (POSITION_WIDTH / 2);
+             const labelZ = -CELL_DEPTH * 2; // Umístění popisku před regál
+             labelData.set(labelKey, { text: `R${regal}`, position: [labelX, 0.01, labelZ] });
         }
 
         warehouseGrid.set(binId, {
-            id: binId, address: visualAddress, type: position.type || 'Pallet',
+            id: binId, address: visualAddress, type: isKltLevel ? 'KLT' : 'Pallet',
             position: [x, y, z], status: stockInfo ? 'occupied' : 'empty', stockData: stockInfo,
         });
     });
