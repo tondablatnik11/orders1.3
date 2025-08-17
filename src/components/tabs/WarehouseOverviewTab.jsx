@@ -1,11 +1,10 @@
 // src/components/tabs/WarehouseOverviewTab.jsx
 "use client";
 import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
-import Papa from 'papaparse';
 import { Warehouse3DMap } from '../charts/Warehouse3DMap';
 import { createWarehouseSnapshot, parseStockFile, calculateKPIs } from '../../lib/warehouseProcessor';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { BarChart, Users, Archive, Package, Upload } from 'lucide-react';
+import { Upload, BarChart, Users, Package } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 // Detailní modální okno (beze změny)
@@ -34,7 +33,6 @@ const BinDetailModal = ({ data, onClose }) => {
     );
 };
 
-
 const WarehouseOverviewTab = () => {
     const [warehouseLayout, setWarehouseLayout] = useState(null);
     const [gridData, setGridData] = useState(null);
@@ -44,28 +42,22 @@ const WarehouseOverviewTab = () => {
     const [selectedBin, setSelectedBin] = useState(null);
     const fileInputRef = useRef(null);
 
-    // Krok 1: Načtení statického layoutu skladu (pouze jednou)
     useEffect(() => {
         const loadLayout = async () => {
             try {
                 toast.loading('Načítám layout skladu...', { id: 'layout_load' });
-                const response = await fetch('/data/Regalplaetze.csv');
-                if (!response.ok) throw new Error('Nepodařilo se načíst soubor s layoutem skladu.');
+                const response = await fetch('/data/warehouse-layout.json');
+                if (!response.ok) throw new Error('Nepodařilo se načíst soubor s layoutem skladu (warehouse-layout.json).');
                 
-                const csvText = await response.text();
-                Papa.parse(csvText, {
-                    header: true,
-                    skipEmptyLines: true,
-                    complete: (results) => {
-                        setWarehouseLayout(results.data);
-                        // Zobrazit prázdný sklad
-                        const emptySnapshot = createWarehouseSnapshot(results.data, null);
-                        setGridData(emptySnapshot);
-                        setKpis(calculateKPIs(emptySnapshot));
-                        setLoading(false);
-                        toast.success('Layout skladu načten. Nahrajte soubor LT10 pro zobrazení zásob.', { id: 'layout_load' });
-                    }
-                });
+                const layoutData = await response.json();
+
+                setWarehouseLayout(layoutData);
+                const emptySnapshot = createWarehouseSnapshot(layoutData, null);
+                setGridData(emptySnapshot);
+                setKpis(calculateKPIs(emptySnapshot));
+                setLoading(false);
+                toast.success('Layout skladu načten. Nahrajte soubor LT10 pro zobrazení zásob.', { id: 'layout_load' });
+
             } catch (error) {
                 setLoading(false);
                 toast.error(`Chyba při načítání layoutu: ${error.message}`, { id: 'layout_load' });
@@ -74,7 +66,6 @@ const WarehouseOverviewTab = () => {
         loadLayout();
     }, []);
 
-    // Krok 2: Zpracování nahraného souboru LT10
     const handleFileChange = async (event) => {
         const file = event.target.files[0];
         if (file && warehouseLayout) {
@@ -89,6 +80,7 @@ const WarehouseOverviewTab = () => {
                 toast.error(`Chyba při zpracování souboru: ${error.message}`, { id: 'stock_load' });
             }
         }
+        event.target.value = null; // Reset inputu pro možnost nahrát stejný soubor znovu
     };
     
     const filteredGrid = useMemo(() => {
@@ -143,11 +135,13 @@ const WarehouseOverviewTab = () => {
 
                 <div className="flex-grow w-full h-full min-h-[600px] rounded-lg overflow-hidden shadow-lg">
                     <Suspense fallback={<div>Načítám 3D model...</div>}>
-                        <Warehouse3DMap
-                            data={Array.from(gridData.values())}
-                            filteredIds={new Set(filteredGrid.map(bin => bin.id))}
-                            onBinClick={(bin) => setSelectedBin(bin)}
-                        />
+                        {gridData && 
+                            <Warehouse3DMap
+                                data={Array.from(gridData.values())}
+                                filteredIds={new Set(filteredGrid.map(bin => bin.id))}
+                                onBinClick={(bin) => setSelectedBin(bin)}
+                            />
+                        }
                     </Suspense>
                 </div>
             </div>

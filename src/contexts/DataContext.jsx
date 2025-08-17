@@ -1,11 +1,11 @@
+// src/contexts/DataContext.jsx
 'use client';
 import React, { createContext, useState, useEffect, useCallback, useMemo, useContext } from 'react';
 import { getSupabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
 import { processData } from '@/lib/dataProcessor';
 import { processArrayForDisplay, processErrorDataForSupabase } from '@/lib/errorMonitorProcessor';
-// NOVÝ IMPORT PRO FUNKCIONALITU SKLADU
-import { processWarehouseData, processWarehouseFileForSupabase } from '@/lib/warehouseProcessor';
+// IMPORTY PRO SKLAD JSOU SPRÁVNĚ ODEBRÁNY
 import toast from 'react-hot-toast';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -13,7 +13,7 @@ export const DataContext = createContext(null);
 export const useData = () => useContext(DataContext);
 
 export const DataProvider = ({ children }) => {
-    // Původní stavy
+    // Původní stavy jsou ZACHOVÁNY
     const [allOrdersData, setAllOrdersData] = useState([]);
     const [pickingData, setPickingData] = useState([]);
     const [summary, setSummary] = useState(null);
@@ -24,10 +24,10 @@ export const DataProvider = ({ children }) => {
     const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
     const [statusHistory, setStatusHistory] = useState({ isVisible: false, data: [] });
 
-    // NOVÉ STAVY PRO PŘEHLED SKLADU
-    const [warehouseStockData, setWarehouseStockData] = useState(null);
-    const [processedWarehouseData, setProcessedWarehouseData] = useState(null);
-    const [isLoadingWarehouseData, setIsLoadingWarehouseData] = useState(true);
+    // Stavy pro sklad, které způsobovaly chyby, JSOU ODSTRANĚNY
+    // const [warehouseStockData, setWarehouseStockData] = useState(null);
+    // const [processedWarehouseData, setProcessedWarehouseData] = useState(null);
+    // const [isLoadingWarehouseData, setIsLoadingWarehouseData] = useState(true);
 
     const { user, loading: authLoading, db, appId } = useAuth();
     const supabase = getSupabase();
@@ -64,8 +64,8 @@ export const DataProvider = ({ children }) => {
 
         } catch (error) {
              if (error && !error.message.includes('security policy') && error.code !== 'PGRST116') {
-                 toast.error("Chyba při inicializaci dat.");
-                 console.error("Data fetch error:", error);
+                  toast.error("Chyba při inicializaci dat.");
+                  console.error("Data fetch error:", error);
              }
         } finally {
             setIsLoadingData(false);
@@ -73,34 +73,20 @@ export const DataProvider = ({ children }) => {
         }
     }, [supabase]);
 
-    // NOVÁ FUNKCE PRO NAČTENÍ DAT SKLADU
-    const fetchWarehouseData = useCallback(async () => {
-        setIsLoadingWarehouseData(true);
-        try {
-            const { data, error } = await supabase.from('warehouse_stock').select('*');
-            if (error) throw error;
-            setWarehouseStockData(data);
-            const processed = processWarehouseData(data);
-            setProcessedWarehouseData(processed);
-        } catch (error) {
-            console.error("Chyba při načítání dat skladu:", error);
-            setProcessedWarehouseData(null);
-        } finally {
-            setIsLoadingWarehouseData(false);
-        }
-    }, [supabase]);
-    
+    // Funkce fetchWarehouseData JE SPRÁVNĚ ODSTRANĚNA
+
     useEffect(() => {
         if (user && !authLoading) {
             fetchAllApplicationData();
-            fetchWarehouseData(); // Načteme i data skladu
+            // Volání fetchWarehouseData je ODSTRANĚNO
         } else if (!user && !authLoading) {
             setIsLoadingData(false);
             setIsLoadingErrorData(false);
-            setIsLoadingWarehouseData(false);
+            // Nastavení isLoadingWarehouseData je ODSTRANĚNO
         }
-    }, [user, authLoading, fetchAllApplicationData, fetchWarehouseData]);
+    }, [user, authLoading, fetchAllApplicationData]);
     
+    // VŠECHNY NÁSLEDUJÍCÍ FUNKCE JSOU ZACHOVÁNY V PŮVODNÍ PODOBĚ
     const handleSaveNote = useCallback(async (deliveryNo, note) => {
         const { error } = await supabase.from('deliveries').update({ Note: note, updated_at: new Date().toISOString() }).eq('Delivery No', deliveryNo);
         if (error) {
@@ -256,30 +242,7 @@ export const DataProvider = ({ children }) => {
         }
     }, [supabase, user, fetchAllApplicationData]);
 
-    // NOVÁ FUNKCE PRO NAHRÁNÍ REPORTU SKLADU
-    const handleWarehouseFileUpload = useCallback(async (file) => {
-        if (!file) return;
-        setIsLoadingWarehouseData(true);
-        const toastId = toast.loading('Zpracovávám report skladu...');
-        try {
-            const { error: deleteError } = await supabase.from('warehouse_stock').delete().neq('Material', 'DUMMY_VALUE_TO_DELETE_ALL');
-            if (deleteError) throw deleteError;
-
-            const dataToUpload = await processWarehouseFileForSupabase(file);
-            const { error: insertError } = await supabase.from('warehouse_stock').insert(dataToUpload);
-            if (insertError) throw insertError;
-
-            await fetchWarehouseData();
-            
-            toast.success('Report skladu byl úspěšně nahrán a zpracován!', { id: toastId });
-        } catch (error) {
-            console.error("Chyba při nahrávání reportu skladu:", error);
-            toast.error(`Chyba: ${error.message}`, { id: toastId });
-            setProcessedWarehouseData(null);
-        } finally {
-            setIsLoadingWarehouseData(false);
-        }
-    }, [supabase, fetchWarehouseData]);
+    // Funkce handleWarehouseFileUpload JE SPRÁVNĚ ODSTRANĚNA
     
     const handleUpdateStatus = useCallback(async (deliveryNo, newStatus) => {
         const { data, error } = await supabase.from('deliveries').update({ Status: newStatus, updated_at: new Date().toISOString() }).eq('Delivery No', deliveryNo).select();
@@ -296,7 +259,6 @@ export const DataProvider = ({ children }) => {
     }, [supabase, fetchAllApplicationData]);
 
     const value = useMemo(() => ({
-        // Původní hodnoty
         allOrdersData, 
         pickingData,
         summary, 
@@ -316,19 +278,13 @@ export const DataProvider = ({ children }) => {
         setStatusHistory,
         fetchOrderComments, 
         addOrderComment,
-        // NOVÉ HODNOTY
-        warehouseStockData,
-        processedWarehouseData,
-        isLoadingWarehouseData,
-        handleWarehouseFileUpload,
+        // HODNOTY PRO SKLAD JSOU ODSTRANĚNY Z CONTEXTU
     }), [
-        // Původní závislosti
         allOrdersData, pickingData, summary, previousSummary, isLoadingData,
         fetchAllApplicationData, handleFileUpload, handleErrorLogUpload, errorData, isLoadingErrorData,
         selectedOrderDetails, handleSaveNote, handleUpdateStatus,
         statusHistory, fetchStatusHistory, fetchOrderComments, addOrderComment,
-        // NOVÉ ZÁVISLOSTI
-        warehouseStockData, processedWarehouseData, isLoadingWarehouseData, handleWarehouseFileUpload
+        // ZÁVISLOSTI PRO SKLAD JSOU ODSTRANĚNY
     ]);
 
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
