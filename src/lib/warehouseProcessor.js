@@ -7,8 +7,8 @@ const KLT_LEVEL_HEIGHT = 0.8;
 const CELL_DEPTH = 1.4;
 const POSITION_WIDTH = 1.2;
 const RACK_DEPTH = 1.4;
-const AISLE_WIDTH = 4.0;
-const RACK_SPINE_GAP = 0.2; // ZMENŠENO: Minimální mezera mezi regály v páru (13-14)
+const AISLE_WIDTH = 8.0;
+const RACK_SPINE_GAP = 0.6; // ZMENŠENO: Minimální mezera mezi regály v páru (13-14)
 
 /**
  * Zpracovává data a vrací snapshot skladu, jeho rozměry a data pro popisky.
