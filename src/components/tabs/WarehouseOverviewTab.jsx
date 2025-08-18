@@ -14,12 +14,15 @@ const toSnakeCase = (str) => {
     return str.replace(/[."/]/g, '').replace(/\s+/g, ' ').trim().replace(/ /g, '_').toLowerCase();
 };
 
-const transformKeysToSnakeCase = (data) => {
+const transformAndFilterData = (data, allowedColumns) => {
     if (!Array.isArray(data)) return [];
     return data.map(row => {
         const newRow = {};
         for (const key in row) {
-            newRow[toSnakeCase(key)] = row[key];
+            const snakeKey = toSnakeCase(key);
+            if (allowedColumns.includes(snakeKey)) {
+                newRow[snakeKey] = row[key];
+            }
         }
         return newRow;
     });
@@ -41,7 +44,6 @@ const WarehouseOverviewTab = () => {
             setLoadingMessage('Načítám data z databáze...');
             const ninetyDaysAgo = new Date(new Date().setDate(new Date().getDate() - 90)).toISOString().split('T')[0];
 
-            // FINÁLNÍ OPRAVA: Použity správné názvy tabulek a sloupců
             const [masterRes, stockRes, pickingRes] = await Promise.all([
                 supabase.from('warehouse_bins_master').select('*'),
                 supabase.from('warehouse_stock').select('*'),
@@ -82,16 +84,23 @@ const WarehouseOverviewTab = () => {
     const handleFileUpload = async (file, type) => {
         const toastId = toast.loading(`Zpracovávám a ukládám ${type.toUpperCase()}...`);
         try {
-            const parseFunction = type === 'lx03' ? parseBinMasterFile : parseStockFile;
-            const tableName = type === 'lx03' ? 'warehouse_bins_master' : 'warehouse_stock';
+            let jsonData = type === 'lx03' ? await parseBinMasterFile(file) : await parseStockFile(file);
+            let tableName, allowedColumns;
 
-            let jsonData = await parseFunction(file);
-            jsonData = transformKeysToSnakeCase(jsonData);
+            if (type === 'lx03') {
+                tableName = 'warehouse_bins_master';
+                allowedColumns = ['storage_type', 'storage_bin', 'picking_area', 'storage_bin_type', 'zone', 'bin_section', 'maximum_weight', 'unit_of_weight'];
+            } else {
+                tableName = 'warehouse_stock';
+                allowedColumns = ['storage_bin', 'material', 'plant', 'available_stock', 'base_unit_of_measure', 'stock_category', 'special_stock', 'durat', 'storage_unit', 'storage_type', 'storage_section', 'gr_date'];
+            }
             
+            const transformedData = transformAndFilterData(jsonData, allowedColumns);
+
             const { error: deleteError } = await supabase.from(tableName).delete().neq('id', -1);
             if (deleteError) throw new Error(`Chyba při mazání starých dat: ${deleteError.message}`);
             
-            const { error: insertError } = await supabase.from(tableName).insert(jsonData);
+            const { error: insertError } = await supabase.from(tableName).insert(transformedData);
             if (insertError) throw new Error(`Chyba při nahrávání nových dat: ${insertError.message}`);
             
             toast.success('Data úspěšně uložena! Aktualizuji přehled...', { id: toastId });
