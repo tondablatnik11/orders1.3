@@ -19,7 +19,6 @@ const parseFileToJson = (file) => new Promise((resolve, reject) => {
     reader.onerror = (error) => reject(error);
     reader.readAsArrayBuffer(file);
 });
-
 export const parseStockFile = parseFileToJson;
 export const parseBinMasterFile = parseFileToJson;
 
@@ -66,27 +65,24 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData) => {
     const occupiedBins = gridArray.filter(bin => bin.status === 'occupied');
     const totalBins = grid.size;
     
-    // --- Stávající KPI ---
+    // ... Stávající KPI (ABC, byBinType) zůstávají stejné ...
     const materialPickFrequency = pickingData?.reduce((acc, pick) => {
         const mat = pick.material;
         if(mat) acc.set(mat, (acc.get(mat) || 0) + 1);
         return acc;
     }, new Map());
-    
     const sortedMaterials = [...(materialPickFrequency?.entries() || [])].sort((a, b) => b[1] - a[1]);
     const totalPicks = sortedMaterials.reduce((sum, [, count]) => sum + count, 0);
-    
     let cumulativePercentage = 0;
-    const abcAnalysis = { A: [], B: [], C: [] };
+    const abcAnalysis = { A: {materials: [], picks: 0}, B: {materials: [], picks: 0}, C: {materials: [], picks: 0} };
     sortedMaterials.forEach(([material, count]) => {
         cumulativePercentage += (count / totalPicks) * 100;
         const locations = gridArray.filter(b => b.stockData && b.stockData[0]?.material === material).length;
         const materialInfo = { material, count, locations };
-        if (cumulativePercentage <= 80) abcAnalysis.A.push(materialInfo);
-        else if (cumulativePercentage <= 95) abcAnalysis.B.push(materialInfo);
-        else abcAnalysis.C.push(materialInfo);
+        if (cumulativePercentage <= 80) { abcAnalysis.A.materials.push(materialInfo); abcAnalysis.A.picks += count; } 
+        else if (cumulativePercentage <= 95) { abcAnalysis.B.materials.push(materialInfo); abcAnalysis.B.picks += count; } 
+        else { abcAnalysis.C.materials.push(materialInfo); abcAnalysis.C.picks += count; }
     });
-
     const byBinType = gridArray.reduce((acc, bin) => {
         const type = bin.type || 'N/A';
         if (!acc[type]) acc[type] = { total: 0, occupied: 0, pickCount: 0 };
@@ -96,31 +92,33 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData) => {
         return acc;
     }, {});
     Object.values(byBinType).forEach(stats => { stats.rate = stats.total > 0 ? (stats.occupied / stats.total) * 100 : 0; });
-    
-    // --- NOVÉ KPI ---
-    // 1. Vytížení hmotnosti
-    const totalWeightCapacity = gridArray.reduce((sum, bin) => sum + (Number(bin.maximum_weight) || 0), 0);
-    // Poznámka: Aktuální váha zásob není v LT10, takže ji nelze spočítat. Zobrazíme jen celkovou kapacitu.
 
-    // 2. Volné prémiové pozice
+    // --- NOVÉ KPI ---
+    const totalWeightCapacity = gridArray.reduce((sum, bin) => sum + (Number(bin.maximum_weight) || 0), 0);
     const emptyPremiumBins = gridArray.filter(bin => (bin.type === 'EP3' || bin.type === 'EP4') && bin.status === 'empty').length;
 
-    // 3. Identifikace "Ležáků"
-    const thirtyDaysAgo = new Date(new Date().setDate(new Date().getDate() - 30));
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const slowMovers = occupiedBins
-        .filter(bin => bin.stockData && new Date(bin.stockData[0].last_movement) < thirtyDaysAgo)
+        .filter(bin => {
+            const lastMove = bin.stockData?.[0]?.last_movement;
+            if (!lastMove) return false;
+            const lastMoveDate = new Date(lastMove);
+            return !isNaN(lastMoveDate.getTime()) && lastMoveDate < thirtyDaysAgo;
+        })
         .sort((a, b) => new Date(a.stockData[0].last_movement) - new Date(b.stockData[0].last_movement))
         .slice(0, 10);
 
-    // 4. Obrátkovost materiálů
-    const materialStockTotals = stockData.reduce((acc, item) => {
-        acc[item.material] = (acc[item.material] || 0) + Number(item.available_stock);
+    const materialStockTotals = (stockData || []).reduce((acc, item) => {
+        const stock = Number(item.available_stock);
+        if (item.material && !isNaN(stock)) {
+            acc[item.material] = (acc[item.material] || 0) + stock;
+        }
         return acc;
     }, {});
 
     const materialTurnover = Object.entries(materialStockTotals).map(([material, totalStock]) => {
         const picks = materialPickFrequency.get(material) || 0;
-        // Jednoduchá metrika: počet picků / celkové množství. Vyšší je lepší.
         const turnoverRate = totalStock > 0 ? picks / totalStock : 0;
         return { material, turnoverRate };
     });
@@ -130,23 +128,17 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData) => {
 
     return {
         overall: {
-            totalBins,
-            occupiedBins: occupiedBins.length,
+            totalBins, occupiedBins: occupiedBins.length,
             occupancyRate: totalBins > 0 ? (occupiedBins.length / totalBins) * 100 : 0,
             totalPicks: totalPicks,
         },
-        abcAnalysis,
-        byBinType,
-        // Nová data
+        abcAnalysis, byBinType,
         weightCapacity: totalWeightCapacity,
-        emptyPremiumBins,
-        slowMovers, // "Ležáci"
-        fastestMovers,
-        slowestMovers,
+        emptyPremiumBins, slowMovers, fastestMovers, slowestMovers,
     };
 };
 
-// --- FUNKCE PRO 3D USPOŘÁDÁNÍ ---
+// --- FUNKCE PRO 3D USPOŘÁDÁNÍ (beze změny) ---
 export const create3DLayout = (grid) => {
     // ... Tato funkce zůstává stejná jako v předchozí verzi ...
     if (grid.size === 0) return { dimensions: null, labels: [] };

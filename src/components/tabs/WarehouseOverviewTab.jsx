@@ -8,18 +8,21 @@ import { getSupabase } from '@/lib/supabaseClient';
 import { Warehouse3DViewTab } from './warehouse/Warehouse3DViewTab';
 import { WarehouseAnalyticsTab } from './warehouse/WarehouseAnalyticsTab';
 
-// Pomocná funkce pro transformaci názvů sloupců
 const toSnakeCase = (str) => {
     if (!str) return '';
     return str.replace(/[."/]/g, '').replace(/\s+/g, ' ').trim().replace(/ /g, '_').toLowerCase();
 };
 
-const transformAndFilterData = (data, allowedColumns) => {
+const transformAndFilterData = (data, allowedColumns, uniqueKey = null) => {
     if (!Array.isArray(data)) return [];
     
-    const uniqueData = Array.from(new Map(data.map(item => [item['Storage Bin'], item])).values());
+    let processedData = data;
+    // Odstranění duplicit pro master data
+    if(uniqueKey) {
+        processedData = Array.from(new Map(data.map(item => [item[uniqueKey], item])).values());
+    }
 
-    return uniqueData.map(row => {
+    return processedData.map(row => {
         const newRow = {};
         for (const key in row) {
             const snakeKey = toSnakeCase(key);
@@ -93,16 +96,18 @@ const WarehouseOverviewTab = () => {
             if (type === 'lx03') {
                 tableName = 'warehouse_bins_master';
                 allowedColumns = ['storage_type', 'storage_bin', 'picking_area', 'storage_bin_type', 'zone', 'bin_section', 'maximum_weight', 'unit_of_weight', 'x_coordinate', 'y_coordinate', 'z_coordinate'];
-                uniqueKey = 'storage_bin';
+                uniqueKey = 'Storage Bin'; // Klíč pro odstranění duplicit PŘED transformací
             } else {
                 tableName = 'warehouse_stock';
-                allowedColumns = ['storage_bin', 'material', 'plant', 'available_stock', 'base_unit_of_measure', 'stock_category', 'special_stock', 'durat', 'storage_unit', 'storage_type', 'storage_section', 'gr_date'];
+                // OPRAVA: Přidán chybějící sloupec 'last_movement' a další pro jistotu
+                allowedColumns = ['storage_bin', 'material', 'plant', 'available_stock', 'base_unit_of_measure', 'stock_category', 'special_stock', 'durat', 'storage_unit', 'storage_type', 'storage_section', 'gr_date', 'last_movement'];
+                uniqueKey = null;
             }
             
-            const transformedData = transformAndFilterData(jsonData, allowedColumns);
+            const transformedData = transformAndFilterData(jsonData, allowedColumns, uniqueKey);
 
             if(type === 'lx03'){
-                const { error } = await supabase.from(tableName).upsert(transformedData, { onConflict: uniqueKey });
+                const { error } = await supabase.from(tableName).upsert(transformedData, { onConflict: 'storage_bin' });
                 if (error) throw error;
             } else {
                 const { error: deleteError } = await supabase.from(tableName).delete().neq('id', -1);
