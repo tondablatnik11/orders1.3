@@ -36,14 +36,13 @@ const ABCTable = ({ materials }) => (
 
 export const ABCAnalysis = ({ kpis }) => {
     // OPRAVA: Zajištění, že data existují, než se je pokusíme použít
-    if (!kpis || !kpis.abcAnalysis || !kpis.abcAnalysis.A || !kpis.abcAnalysis.B || !kpis.abcAnalysis.C) {
+    if (!kpis || !kpis.abcAnalysis || !kpis.abcAnalysis.A?.materials || !kpis.abcAnalysis.B?.materials || !kpis.abcAnalysis.C?.materials) {
         return <div className="p-4 text-center text-muted-foreground">Data pro ABC analýzu nejsou k dispozici. Zkontrolujte, zda byla nahrána data o pickování.</div>;
     }
 
     const { A, B, C } = kpis.abcAnalysis;
     const totalPicks = kpis.overall.totalPicks;
 
-    // Kontrola, zda máme data pro zobrazení
     if (totalPicks === 0) {
          return <div className="p-4 text-center text-muted-foreground">Nebyly nalezeny žádné záznamy o pickování pro provedení ABC analýzy.</div>;
     }
