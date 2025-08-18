@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
 
 const RowSelector = ({ rows, selectedRow, onSelectRow }) => (
     <select 
@@ -22,7 +22,7 @@ const RowDetailChart = ({ data }) => {
                 <Tooltip contentStyle={{ backgroundColor: '#1C1C1C', border: '1px solid #3A3A3A' }} formatter={(value, name) => [name === 'rate' ? `${value.toFixed(1)}%` : value, name]}/>
                 <Legend />
                 <Bar dataKey="occupied" name="Obsazeno" stackId="a" fill="#38BDF8" />
-                <Bar dataKey="total" name="Celkem" stackId="b" fill="#4B5563" />
+                <Bar dataKey="picks" name="Počet picků" stackId="a" fill="#8B5CF6" />
             </BarChart>
         </ResponsiveContainer>
     );
@@ -36,11 +36,12 @@ export const BinTypeByRowAnalysis = ({ kpis }) => {
 
     return(
         <div className="space-y-6">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
                 <h2 className="text-2xl font-bold">Analýza Typů Míst v Řadě:</h2>
                 <RowSelector rows={rows} selectedRow={selectedRow} onSelectRow={setSelectedRow} />
             </div>
             <div className="bg-background p-6 rounded-lg border border-border">
+                <h3 className="text-lg font-semibold text-foreground mb-4">Přehled pro Řadu {selectedRow}</h3>
                 <RowDetailChart data={kpis.byRowAndType[selectedRow]} />
             </div>
         </div>
