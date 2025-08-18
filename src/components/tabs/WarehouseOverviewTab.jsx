@@ -11,7 +11,7 @@ import { WarehouseAnalyticsTab } from './warehouse/WarehouseAnalyticsTab';
 // Pomocná funkce pro transformaci názvů sloupců z Excelu na databázový formát
 const toSnakeCase = (str) => {
     if (!str) return '';
-    return str.replace(/\s+/g, ' ').trim().replace(/ /g, '_').toLowerCase();
+    return str.replace(/[."/]/g, '').replace(/\s+/g, ' ').trim().replace(/ /g, '_').toLowerCase();
 };
 
 const transformKeysToSnakeCase = (data) => {
@@ -41,11 +41,11 @@ const WarehouseOverviewTab = () => {
             setLoadingMessage('Načítám data z databáze...');
             const ninetyDaysAgo = new Date(new Date().setDate(new Date().getDate() - 90)).toISOString().split('T')[0];
 
-            // OPRAVA: Použity správné názvy tabulek podle vašeho screenshotu
+            // FINÁLNÍ OPRAVA: Použity správné názvy tabulek a sloupců
             const [masterRes, stockRes, pickingRes] = await Promise.all([
                 supabase.from('warehouse_bins_master').select('*'),
                 supabase.from('warehouse_stock').select('*'),
-                supabase.from('picking_dashboard_data').select('*').gte('Confirmation date', ninetyDaysAgo)
+                supabase.from('picking_dashboard_data').select('*').gte('confirmation_date', ninetyDaysAgo)
             ]);
 
             if (masterRes.error) throw new Error(`Chyba master dat: ${masterRes.error.message}`);
@@ -83,16 +83,12 @@ const WarehouseOverviewTab = () => {
         const toastId = toast.loading(`Zpracovávám a ukládám ${type.toUpperCase()}...`);
         try {
             const parseFunction = type === 'lx03' ? parseBinMasterFile : parseStockFile;
-            // OPRAVA: Použity správné názvy tabulek
             const tableName = type === 'lx03' ? 'warehouse_bins_master' : 'warehouse_stock';
 
             let jsonData = await parseFunction(file);
-            // OPRAVA: Transformujeme názvy sloupců před odesláním do DB
             jsonData = transformKeysToSnakeCase(jsonData);
             
-            // Vyčištění starých dat a nahrání nových
-            // Používáme sloupec, který určitě existuje
-            const { error: deleteError } = await supabase.from(tableName).delete().neq('id', -1); 
+            const { error: deleteError } = await supabase.from(tableName).delete().neq('id', -1);
             if (deleteError) throw new Error(`Chyba při mazání starých dat: ${deleteError.message}`);
             
             const { error: insertError } = await supabase.from(tableName).insert(jsonData);

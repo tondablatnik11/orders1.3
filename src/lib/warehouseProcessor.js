@@ -113,6 +113,7 @@ export const create3DLayout = (grid) => {
     const KLT_LEVEL_HEIGHT = 0.8;
     const PALLET_LEVEL_HEIGHT = 2.0;
     const CELL_DEPTH = 1.4;
+    const RACK_DEPTH = 1.4;
     const AISLE_WIDTH = 4.0;
     const RACK_SPINE_GAP = 0.2;
     
