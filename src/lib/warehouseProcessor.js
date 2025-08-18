@@ -19,7 +19,6 @@ const parseFileToJson = (file) => new Promise((resolve, reject) => {
     reader.onerror = (error) => reject(error);
     reader.readAsArrayBuffer(file);
 });
-
 export const parseStockFile = parseFileToJson;
 export const parseBinMasterFile = parseFileToJson;
 
@@ -29,7 +28,6 @@ export const processWarehouseData = (layoutData, stockData, pickingData, binMast
 
     const stockMap = new Map(stockData?.map(item => [String(item.storage_bin), item]));
     const binMasterMap = new Map(binMasterData?.map(item => [String(item.storage_bin), item]));
-    
     const pickingFrequency = pickingData?.reduce((acc, pick) => {
         const bin = String(pick.source_storage_bin);
         if(bin) acc.set(bin, (acc.get(bin) || 0) + 1);
@@ -56,7 +54,6 @@ export const processWarehouseData = (layoutData, stockData, pickingData, binMast
 
     const kpis = calculateAdvancedKPIs(warehouseGrid, pickingData);
     const { dimensions, labels } = create3DLayout(warehouseGrid);
-
     return { grid: warehouseGrid, dimensions, labels, kpis };
 };
 
@@ -65,7 +62,9 @@ export const calculateAdvancedKPIs = (grid, pickingData) => {
     const gridArray = Array.from(grid.values());
     const occupiedBins = gridArray.filter(bin => bin.status === 'occupied');
     const totalBins = grid.size;
-    
+    const allStockItems = occupiedBins.flatMap(bin => bin.stockData.map(item => ({...item, type: bin.type})) );
+
+    // ABC Analýza
     const materialPickFrequency = pickingData?.reduce((acc, pick) => {
         const mat = pick.material;
         if(mat) acc.set(mat, (acc.get(mat) || 0) + 1);
@@ -75,82 +74,86 @@ export const calculateAdvancedKPIs = (grid, pickingData) => {
     const sortedMaterials = [...(materialPickFrequency?.entries() || [])].sort((a, b) => b[1] - a[1]);
     const totalPicks = sortedMaterials.reduce((sum, [, count]) => sum + count, 0);
     
-    let cumulativePercentage = 0;
-    const abcAnalysis = { A: [], B: [], C: [] };
+    let cumulativePicks = 0;
+    const abcAnalysis = { A: {materials: [], picks: 0}, B: {materials: [], picks: 0}, C: {materials: [], picks: 0} };
     sortedMaterials.forEach(([material, count]) => {
-        cumulativePercentage += (count / totalPicks) * 100;
-        if (cumulativePercentage <= 80) abcAnalysis.A.push({ material, count });
-        else if (cumulativePercentage <= 95) abcAnalysis.B.push({ material, count });
-        else abcAnalysis.C.push({ material, count });
+        cumulativePicks += count;
+        const percentage = (cumulativePicks / totalPicks) * 100;
+        const materialInfo = { material, count, locations: allStockItems.filter(item => item.material === material).length };
+        
+        if (percentage <= 80) {
+            abcAnalysis.A.materials.push(materialInfo);
+            abcAnalysis.A.picks += count;
+        } else if (percentage <= 95) {
+            abcAnalysis.B.materials.push(materialInfo);
+            abcAnalysis.B.picks += count;
+        } else {
+            abcAnalysis.C.materials.push(materialInfo);
+            abcAnalysis.C.picks += count;
+        }
     });
 
-    const byBinType = gridArray.reduce((acc, bin) => {
+    // Analýza po řadách a typech míst
+    const byRowAndType = gridArray.reduce((acc, bin) => {
+        const [regal] = bin.address.split('-').map(Number);
         const type = bin.type || 'N/A';
-        if (!acc[type]) acc[type] = { total: 0, occupied: 0, pickCount: 0 };
-        acc[type].total++;
-        if (bin.status === 'occupied') acc[type].occupied++;
-        acc[type].pickCount += bin.pickCount;
+        if (!acc[regal]) acc[regal] = {};
+        if (!acc[regal][type]) acc[regal][type] = { total: 0, occupied: 0, picks: 0 };
+        
+        acc[regal][type].total++;
+        if (bin.status === 'occupied') acc[regal][type].occupied++;
+        acc[regal][type].picks += bin.pickCount;
         return acc;
     }, {});
-    Object.values(byBinType).forEach(stats => { stats.rate = stats.total > 0 ? (stats.occupied / stats.total) * 100 : 0; });
 
+    const byZone = gridArray.reduce((acc, bin) => {
+        const zone = bin.zone || 'Neznámá';
+        if (!acc[zone]) acc[zone] = { total: 0, occupied: 0, picks: 0 };
+        acc[zone].total++;
+        if (bin.status === 'occupied') acc[zone].occupied++;
+        acc[zone].picks += bin.pickCount;
+        return acc;
+    }, {});
+    Object.values(byZone).forEach(stats => { stats.rate = stats.total > 0 ? (stats.occupied / stats.total) * 100 : 0; });
+    
     return {
         overall: {
             totalBins,
             occupiedBins: occupiedBins.length,
             occupancyRate: totalBins > 0 ? (occupiedBins.length / totalBins) * 100 : 0,
-            totalPicks: totalPicks,
+            totalPicks,
+            uniqueSKUs: new Set(allStockItems.map(item => item.material)).size
         },
         abcAnalysis,
-        byBinType,
+        byRowAndType,
+        byZone
     };
 };
 
 // --- FUNKCE PRO 3D USPOŘÁDÁNÍ ---
 export const create3DLayout = (grid) => {
+    // ... Tato funkce zůstává stejná jako v předchozí verzi ...
     if (grid.size === 0) return { dimensions: null, labels: [] };
-    
-    const KLT_LEVEL_HEIGHT = 0.8;
-    const PALLET_LEVEL_HEIGHT = 2.0;
-    const CELL_DEPTH = 1.4;
-    const RACK_DEPTH = 1.4;
-    const AISLE_WIDTH = 4.0;
-    const RACK_SPINE_GAP = 0.2;
-    
+    const KLT_LEVEL_HEIGHT = 0.8, PALLET_LEVEL_HEIGHT = 2.0, CELL_DEPTH = 1.4, RACK_DEPTH = 1.4, AISLE_WIDTH = 4.0, RACK_SPINE_GAP = 0.2;
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
     const labels = new Map();
-
     grid.forEach(bin => {
         if (!bin.address) return;
         const addressParts = bin.address.split('-').map(Number);
         if (addressParts.length < 4) return;
-        
         const [regal, dum, vyska, pozice] = addressParts;
         const isKltLevel = vyska <= 6;
-        
-        const y = isKltLevel 
-            ? (vyska - 1) * KLT_LEVEL_HEIGHT
-            : (6 * KLT_LEVEL_HEIGHT) + ((vyska / 10) - 1) * PALLET_LEVEL_HEIGHT;
+        const y = isKltLevel ? (vyska - 1) * KLT_LEVEL_HEIGHT : (6 * KLT_LEVEL_HEIGHT) + ((vyska / 10) - 1) * PALLET_LEVEL_HEIGHT;
         const z = (dum - 1) * CELL_DEPTH;
-        
         const rackPairIndex = Math.floor((regal - 13) / 2);
         const isRightSideInPair = regal % 2 === 0;
-        
         const blockWidth = (RACK_DEPTH * 2) + RACK_SPINE_GAP + AISLE_WIDTH;
         const baseX = rackPairIndex * blockWidth;
-
         let x;
-        if (isRightSideInPair) {
-            x = baseX + RACK_DEPTH + RACK_SPINE_GAP + ((pozice - 1) * POSITION_WIDTH);
-        } else {
-            x = baseX + ((pozice - 1) * POSITION_WIDTH);
-        }
-
+        if (isRightSideInPair) x = baseX + RACK_DEPTH + RACK_SPINE_GAP + ((pozice - 1) * 1.2);
+        else x = baseX + ((pozice - 1) * 1.2);
         bin.position = [x, y, z];
-        minX = Math.min(minX, x); maxX = Math.max(maxX, x);
-        minY = Math.min(minY, y); maxY = Math.max(maxY, y);
-        minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
-
+        minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
         const labelKey = `AISLE-${rackPairIndex}`;
         if (!labels.has(labelKey)) {
              const labelX = baseX + RACK_DEPTH + (RACK_SPINE_GAP / 2);
@@ -159,13 +162,8 @@ export const create3DLayout = (grid) => {
              labels.set(labelKey, { text: `R${pairRegal}/${pairRegal+1}`, position: [labelX, 0.01, labelZ] });
         }
     });
-
     return {
-        dimensions: {
-            center: [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2],
-            size: [maxX - minX, maxY - minY, maxZ - minZ],
-            maxLevelY: maxY,
-        },
+        dimensions: { center: [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2], size: [maxX - minX, maxY - minY, maxZ - minZ], maxLevelY: maxY },
         labels: Array.from(labels.values()),
     };
 };
