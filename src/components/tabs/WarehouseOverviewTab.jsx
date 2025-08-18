@@ -8,9 +8,26 @@ import { getSupabase } from '@/lib/supabaseClient';
 import { Warehouse3DViewTab } from './warehouse/Warehouse3DViewTab';
 import { WarehouseAnalyticsTab } from './warehouse/WarehouseAnalyticsTab';
 
+// Pomocná funkce pro transformaci názvů sloupců z Excelu na databázový formát
+const toSnakeCase = (str) => {
+    if (!str) return '';
+    return str.replace(/\s+/g, ' ').trim().replace(/ /g, '_').toLowerCase();
+};
+
+const transformKeysToSnakeCase = (data) => {
+    if (!Array.isArray(data)) return [];
+    return data.map(row => {
+        const newRow = {};
+        for (const key in row) {
+            newRow[toSnakeCase(key)] = row[key];
+        }
+        return newRow;
+    });
+};
+
 const WarehouseOverviewTab = () => {
     const [warehouseLayout, setWarehouseLayout] = useState(null);
-    const [processedData, setProcessedData] = useState({ grid: null, dimensions: null, labels: [], kpis: null });
+    const [processedData, setProcessedData] = useState({ grid: new Map(), dimensions: null, labels: [], kpis: null });
     const [loading, setLoading] = useState(true);
     const [loadingMessage, setLoadingMessage] = useState("Inicializace...");
     const [activeTab, setActiveTab] = useState('analytics');
@@ -21,18 +38,19 @@ const WarehouseOverviewTab = () => {
         if (!warehouseLayout) return;
         setLoading(true);
         try {
-            setLoadingMessage('Načítám data ze Supabase...');
+            setLoadingMessage('Načítám data z databáze...');
             const ninetyDaysAgo = new Date(new Date().setDate(new Date().getDate() - 90)).toISOString().split('T')[0];
 
+            // OPRAVA: Použity správné názvy tabulek podle vašeho screenshotu
             const [masterRes, stockRes, pickingRes] = await Promise.all([
-                supabase.from('warehouse_master_data').select('*'),
-                supabase.from('warehouse_stock_snapshot').select('*'),
-                supabase.from('picking_history').select('*').gte('Confirmation date', ninetyDaysAgo)
+                supabase.from('warehouse_bins_master').select('*'),
+                supabase.from('warehouse_stock').select('*'),
+                supabase.from('picking_dashboard_data').select('*').gte('Confirmation date', ninetyDaysAgo)
             ]);
 
-            if (masterRes.error) throw masterRes.error;
-            if (stockRes.error) throw stockRes.error;
-            if (pickingRes.error) throw pickingRes.error;
+            if (masterRes.error) throw new Error(`Chyba master dat: ${masterRes.error.message}`);
+            if (stockRes.error) throw new Error(`Chyba stavu zásob: ${stockRes.error.message}`);
+            if (pickingRes.error) throw new Error(`Chyba picking dat: ${pickingRes.error.message}`);
 
             setLoadingMessage('Zpracovávám data a počítám KPI...');
             const result = processWarehouseData(warehouseLayout, stockRes.data, pickingRes.data, masterRes.data);
@@ -65,11 +83,16 @@ const WarehouseOverviewTab = () => {
         const toastId = toast.loading(`Zpracovávám a ukládám ${type.toUpperCase()}...`);
         try {
             const parseFunction = type === 'lx03' ? parseBinMasterFile : parseStockFile;
-            const tableName = type === 'lx03' ? 'warehouse_master_data' : 'warehouse_stock_snapshot';
-            
-            const jsonData = await parseFunction(file);
+            // OPRAVA: Použity správné názvy tabulek
+            const tableName = type === 'lx03' ? 'warehouse_bins_master' : 'warehouse_stock';
 
-            const { error: deleteError } = await supabase.from(tableName).delete().neq('Storage bin type', 'DUMMY_VALUE');
+            let jsonData = await parseFunction(file);
+            // OPRAVA: Transformujeme názvy sloupců před odesláním do DB
+            jsonData = transformKeysToSnakeCase(jsonData);
+            
+            // Vyčištění starých dat a nahrání nových
+            // Používáme sloupec, který určitě existuje
+            const { error: deleteError } = await supabase.from(tableName).delete().neq('id', -1); 
             if (deleteError) throw new Error(`Chyba při mazání starých dat: ${deleteError.message}`);
             
             const { error: insertError } = await supabase.from(tableName).insert(jsonData);
@@ -86,7 +109,7 @@ const WarehouseOverviewTab = () => {
         const input = fileInputRef.current;
         input.onchange = (e) => {
             if (e.target.files[0]) handleFileUpload(e.target.files[0], type);
-            e.target.value = null; // Umožní nahrát stejný soubor znovu
+            e.target.value = null;
         };
         input.click();
     };
@@ -100,7 +123,7 @@ const WarehouseOverviewTab = () => {
                  <div className="bg-card rounded-xl shadow-lg p-4 flex flex-col md:flex-row items-center gap-4 border border-border">
                     <div className="flex-grow">
                         <h2 className="text-xl font-bold text-foreground">Warehouse Intelligence Dashboard</h2>
-                        <p className="text-sm text-muted-foreground">Data jsou automaticky načtena z databáze. Pro aktualizaci nahrajte report.</p>
+                        <p className="text-sm text-muted-foreground">Data jsou automaticky načtena z databáze.</p>
                     </div>
                      <div className="flex flex-col sm:flex-row gap-2">
                          <input type="file" ref={fileInputRef} accept=".xlsx, .xls, .csv" className="hidden"/>

@@ -1,4 +1,3 @@
-// src/lib/warehouseProcessor.js
 import * as XLSX from 'xlsx';
 
 // --- Konfigurace ---
@@ -28,11 +27,11 @@ export const parseBinMasterFile = parseFileToJson;
 export const processWarehouseData = (layoutData, stockData, pickingData, binMasterData) => {
     if (!layoutData) return { grid: new Map(), dimensions: null, labels: [], kpis: null };
 
-    const stockMap = new Map(stockData?.map(item => [String(item['Storage Bin']), item]));
-    const binMasterMap = new Map(binMasterData?.map(item => [String(item['Storage Bin']), item]));
+    const stockMap = new Map(stockData?.map(item => [String(item.storage_bin), item]));
+    const binMasterMap = new Map(binMasterData?.map(item => [String(item.storage_bin), item]));
     
     const pickingFrequency = pickingData?.reduce((acc, pick) => {
-        const bin = String(pick['Source Storage Bin']);
+        const bin = String(pick.source_storage_bin);
         if(bin) acc.set(bin, (acc.get(bin) || 0) + 1);
         return acc;
     }, new Map());
@@ -46,9 +45,9 @@ export const processWarehouseData = (layoutData, stockData, pickingData, binMast
         warehouseGrid.set(binId, {
             id: binId,
             address: position.address,
-            type: masterInfo['Storage bin type'] || position.type || 'N/A',
-            pickingArea: masterInfo['Picking Area'],
-            zone: masterInfo['Zone'],
+            type: masterInfo.storage_bin_type || position.type || 'N/A',
+            pickingArea: masterInfo.picking_area,
+            zone: masterInfo.zone,
             status: stockInfo ? 'occupied' : 'empty',
             stockData: stockInfo ? [stockInfo] : null,
             pickCount: pickingFrequency?.get(binId) || 0,
@@ -68,7 +67,7 @@ export const calculateAdvancedKPIs = (grid, pickingData) => {
     const totalBins = grid.size;
     
     const materialPickFrequency = pickingData?.reduce((acc, pick) => {
-        const mat = pick.Material;
+        const mat = pick.material;
         if(mat) acc.set(mat, (acc.get(mat) || 0) + 1);
         return acc;
     }, new Map());
@@ -114,8 +113,6 @@ export const create3DLayout = (grid) => {
     const KLT_LEVEL_HEIGHT = 0.8;
     const PALLET_LEVEL_HEIGHT = 2.0;
     const CELL_DEPTH = 1.4;
-    const POSITION_WIDTH = 1.2;
-    const RACK_DEPTH = 1.4;
     const AISLE_WIDTH = 4.0;
     const RACK_SPINE_GAP = 0.2;
     
@@ -123,7 +120,10 @@ export const create3DLayout = (grid) => {
     const labels = new Map();
 
     grid.forEach(bin => {
+        if (!bin.address) return;
         const addressParts = bin.address.split('-').map(Number);
+        if (addressParts.length < 4) return;
+        
         const [regal, dum, vyska, pozice] = addressParts;
         const isKltLevel = vyska <= 6;
         
@@ -145,7 +145,7 @@ export const create3DLayout = (grid) => {
             x = baseX + ((pozice - 1) * POSITION_WIDTH);
         }
 
-        bin.position = [x, y, z]; // Přidání pozice k datům v mřížce
+        bin.position = [x, y, z];
         minX = Math.min(minX, x); maxX = Math.max(maxX, x);
         minY = Math.min(minY, y); maxY = Math.max(maxY, y);
         minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
