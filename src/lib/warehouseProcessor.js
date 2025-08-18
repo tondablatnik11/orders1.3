@@ -1,43 +1,129 @@
+// src/lib/warehouseProcessor.js
 import * as XLSX from 'xlsx';
 
-// --- Konfigurace rozměrů ---
-const KLT_ACTUAL_HEIGHT = 0.4;
-const PALLET_LEVEL_HEIGHT = 2.0;    
-const KLT_LEVEL_HEIGHT = 0.8;       
-const CELL_DEPTH = 1.4;             
-const POSITION_WIDTH = 1.2;         
-const RACK_DEPTH = 1.4;             
-const AISLE_WIDTH = 4.0;            
-const RACK_SPINE_GAP = 0.2; 
+// --- Konfigurace ---
+export const binTypeToHeightMap = { 'K1': 0.4, 'KLT': 0.4, 'EP1': 0.7, 'EP2': 1.0, 'EP3': 1.2, 'EP4': 1.5 };
+const POSITION_WIDTH = 1.2;
+const RACK_DEPTH = 1.4;
 
-export const binTypeToHeightMap = {
-    'K1': KLT_ACTUAL_HEIGHT, 'KLT': KLT_ACTUAL_HEIGHT,
-    'EP1': 0.7, 'EP2': 1.0, 'EP3': 1.2, 'EP4': 1.5,
-};
+// --- PARSOVACÍ FUNKCE ---
+const parseFileToJson = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            resolve(XLSX.utils.sheet_to_json(worksheet));
+        } catch (error) { reject(error); }
+    };
+    reader.onerror = (error) => reject(error);
+    reader.readAsArrayBuffer(file);
+});
 
-export const createWarehouseSnapshot = (layoutData, stockData) => {
-    if (!layoutData) return { grid: new Map(), dimensions: null, labels: [] };
-    const stockMap = new Map();
-    if (stockData) {
-        stockData.forEach(item => {
-            const binId = String(item['Storage Bin']);
-            if (!stockMap.has(binId)) stockMap.set(binId, []);
-            stockMap.get(binId).push(item);
-        });
-    }
+export const parseStockFile = parseFileToJson;
+export const parseBinMasterFile = parseFileToJson;
+
+// --- HLAVNÍ FUNKCE PRO ZPRACOVÁNÍ DAT ---
+export const processWarehouseData = (layoutData, stockData, pickingData, binMasterData) => {
+    if (!layoutData) return { grid: new Map(), dimensions: null, labels: [], kpis: null };
+
+    const stockMap = new Map(stockData?.map(item => [String(item['Storage Bin']), item]));
+    const binMasterMap = new Map(binMasterData?.map(item => [String(item['Storage Bin']), item]));
+    
+    const pickingFrequency = pickingData?.reduce((acc, pick) => {
+        const bin = String(pick['Source Storage Bin']);
+        if(bin) acc.set(bin, (acc.get(bin) || 0) + 1);
+        return acc;
+    }, new Map());
 
     const warehouseGrid = new Map();
-    const labelData = new Map();
+    layoutData.forEach(position => {
+        const binId = String(position.id);
+        const stockInfo = stockMap.get(binId);
+        const masterInfo = binMasterMap.get(binId) || {};
+        
+        warehouseGrid.set(binId, {
+            id: binId,
+            address: position.address,
+            type: masterInfo['Storage bin type'] || position.type || 'N/A',
+            pickingArea: masterInfo['Picking Area'],
+            zone: masterInfo['Zone'],
+            status: stockInfo ? 'occupied' : 'empty',
+            stockData: stockInfo ? [stockInfo] : null,
+            pickCount: pickingFrequency?.get(binId) || 0,
+        });
+    });
+
+    const kpis = calculateAdvancedKPIs(warehouseGrid, pickingData);
+    const { dimensions, labels } = create3DLayout(warehouseGrid);
+
+    return { grid: warehouseGrid, dimensions, labels, kpis };
+};
+
+// --- VÝPOČET POKROČILÝCH KPI ---
+export const calculateAdvancedKPIs = (grid, pickingData) => {
+    const gridArray = Array.from(grid.values());
+    const occupiedBins = gridArray.filter(bin => bin.status === 'occupied');
+    const totalBins = grid.size;
+    
+    const materialPickFrequency = pickingData?.reduce((acc, pick) => {
+        const mat = pick.Material;
+        if(mat) acc.set(mat, (acc.get(mat) || 0) + 1);
+        return acc;
+    }, new Map());
+
+    const sortedMaterials = [...(materialPickFrequency?.entries() || [])].sort((a, b) => b[1] - a[1]);
+    const totalPicks = sortedMaterials.reduce((sum, [, count]) => sum + count, 0);
+    
+    let cumulativePercentage = 0;
+    const abcAnalysis = { A: [], B: [], C: [] };
+    sortedMaterials.forEach(([material, count]) => {
+        cumulativePercentage += (count / totalPicks) * 100;
+        if (cumulativePercentage <= 80) abcAnalysis.A.push({ material, count });
+        else if (cumulativePercentage <= 95) abcAnalysis.B.push({ material, count });
+        else abcAnalysis.C.push({ material, count });
+    });
+
+    const byBinType = gridArray.reduce((acc, bin) => {
+        const type = bin.type || 'N/A';
+        if (!acc[type]) acc[type] = { total: 0, occupied: 0, pickCount: 0 };
+        acc[type].total++;
+        if (bin.status === 'occupied') acc[type].occupied++;
+        acc[type].pickCount += bin.pickCount;
+        return acc;
+    }, {});
+    Object.values(byBinType).forEach(stats => { stats.rate = stats.total > 0 ? (stats.occupied / stats.total) * 100 : 0; });
+
+    return {
+        overall: {
+            totalBins,
+            occupiedBins: occupiedBins.length,
+            occupancyRate: totalBins > 0 ? (occupiedBins.length / totalBins) * 100 : 0,
+            totalPicks: totalPicks,
+        },
+        abcAnalysis,
+        byBinType,
+    };
+};
+
+// --- FUNKCE PRO 3D USPOŘÁDÁNÍ ---
+export const create3DLayout = (grid) => {
+    if (grid.size === 0) return { dimensions: null, labels: [] };
+    
+    const KLT_LEVEL_HEIGHT = 0.8;
+    const PALLET_LEVEL_HEIGHT = 2.0;
+    const CELL_DEPTH = 1.4;
+    const POSITION_WIDTH = 1.2;
+    const RACK_DEPTH = 1.4;
+    const AISLE_WIDTH = 4.0;
+    const RACK_SPINE_GAP = 0.2;
+    
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    const labels = new Map();
 
-    layoutData.forEach((position) => {
-        const binId = position.id;
-        const visualAddress = position.address;
-        if (!visualAddress || typeof visualAddress !== 'string' || !binId) return;
-
-        const stockInfo = stockMap.get(binId) || null;
-        const addressParts = visualAddress.split('-').map(Number);
-        if (addressParts.length < 4) return;
+    grid.forEach(bin => {
+        const addressParts = bin.address.split('-').map(Number);
         const [regal, dum, vyska, pozice] = addressParts;
         const isKltLevel = vyska <= 6;
         
@@ -59,119 +145,26 @@ export const createWarehouseSnapshot = (layoutData, stockData) => {
             x = baseX + ((pozice - 1) * POSITION_WIDTH);
         }
 
+        bin.position = [x, y, z]; // Přidání pozice k datům v mřížce
         minX = Math.min(minX, x); maxX = Math.max(maxX, x);
         minY = Math.min(minY, y); maxY = Math.max(maxY, y);
         minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
 
         const labelKey = `AISLE-${rackPairIndex}`;
-        if (!labelData.has(labelKey)) {
+        if (!labels.has(labelKey)) {
              const labelX = baseX + RACK_DEPTH + (RACK_SPINE_GAP / 2);
              const labelZ = -CELL_DEPTH * 2;
              const pairRegal = 13 + rackPairIndex*2;
-             labelData.set(labelKey, { text: `R${pairRegal}/${pairRegal+1}`, position: [labelX, 0.01, labelZ] });
+             labels.set(labelKey, { text: `R${pairRegal}/${pairRegal+1}`, position: [labelX, 0.01, labelZ] });
         }
-
-        warehouseGrid.set(binId, {
-            id: binId, address: visualAddress, 
-            type: position.type || (isKltLevel ? 'K1' : 'EP3'),
-            position: [x, y, z], status: stockInfo ? 'occupied' : 'empty', stockData: stockInfo,
-        });
     });
-    
-    const dimensions = {
-        center: [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2],
-        size: [maxX - minX, maxY - minY, maxZ - minZ],
-        maxLevelY: maxY,
-    };
-    return { grid: warehouseGrid, dimensions, labels: Array.from(labelData.values()) };
-};
-
-export const calculateDetailedKPIs = (gridData) => {
-    if (!gridData || gridData.size === 0) return null;
-
-    const gridArray = Array.from(gridData.values());
-    const allStockItems = gridArray.flatMap(bin => {
-        const binType = bin.type;
-        return (bin.stockData || []).map(item => ({...item, binType}));
-    }).filter(Boolean);
-
-    const totalBins = gridData.size;
-    const occupiedBins = gridArray.filter(bin => bin.status === 'occupied').length;
-    
-    const byRow = gridArray.reduce((acc, bin) => {
-        const [regal] = bin.address.split('-').map(Number);
-        if (!acc[regal]) acc[regal] = { total: 0, occupied: 0 };
-        acc[regal].total++;
-        if (bin.status === 'occupied') acc[regal].occupied++;
-        return acc;
-    }, {});
-    Object.values(byRow).forEach(row => { row.rate = row.total > 0 ? (row.occupied / row.total) * 100 : 0; });
-
-    const byBinType = gridArray.reduce((acc, bin) => {
-        const type = bin.type;
-        if (!acc[type]) acc[type] = { total: 0, occupied: 0 };
-        acc[type].total++;
-        if (bin.status === 'occupied') acc[type].occupied++;
-        return acc;
-    }, {});
-    Object.values(byBinType).forEach(stats => { stats.rate = stats.total > 0 ? (stats.occupied / stats.total) * 100 : 0; });
-
-    let totalVolume = 0, occupiedVolume = 0;
-    gridArray.forEach(bin => {
-        const binHeight = binTypeToHeightMap[bin.type] || 0;
-        const binVolume = POSITION_WIDTH * RACK_DEPTH * binHeight;
-        totalVolume += binVolume;
-        if (bin.status === 'occupied') occupiedVolume += binVolume;
-    });
-
-    const materialCounts = allStockItems.reduce((acc, item) => {
-        acc[item.Material] = (acc[item.Material] || 0) + 1;
-        return acc;
-    }, {});
-    const topMaterialsByBins = Object.entries(materialCounts).sort(([, a], [, b]) => b - a).slice(0, 10).map(([material, count]) => ({ material, count }));
-    
-    const materialDistributionByBinType = allStockItems.reduce((acc, item) => {
-        const type = item.binType;
-        if (!acc[type]) acc[type] = new Set();
-        acc[type].add(item.Material);
-        return acc;
-    }, {});
-    Object.keys(materialDistributionByBinType).forEach(type => {
-        materialDistributionByBinType[type] = materialDistributionByBinType[type].size;
-    });
-
-    const emptyBinsByType = gridArray.filter(bin => bin.status === 'empty').reduce((acc, bin) => {
-        const type = bin.type;
-        acc[type] = (acc[type] || 0) + 1;
-        return acc;
-    }, {});
-
 
     return {
-        overall: {
-            totalBins, occupiedBins, totalVolume, occupiedVolume,
-            occupancyRate: totalBins > 0 ? ((occupiedBins / totalBins) * 100).toFixed(1) : 0,
-            volumeOccupancyRate: totalVolume > 0 ? ((occupiedVolume / totalVolume) * 100).toFixed(1) : 0,
-            uniqueSKUs: new Set(allStockItems.map(item => item.Material)).size,
+        dimensions: {
+            center: [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2],
+            size: [maxX - minX, maxY - minY, maxZ - minZ],
+            maxLevelY: maxY,
         },
-        byRow, byBinType, topMaterialsByBins, materialDistributionByBinType, emptyBinsByType
+        labels: Array.from(labels.values()),
     };
-};
-
-export const parseStockFile = (file) => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const sheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json(worksheet);
-                resolve(jsonData);
-            } catch (error) { reject(error); }
-        };
-        reader.onerror = (error) => reject(error);
-        reader.readAsArrayBuffer(file);
-    });
 };
