@@ -35,12 +35,23 @@ const ABCTable = ({ materials }) => (
 );
 
 export const ABCAnalysis = ({ kpis }) => {
+    // OPRAVA: Zajištění, že data existují, než se je pokusíme použít
+    if (!kpis || !kpis.abcAnalysis || !kpis.abcAnalysis.A || !kpis.abcAnalysis.B || !kpis.abcAnalysis.C) {
+        return <div className="p-4 text-center text-muted-foreground">Data pro ABC analýzu nejsou k dispozici. Zkontrolujte, zda byla nahrána data o pickování.</div>;
+    }
+
     const { A, B, C } = kpis.abcAnalysis;
     const totalPicks = kpis.overall.totalPicks;
+
+    // Kontrola, zda máme data pro zobrazení
+    if (totalPicks === 0) {
+         return <div className="p-4 text-center text-muted-foreground">Nebyly nalezeny žádné záznamy o pickování pro provedení ABC analýzy.</div>;
+    }
+
     const chartData = [
-        { name: 'A (Top 80%)', value: A.materials.length },
-        { name: 'B (Dalších 15%)', value: B.materials.length },
-        { name: 'C (Zbytek 5%)', value: C.materials.length },
+        { name: `A (${A.materials.length} SKU)`, value: A.picks },
+        { name: `B (${B.materials.length} SKU)`, value: B.picks },
+        { name: `C (${C.materials.length} SKU)`, value: C.picks },
     ];
     const COLORS = ['#22C55E', '#F97316', '#EF4444'];
 
@@ -57,7 +68,7 @@ export const ABCAnalysis = ({ kpis }) => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                  <div className="bg-background p-6 rounded-lg border border-border">
-                    <h3 className="text-lg font-semibold mb-4 text-foreground">Distribuce Materiálů do ABC Skupin</h3>
+                    <h3 className="text-lg font-semibold mb-4 text-foreground">Distribuce Picků do ABC Skupin</h3>
                      <ResponsiveContainer width="100%" height={300}>
                         <PieChart>
                             <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} label>

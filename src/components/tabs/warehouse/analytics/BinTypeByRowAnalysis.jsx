@@ -1,6 +1,5 @@
 "use client";
 import React, { useState, useMemo } from 'react';
-// OPRAVA: Do importu byla přidána komponenta "Legend"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
 
 const RowSelector = ({ rows, selectedRow, onSelectRow }) => (
@@ -30,10 +29,21 @@ const RowDetailChart = ({ data }) => {
 };
 
 export const BinTypeByRowAnalysis = ({ kpis }) => {
-    const rows = useMemo(() => Object.keys(kpis.byRowAndType).sort((a,b) => a - b), [kpis.byRowAndType]);
+    // OPRAVA: Zajištění, že data existují, než se je pokusíme použít
+    const rows = useMemo(() => kpis && kpis.byRowAndType ? Object.keys(kpis.byRowAndType).sort((a,b) => a - b) : [], [kpis.byRowAndType]);
     const [selectedRow, setSelectedRow] = useState(rows[0] || null);
+    
+    // Update selected row if rows change and current selection is no longer valid
+    useEffect(() => {
+        if (rows.length > 0 && !rows.includes(selectedRow)) {
+            setSelectedRow(rows[0]);
+        } else if (rows.length === 0) {
+            setSelectedRow(null);
+        }
+    }, [rows, selectedRow]);
 
-    if (!selectedRow) return <div>Žádná data k zobrazení.</div>
+
+    if (!selectedRow) return <div className="p-4 text-center text-muted-foreground">Nejsou dostupná data pro zobrazení analýzy po řadách.</div>
 
     return(
         <div className="space-y-6">
