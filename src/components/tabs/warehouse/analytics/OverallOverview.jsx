@@ -50,7 +50,8 @@ const TurnoverList = ({ title, data, color }) => (
 
 const SlowMoversTable = ({ data }) => (
     <div className="bg-background p-4 rounded-lg border border-border">
-        <h3 className="text-md font-semibold mb-2 text-amber-500 flex items-center gap-2"><Clock size={16}/> "Ležáky" (bez pohybu > 30 dní)</h3>
+        {/* OPRAVA ZDE: Znak > nahrazen za &gt; */}
+        <h3 className="text-md font-semibold mb-2 text-amber-500 flex items-center gap-2"><Clock size={16}/> "Ležáky" (bez pohybu &gt; 30 dní)</h3>
          <div className="max-h-56 overflow-y-auto">
             <table className="w-full text-xs text-left">
                 <tbody>

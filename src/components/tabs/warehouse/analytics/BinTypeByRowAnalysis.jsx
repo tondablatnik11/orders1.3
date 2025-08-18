@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useMemo } from 'react';
+// OPRAVA: Do importu byla přidána komponenta "Legend"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Legend } from 'recharts';
 
 const RowSelector = ({ rows, selectedRow, onSelectRow }) => (
