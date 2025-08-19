@@ -11,7 +11,7 @@ const parseFileToJson = (file) => new Promise((resolve, reject) => {
     reader.onload = (e) => {
         try {
             const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
+            const workbook = XLSX.read(data, { type: 'array', cellDates: true });
             const worksheet = workbook.Sheets[workbook.SheetNames[0]];
             resolve(XLSX.utils.sheet_to_json(worksheet));
         } catch (error) { reject(error); }
@@ -125,16 +125,47 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData) => {
 
     const fastestMovers = [...materialTurnover].sort((a,b) => b.turnoverRate - a.turnoverRate).slice(0, 10);
     const slowestMovers = [...materialTurnover].filter(m => m.turnoverRate > 0).sort((a,b) => a.turnoverRate - b.turnoverRate).slice(0, 10);
+    
+    // --- NOVÉ KPI pro 10+ karet ---
+    const totalSKUs = new Set(stockData.map(item => item.material)).size;
+    const picksPerDay = totalPicks / 90;
+    const emptyKLTBins = gridArray.filter(b => b.status === 'empty' && (b.type.startsWith('K') || b.type.startsWith('KLT'))).length;
+    const emptyPalletBins = gridArray.filter(b => b.status === 'empty' && b.type.startsWith('EP')).length;
+    const totalWeight = stockData.reduce((sum, item) => sum + (Number(item.total_weight) || 0), 0);
+    const uniqueStorageUnits = new Set(stockData.map(item => item.storage_unit).filter(Boolean)).size;
+    const today = new Date();
+    const totalStockAgeDays = stockData.reduce((sum, item) => {
+        const date = item.gr_date ? new Date(item.gr_date) : today;
+        const age = (today - date) / (1000 * 60 * 60 * 24);
+        return sum + age;
+    }, 0);
+    const averageStockAge = stockData.length > 0 ? totalStockAgeDays / stockData.length : 0;
 
     return {
         overall: {
-            totalBins, occupiedBins: occupiedBins.length,
+            totalBins, 
+            occupiedBins: occupiedBins.length,
             occupancyRate: totalBins > 0 ? (occupiedBins.length / totalBins) * 100 : 0,
             totalPicks: totalPicks,
+            totalSKUs,
+            picksPerDay,
+            emptyKLTBins,
+            emptyPalletBins,
+            totalWeight,
+            uniqueStorageUnits,
+            averageStockAge,
+            slowMoversCount: slowMovers.length,
+            abcA_SKUs: abcAnalysis.A.materials.length,
+            abcB_SKUs: abcAnalysis.B.materials.length,
+            abcC_SKUs: abcAnalysis.C.materials.length
         },
-        abcAnalysis, byBinType,
+        abcAnalysis, 
+        byBinType,
         weightCapacity: totalWeightCapacity,
-        emptyPremiumBins, slowMovers, fastestMovers, slowestMovers,
+        emptyPremiumBins, 
+        slowMovers, 
+        fastestMovers, 
+        slowestMovers,
     };
 };
 
