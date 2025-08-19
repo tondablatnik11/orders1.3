@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, 'useState', 'useEffect', 'useRef' from 'react';
 import { useUI } from '@/hooks/useUI';
 import { useData } from '@/hooks/useData';
 import { useAuth } from '@/hooks/useAuth';
@@ -89,11 +89,34 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
     }, [comments]);
 
     const handleAddComment = async (e) => {
-        // ... (logika pro přidání komentáře zůstává stejná)
+        e.preventDefault();
+        if (!newComment.trim() || !user) return;
+        const comment = await addOrderComment(order['Delivery No'], newComment, user.uid, userProfile?.name || user.email, []);
+        if (comment) {
+            setComments(prev => [...prev, comment]);
+            setNewComment('');
+        }
     };
     
     const handleTrackShipment = () => {
-        // ... (logika pro sledování zásilky zůstává stejná)
+        const trackingNumber = order['Bill of lading'];
+        const carrier = order['Forwarding agent name']?.toLowerCase() || '';
+
+        if (!trackingNumber) {
+            alert('Sledovací číslo není k dispozici.');
+            return;
+        }
+
+        let url;
+        if (carrier.includes('ups')) {
+            url = `https://www.ups.com/track?loc=en_US&tracknum=${trackingNumber}`;
+        } else if (carrier.includes('fedex')) {
+            url = `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`;
+        } else {
+            alert(`Automatické sledování pro dopravce "${order['Forwarding agent name']}" není podporováno.`);
+            return;
+        }
+        window.open(url, '_blank', 'noopener,noreferrer');
     };
 
     const formattedLoadingDate = order["Loading Date"] ? format(parseISO(order["Loading Date"]), 'dd.MM.yyyy') : 'N/A';
@@ -147,7 +170,11 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
             
             <div className="mt-6 flex justify-end gap-3 border-t border-slate-700/50 pt-4">
                  {order["Bill of lading"] && (
-                    <button onClick={handleTrackShipment} className="bg-purple-600 text-white px-4 py-2 rounded-lg shadow hover:bg-purple-700 flex items-center gap-2 transition-transform hover:scale-105">
+                    <button 
+                        // OPRAVA ZDE: Odstraněny kulaté závorky () z volání funkce
+                        onClick={handleTrackShipment} 
+                        className="bg-purple-600 text-white px-4 py-2 rounded-lg shadow hover:bg-purple-700 flex items-center gap-2 transition-transform hover:scale-105"
+                    >
                         <Truck className="w-5 h-5" /> Sledovat zásilku
                     </button>
                 )}
