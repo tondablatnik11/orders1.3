@@ -15,6 +15,11 @@ const toSnakeCase = (str) => {
 
 const parseExcelDate = (excelDate) => {
     if (!excelDate) return null;
+    // Zkusí parsovat jako číslo (Excel datum) i jako text
+    if (typeof excelDate === 'number') {
+        const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
+        return date.toISOString().split('T')[0];
+    }
     const date = new Date(excelDate);
     if (isNaN(date.getTime())) return null;
     return date.toISOString().split('T')[0];
@@ -24,7 +29,8 @@ const parseExcelDate = (excelDate) => {
 const transformAndFilterData = (data, allowedColumns) => {
     if (!Array.isArray(data)) return [];
 
-    const typeMapping = { 'K1': 'KLT', 'E1': 'EP1', 'E2': 'EP2', 'E3': 'EP3', 'E4': 'EP4' };
+    // Upravené mapování podle tvých souborů
+    const typeMapping = { 'K1': 'K1', 'P1': 'EP1', 'P2': 'EP2', 'P3': 'EP3', 'P4': 'EP4' };
     
     return data.map(row => {
         const newRow = {};
@@ -32,8 +38,8 @@ const transformAndFilterData = (data, allowedColumns) => {
             const snakeKey = toSnakeCase(key);
             if (allowedColumns.includes(snakeKey)) {
                 if (snakeKey === 'storage_bin_type') {
-                    // Aplikujeme mapování a pokud není nalezeno, použijeme původní hodnotu
-                    newRow[snakeKey] = typeMapping[row[key].toUpperCase()] || row[key];
+                    const originalType = String(row[key]).toUpperCase();
+                    newRow[snakeKey] = typeMapping[originalType] || originalType;
                 } else if (snakeKey === 'gr_date' || snakeKey === 'last_movement') {
                     newRow[snakeKey] = parseExcelDate(row[key]);
                 } else {
@@ -44,6 +50,7 @@ const transformAndFilterData = (data, allowedColumns) => {
         return newRow;
     });
 };
+
 
 const WarehouseOverviewTab = () => {
     const [warehouseLayout, setWarehouseLayout] = useState(null);
@@ -110,7 +117,6 @@ const WarehouseOverviewTab = () => {
                 uniqueKey = 'Storage Bin';
             } else {
                 tableName = 'warehouse_stock';
-                // PŘIDÁNY NOVÉ DŮLEŽITÉ SLOUPCE
                 allowedColumns = ['storage_bin', 'material', 'plant', 'available_stock', 'base_unit_of_measure', 'stock_category', 'special_stock', 'durat', 'storage_unit', 'storage_type', 'storage_section', 'gr_date', 'last_movement', 'storage_bin_type', 'total_weight'];
                 uniqueKey = null;
             }
@@ -118,7 +124,7 @@ const WarehouseOverviewTab = () => {
             const dataToProcess = uniqueKey ? Array.from(new Map(jsonData.map(item => [item[uniqueKey], item])).values()) : jsonData;
             const transformedData = transformAndFilterData(dataToProcess, allowedColumns);
 
-            if(type === 'lx03'){
+            if (type === 'lx03') {
                 const { error } = await supabase.from(tableName).upsert(transformedData, { onConflict: 'storage_bin' });
                 if (error) throw error;
             } else {
