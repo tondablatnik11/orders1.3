@@ -24,7 +24,7 @@ export const WarehouseAnalyticsTab = ({ kpis, isLoading }) => {
         switch(activeSubTab) {
             case 'overview': return <OverallOverview kpis={kpis} />;
             case 'abc': return <ABCAnalysis kpis={kpis} />;
-            case 'bin_types_by_row': return <BinTypeByRowAnalysis kpis={kpis} />;
+            case 'bin_types_by_row': return <BinTypeByRowAnalysis kpis={kpis} />; // Komponenta pro analýzu řad
             default: return null;
         }
     };
@@ -34,7 +34,7 @@ export const WarehouseAnalyticsTab = ({ kpis, isLoading }) => {
             <div className="flex items-center gap-2 border-b border-border pb-4 mb-4 flex-wrap">
                 <SubTabButton tabName="overview" label="Celkový Přehled"/>
                 <SubTabButton tabName="abc" label="ABC Analýza Materiálů"/>
-                <SubTabButton tabName="bin_types_by_row" label="Analýza Řad"/>
+                <SubTabButton tabName="bin_types_by_row" label="Analýza Řad"/> 
             </div>
             <div className="overflow-y-auto flex-grow pr-2">
                 {renderContent()}
