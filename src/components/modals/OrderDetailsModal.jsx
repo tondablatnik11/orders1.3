@@ -1,5 +1,5 @@
 'use client';
-import React, 'useState', 'useEffect', 'useRef' from 'react';
+import React, { useState, useEffect, useRef } from 'react'; // Corrected import
 import { useUI } from '@/hooks/useUI';
 import { useData } from '@/hooks/useData';
 import { useAuth } from '@/hooks/useAuth';
@@ -69,7 +69,7 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
 
     const { t } = useUI();
     const { fetchOrderComments, addOrderComment } = useData();
-    const { user, userProfile, allUsers } = useAuth();
+    const { user, userProfile } = useAuth();
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
     const commentsEndRef = useRef(null);
@@ -171,7 +171,6 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
             <div className="mt-6 flex justify-end gap-3 border-t border-slate-700/50 pt-4">
                  {order["Bill of lading"] && (
                     <button 
-                        // OPRAVA ZDE: Odstraněny kulaté závorky () z volání funkce
                         onClick={handleTrackShipment} 
                         className="bg-purple-600 text-white px-4 py-2 rounded-lg shadow hover:bg-purple-700 flex items-center gap-2 transition-transform hover:scale-105"
                     >
