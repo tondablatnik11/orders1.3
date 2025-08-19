@@ -51,7 +51,8 @@ export const processWarehouseData = (layoutData, stockData, pickingData, binMast
         warehouseGrid.set(binId, {
             id: binId,
             address: position.address,
-            type: masterInfo.storage_bin_type || position.type || 'N/A',
+            // Priorita: 1. Data ze stocku (nejaktuálnější), 2. Master data, 3. Layout
+            type: stockInfo?.storage_bin_type || masterInfo.storage_bin_type || position.type || 'N/A',
             status: stockInfo ? 'occupied' : 'empty',
             pickCount: pickingFrequency.get(binId) || 0,
             stockInfo: stockInfo || null,

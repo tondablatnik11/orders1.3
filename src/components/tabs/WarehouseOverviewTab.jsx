@@ -13,21 +13,32 @@ const toSnakeCase = (str) => {
     return str.replace(/[."/]/g, '').replace(/\s+/g, ' ').trim().replace(/ /g, '_').toLowerCase();
 };
 
-const transformAndFilterData = (data, allowedColumns, uniqueKey = null) => {
-    if (!Array.isArray(data)) return [];
-    
-    let processedData = data;
-    // Odstranění duplicit pro master data
-    if(uniqueKey) {
-        processedData = Array.from(new Map(data.map(item => [item[uniqueKey], item])).values());
-    }
+const parseExcelDate = (excelDate) => {
+    if (!excelDate) return null;
+    const date = new Date(excelDate);
+    if (isNaN(date.getTime())) return null;
+    return date.toISOString().split('T')[0];
+};
 
-    return processedData.map(row => {
+// Vylepšená transformační funkce
+const transformAndFilterData = (data, allowedColumns) => {
+    if (!Array.isArray(data)) return [];
+
+    const typeMapping = { 'K1': 'KLT', 'E1': 'EP1', 'E2': 'EP2', 'E3': 'EP3', 'E4': 'EP4' };
+    
+    return data.map(row => {
         const newRow = {};
         for (const key in row) {
             const snakeKey = toSnakeCase(key);
             if (allowedColumns.includes(snakeKey)) {
-                newRow[snakeKey] = row[key];
+                if (snakeKey === 'storage_bin_type') {
+                    // Aplikujeme mapování a pokud není nalezeno, použijeme původní hodnotu
+                    newRow[snakeKey] = typeMapping[row[key].toUpperCase()] || row[key];
+                } else if (snakeKey === 'gr_date' || snakeKey === 'last_movement') {
+                    newRow[snakeKey] = parseExcelDate(row[key]);
+                } else {
+                    newRow[snakeKey] = row[key];
+                }
             }
         }
         return newRow;
@@ -96,24 +107,24 @@ const WarehouseOverviewTab = () => {
             if (type === 'lx03') {
                 tableName = 'warehouse_bins_master';
                 allowedColumns = ['storage_type', 'storage_bin', 'picking_area', 'storage_bin_type', 'zone', 'bin_section', 'maximum_weight', 'unit_of_weight', 'x_coordinate', 'y_coordinate', 'z_coordinate'];
-                uniqueKey = 'Storage Bin'; // Klíč pro odstranění duplicit PŘED transformací
+                uniqueKey = 'Storage Bin';
             } else {
                 tableName = 'warehouse_stock';
-                // OPRAVA: Přidán chybějící sloupec 'last_movement' a další pro jistotu
-                allowedColumns = ['storage_bin', 'material', 'plant', 'available_stock', 'base_unit_of_measure', 'stock_category', 'special_stock', 'durat', 'storage_unit', 'storage_type', 'storage_section', 'gr_date', 'last_movement'];
+                // PŘIDÁNY NOVÉ DŮLEŽITÉ SLOUPCE
+                allowedColumns = ['storage_bin', 'material', 'plant', 'available_stock', 'base_unit_of_measure', 'stock_category', 'special_stock', 'durat', 'storage_unit', 'storage_type', 'storage_section', 'gr_date', 'last_movement', 'storage_bin_type', 'total_weight'];
                 uniqueKey = null;
             }
             
-            const transformedData = transformAndFilterData(jsonData, allowedColumns, uniqueKey);
+            const dataToProcess = uniqueKey ? Array.from(new Map(jsonData.map(item => [item[uniqueKey], item])).values()) : jsonData;
+            const transformedData = transformAndFilterData(dataToProcess, allowedColumns);
 
             if(type === 'lx03'){
                 const { error } = await supabase.from(tableName).upsert(transformedData, { onConflict: 'storage_bin' });
                 if (error) throw error;
             } else {
-                const { error: deleteError } = await supabase.from(tableName).delete().neq('id', -1);
-                if (deleteError) throw deleteError;
-                const { error: insertError } = await supabase.from(tableName).insert(transformedData);
-                if (insertError) throw insertError;
+                await supabase.from(tableName).delete().neq('storage_bin', 'any_non_existing_value_to_delete_all');
+                const { error } = await supabase.from(tableName).insert(transformedData);
+                if (error) throw error;
             }
             
             toast.success('Data úspěšně uložena! Aktualizuji přehled...', { id: toastId });
