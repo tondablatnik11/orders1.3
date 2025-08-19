@@ -70,7 +70,7 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
     const occupiedBins = gridArray.filter(bin => bin.status === 'occupied');
     const totalBins = grid.size;
     
-    // --- OPRAVA: Obnovení logiky pro ABC Analýzu ---
+    // --- ABC Analýza ---
     const materialPickFrequency = pickingData.reduce((acc, pick) => {
         if (pick && pick.material) {
             const mat = pick.material;
@@ -86,7 +86,10 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
     const abcAnalysis = { A: { materials: [], picks: 0 }, B: { materials: [], picks: 0 }, C: { materials: [], picks: 0 } };
     sortedMaterials.forEach(([material, count]) => {
         cumulativePercentage += (totalPicks > 0 ? (count / totalPicks) * 100 : 0);
-        const materialInfo = { material, count, locations: 0 }; // Placeholder, reálný počet lokací je komplexnější
+        
+        // OPRAVA: Doplnění správného výpočtu počtu lokací
+        const locations = gridArray.filter(b => b.stockInfo && b.stockInfo.material === material).length;
+        const materialInfo = { material, count, locations };
         
         if (cumulativePercentage <= 80) { 
             abcAnalysis.A.materials.push(materialInfo); 
@@ -99,7 +102,6 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
             abcAnalysis.C.picks += count; 
         }
     });
-
 
     // --- Detailní analýza řad 13-18 ---
     const targetRows = ['13', '14', '15', '16', '17', '18'];
@@ -146,7 +148,7 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
             weightOccupancyRate,
             pickingEfficiency: totalSKUs > 0 ? totalPicks / totalSKUs : 0,
         },
-        abcAnalysis, // OPRAVA: Přidání ABC dat do výsledku
+        abcAnalysis,
         detailedRowAnalysis,
     };
 };

@@ -93,19 +93,19 @@ export const OverallOverview = ({ kpis }) => {
                             contentStyle={{ backgroundColor: '#1C1C1C', border: '1px solid #3A3A3A', borderRadius: '0.5rem' }}
                         />
                         <Legend />
-                        {/* KLT Pozice */}
-                        <Bar dataKey="occupied_KLT" stackId="KLT" name="KLT Obsazeno" fill="#166534" />
-                        <Bar dataKey="empty_KLT" stackId="KLT" name="KLT Volno" fill="#4ade80" radius={[4, 4, 0, 0]}/>
+                        
+                        <Bar dataKey="occupied_KLT" stackId="KLT" name="KLT Obsazeno" fill="#15803d" />
+                        <Bar dataKey="empty_KLT" stackId="KLT" name="KLT Volno" fill="#86efac" radius={[4, 4, 0, 0]}/>
                         
                         {/* OPRAVA: Všechny palety mají stejné stackId, aby se skládaly na sebe */}
-                        <Bar dataKey="occupied_EP1" stackId="PALETY" name="EP1 Obsazeno" fill="#1e3a8a" />
-                        <Bar dataKey="empty_EP1" stackId="PALETY" name="EP1 Volno" fill="#60a5fa" />
-                        <Bar dataKey="occupied_EP2" stackId="PALETY" name="EP2 Obsazeno" fill="#86198f" />
-                        <Bar dataKey="empty_EP2" stackId="PALETY" name="EP2 Volno" fill="#e879f9" />
-                        <Bar dataKey="occupied_EP3" stackId="PALETY" name="EP3 Obsazeno" fill="#9a3412" />
-                        <Bar dataKey="empty_EP3" stackId="PALETY" name="EP3 Volno" fill="#fb923c" />
-                        <Bar dataKey="occupied_EP4" stackId="PALETY" name="EP4 Obsazeno" fill="#b91c1c" />
-                        <Bar dataKey="empty_EP4" stackId="PALETY" name="EP4 Volno" fill="#f87171" radius={[4, 4, 0, 0]}/>
+                        <Bar dataKey="occupied_EP1" stackId="PALETY" name="EP1 Obsazeno" fill="#1e40af" />
+                        <Bar dataKey="empty_EP1" stackId="PALETY" name="EP1 Volno" fill="#93c5fd" />
+                        <Bar dataKey="occupied_EP2" stackId="PALETY" name="EP2 Obsazeno" fill="#7e22ce" />
+                        <Bar dataKey="empty_EP2" stackId="PALETY" name="EP2 Volno" fill="#e9d5ff" />
+                        <Bar dataKey="occupied_EP3" stackId="PALETY" name="EP3 Obsazeno" fill="#ea580c" />
+                        <Bar dataKey="empty_EP3" stackId="PALETY" name="EP3 Volno" fill="#fed7aa" />
+                        <Bar dataKey="occupied_EP4" stackId="PALETY" name="EP4 Obsazeno" fill="#be123c" />
+                        <Bar dataKey="empty_EP4" stackId="PALETY" name="EP4 Volno" fill="#fecaca" radius={[4, 4, 0, 0]}/>
                     </BarChart>
                  </ResponsiveContainer>
             </div>
