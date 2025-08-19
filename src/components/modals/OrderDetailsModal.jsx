@@ -109,9 +109,9 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
         }
 
         let url;
-        // OPRAVA ZDE: Přidána robustnější kontrola pro více variant názvů
         if (carrier.includes('ups') || carrier.includes('united parcel service')) {
-            url = `https://www.ups.com/track?loc=en_US&tracknums=${trackingNumber}`;
+            // OPRAVA ZDE: Použití správné URL pro přímé sledování
+            url = `https://www.ups.com/track?tracknum=${trackingNumber}`;
         } else if (carrier.includes('fedex') || carrier.includes('federal express')) {
             url = `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`;
         } else {
