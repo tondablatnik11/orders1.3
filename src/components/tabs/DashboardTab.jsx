@@ -14,6 +14,7 @@ import DonutChartCard from '@/components/charts/DonutChartCard';
 import D3GeoChart from '../charts/D3GeoChart';
 import { countryCodeMap } from '@/lib/dataProcessor';
 import { PickingDetailsModal } from '../modals/PickingDetailsModal';
+import CarrierPerformanceChart from '@/components/charts/CarrierPerformanceChart';
 
 const SummaryCardSkeleton = () => <div className="glass-card rounded-xl h-[100px] animate-pulse"></div>;
 
@@ -164,6 +165,9 @@ export default function DashboardTab({ setActiveTab }) {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <StatusDistributionChart onBarClick={handleBarClick} />
                 <OrdersOverTimeChart summary={summary} />
+                <div className="lg:col-span-2">
+                    <CarrierPerformanceChart />
+                </div>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                  <div className="lg:col-span-8">

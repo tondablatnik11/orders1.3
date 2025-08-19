@@ -191,5 +191,24 @@ export const processData = (allData, pickingData = []) => {
         .map(([name, value]) => ({ name, 'Počet zakázek': value }))
         .sort((a, b) => b['Počet zakázek'] - a['Počet zakázek']);
 
+    summary.dailyStatusPercentages = summary.dailySummaries.map(day => {
+        const total = day.total;
+        if (total === 0) return { date: day.date };
+
+        const percentages = {
+            date: format(parseISO(day.date), 'dd/MM'),
+            status10: ((day.statusCounts[10] || 0) / total) * 100,
+            status31: ((day.statusCounts[31] || 0) / total) * 100,
+            status35: ((day.statusCounts[35] || 0) / total) * 100,
+            status40: ((day.statusCounts[40] || 0) / total) * 100,
+            status50: ((day.statusCounts[50] || 0) / total) * 100,
+            status60: ((day.statusCounts[60] || 0) / total) * 100,
+            status70: ((day.statusCounts[70] || 0) / total) * 100,
+            status80: ((day.statusCounts[80] || 0) / total) * 100,
+            status90: ((day.statusCounts[90] || 0) / total) * 100,
+        };
+        return percentages;
+    });
+
     return summary;
 };
