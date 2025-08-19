@@ -69,13 +69,43 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
     const gridArray = Array.from(grid.values());
     const occupiedBins = gridArray.filter(bin => bin.status === 'occupied');
     const totalBins = grid.size;
-    const totalPicks = pickingData.length;
+    
+    // --- OPRAVA: Obnovení logiky pro ABC Analýzu ---
+    const materialPickFrequency = pickingData.reduce((acc, pick) => {
+        if (pick && pick.material) {
+            const mat = pick.material;
+            acc.set(mat, (acc.get(mat) || 0) + (pick.picked_quantity || 1));
+        }
+        return acc;
+    }, new Map());
 
-    // --- DETAILNÍ ANALÝZA ŘAD 13-18 ---
+    const sortedMaterials = [...materialPickFrequency.entries()].sort((a, b) => b[1] - a[1]);
+    const totalPicks = sortedMaterials.reduce((sum, [, count]) => sum + count, 0);
+    
+    let cumulativePercentage = 0;
+    const abcAnalysis = { A: { materials: [], picks: 0 }, B: { materials: [], picks: 0 }, C: { materials: [], picks: 0 } };
+    sortedMaterials.forEach(([material, count]) => {
+        cumulativePercentage += (totalPicks > 0 ? (count / totalPicks) * 100 : 0);
+        const materialInfo = { material, count, locations: 0 }; // Placeholder, reálný počet lokací je komplexnější
+        
+        if (cumulativePercentage <= 80) { 
+            abcAnalysis.A.materials.push(materialInfo); 
+            abcAnalysis.A.picks += count; 
+        } else if (cumulativePercentage <= 95) { 
+            abcAnalysis.B.materials.push(materialInfo); 
+            abcAnalysis.B.picks += count; 
+        } else { 
+            abcAnalysis.C.materials.push(materialInfo); 
+            abcAnalysis.C.picks += count; 
+        }
+    });
+
+
+    // --- Detailní analýza řad 13-18 ---
     const targetRows = ['13', '14', '15', '16', '17', '18'];
     const detailedRowAnalysis = targetRows.map(rowNum => {
         const rowBins = gridArray.filter(bin => bin.address && bin.address.startsWith(`${rowNum}-`));
-        const analysis = {
+        return {
             row: `R ${rowNum}`,
             occupied_EP1: rowBins.filter(b => b.type === 'EP1' && b.status === 'occupied').length,
             empty_EP1: rowBins.filter(b => b.type === 'EP1' && b.status === 'empty').length,
@@ -88,12 +118,11 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
             occupied_KLT: rowBins.filter(b => (b.type === 'K1' || b.type === 'KLT') && b.status === 'occupied').length,
             empty_KLT: rowBins.filter(b => (b.type === 'K1' || b.type === 'KLT') && b.status === 'empty').length,
         };
-        return analysis;
     });
 
-    // --- PROFESIONÁLNÍ KPI ---
+    // --- Profesionální KPI ---
     const totalSKUs = new Set(stockData.map(item => item.material)).size;
-    const picksPerDay = totalPicks / 90; // Předpokládáme data za 90 dní
+    const picksPerDay = totalPicks / 90;
     
     const totalWeightCapacity = binMasterData.reduce((sum, bin) => sum + (Number(bin.maximum_weight) || 0), 0);
     const currentTotalWeight = stockData.reduce((sum, item) => sum + (Number(item.total_weight) || 0), 0);
@@ -117,6 +146,7 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
             weightOccupancyRate,
             pickingEfficiency: totalSKUs > 0 ? totalPicks / totalSKUs : 0,
         },
+        abcAnalysis, // OPRAVA: Přidání ABC dat do výsledku
         detailedRowAnalysis,
     };
 };
