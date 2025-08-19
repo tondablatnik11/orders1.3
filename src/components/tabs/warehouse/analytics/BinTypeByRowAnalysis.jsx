@@ -31,7 +31,7 @@ const RowDetailChart = ({ data }) => {
             <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.2}/>
                 <XAxis dataKey="name" />
-                <YAxis />
+                <YAxis allowDecimals={false} />
                 <Tooltip 
                     cursor={{fill: 'rgba(136, 132, 216, 0.2)'}}
                     contentStyle={{ backgroundColor: '#1C1C1C', border: '1px solid #3A3A3A', borderRadius: '0.5rem' }}
@@ -45,11 +45,9 @@ const RowDetailChart = ({ data }) => {
 };
 
 export const BinTypeByRowAnalysis = ({ kpis }) => {
-    // Získáme seřazený seznam řad z dat
     const rows = useMemo(() => kpis && kpis.byRowAndType ? Object.keys(kpis.byRowAndType).sort((a,b) => parseInt(a) - parseInt(b)) : [], [kpis]);
     const [selectedRow, setSelectedRow] = useState(rows[0] || null);
     
-    // Zajistí, že je vždy vybrána platná řada
     useEffect(() => {
         if (rows.length > 0 && !rows.includes(selectedRow)) {
             setSelectedRow(rows[0]);

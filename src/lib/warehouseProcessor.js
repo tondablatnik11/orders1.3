@@ -1,5 +1,8 @@
 import * as XLSX from 'xlsx';
 
+// OPRAVA: Přidán zpět export pro 3D mapu
+export const binTypeToHeightMap = { 'K1': 0.4, 'KLT': 0.4, 'EP1': 0.7, 'EP2': 1.0, 'EP3': 1.2, 'EP4': 1.5 };
+
 // --- PARSOVACÍ FUNKCE ---
 const parseFileToJson = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -60,7 +63,7 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
     const occupiedBins = gridArray.filter(bin => bin.status === 'occupied');
     const totalBins = grid.size;
     
-    // --- PŮVODNÍ FUNKCE (ZACHOVÁNO) ---
+    // --- FUNKCE PRO PŮVODNÍ ZÁLOŽKY (ZACHOVÁNO) ---
     const materialPickFrequency = pickingData?.reduce((acc, pick) => {
         const mat = pick.material;
         if(mat) acc.set(mat, (acc.get(mat) || 0) + 1);
@@ -116,18 +119,18 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
     // --- NOVÁ ANALÝZA PO ŘADÁCH A TYPECH (PŘIDÁNO) ---
     const byRowAndType = {};
     (binMasterData || []).forEach(bin => {
-        const address = bin['storage_bin'];
-        const type = bin['storage_bin_type'];
+        const address = bin['Storage Bin']; // Opraven název sloupce
+        const type = bin['Storage bin type']; // Opraven název sloupce
         if (address && type && ['K1', 'P1', 'P2', 'P3', 'P4'].includes(type)) {
             const row = address.substring(0, 2);
             if (!byRowAndType[row]) byRowAndType[row] = {};
-            if (!byRowAndType[row][type]) byRowAndType[row][type] = { total: 0, occupied: 0, picks: 0 };
+            if (!byRowAndType[row][type]) byRowAndType[row][type] = { total: 0, occupied: 0 };
             byRowAndType[row][type].total++;
         }
     });
     (stockData || []).forEach(item => {
-        const address = item['storage_bin'];
-        const type = item['storage_bin_type'];
+        const address = item['Storage Bin']; // Opraven název sloupce
+        const type = item['Storage bin type']; // Opraven název sloupce
         if (address && type && ['K1', 'P1', 'P2', 'P3', 'P4'].includes(type)) {
             const row = address.substring(0, 2);
             if (byRowAndType[row] && byRowAndType[row][type]) {
