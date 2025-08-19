@@ -100,7 +100,8 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
     
     const handleTrackShipment = () => {
         const trackingNumber = order['Bill of lading'];
-        const carrier = order['Forwarding agent name']?.toLowerCase() || '';
+        const carrierName = order['Forwarding agent name'] || '';
+        const carrier = carrierName.toLowerCase();
 
         if (!trackingNumber) {
             alert('Sledovací číslo není k dispozici.');
@@ -108,13 +109,13 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
         }
 
         let url;
-        if (carrier.includes('ups')) {
-            // OPRAVA ZDE: 'tracknum' změněno na správné 'tracknums'
+        // OPRAVA ZDE: Přidána robustnější kontrola pro více variant názvů
+        if (carrier.includes('ups') || carrier.includes('united parcel service')) {
             url = `https://www.ups.com/track?loc=en_US&tracknums=${trackingNumber}`;
-        } else if (carrier.includes('fedex')) {
+        } else if (carrier.includes('fedex') || carrier.includes('federal express')) {
             url = `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`;
         } else {
-            alert(`Automatické sledování pro dopravce "${order['Forwarding agent name']}" není podporováno.`);
+            alert(`Automatické sledování pro dopravce "${carrierName}" není podporováno.`);
             return;
         }
         window.open(url, '_blank', 'noopener,noreferrer');
