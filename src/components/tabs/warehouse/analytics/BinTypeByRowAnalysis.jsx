@@ -24,10 +24,10 @@ const RowDetailChart = ({ data }) => {
 
     return(
         <ResponsiveContainer width="100%" height={350}>
-            <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <BarChart data={chartData} margin={{ top: 20, right: 40, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.2}/>
                 <XAxis dataKey="name" stroke="#888888" fontSize={12} />
-                <YAxis yAxisId="left" orientation="left" stroke="#8884d8" label={{ value: 'Počet Pozic', angle: -90, position: 'insideLeft', fill: '#8884d8' }} />
+                <YAxis yAxisId="left" orientation="left" stroke="#8884d8" label={{ value: 'Počet Pozic', angle: -90, position: 'insideLeft', fill: '#8884d8', offset: -10 }} />
                 <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" label={{ value: 'Počet Picků', angle: -90, position: 'insideRight', fill: '#82ca9d' }}/>
                 <Tooltip contentStyle={{ backgroundColor: '#1C1C1C', border: '1px solid #3A3A3A', borderRadius: '0.5rem' }}/>
                 <Legend />
