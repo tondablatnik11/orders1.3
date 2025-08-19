@@ -1,10 +1,10 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react'; // Corrected import
+import React, { useState, useEffect, useRef } from 'react';
 import { useUI } from '@/hooks/useUI';
 import { useData } from '@/hooks/useData';
 import { useAuth } from '@/hooks/useAuth';
 import { Modal } from '@/components/ui/Modal';
-import { History, Send, Truck, Package, User, Hash, Calendar, Globe, Weight, Box, FileType } from 'lucide-react';
+import { History, Send, Truck, Package, Hash, Calendar, Globe, Weight, Box, FileType } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import AnimatedStatusIcon from '../shared/AnimatedStatusIcon';
 
@@ -109,7 +109,8 @@ export default function OrderDetailsModal({ order, onClose, onShowHistory }) {
 
         let url;
         if (carrier.includes('ups')) {
-            url = `https://www.ups.com/track?loc=en_US&tracknum=${trackingNumber}`;
+            // OPRAVA ZDE: 'tracknum' změněno na správné 'tracknums'
+            url = `https://www.ups.com/track?loc=en_US&tracknums=${trackingNumber}`;
         } else if (carrier.includes('fedex')) {
             url = `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`;
         } else {
