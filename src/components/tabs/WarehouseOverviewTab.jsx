@@ -6,7 +6,7 @@ import { processWarehouseData, parseStockFile, parseBinMasterFile } from '../../
 import { getSupabase } from '@/lib/supabaseClient';
 
 import { Warehouse3DViewTab } from './warehouse/Warehouse3DViewTab';
-import { WarehouseAnalyticsTab } from './warehouse/WarehouseAnalyticsTab';
+import { WarehouseAnalyticsTab } from './warehouse/analytics/WarehouseAnalyticsTab';
 
 const toSnakeCase = (str) => {
     if (!str) return '';
