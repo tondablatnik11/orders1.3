@@ -193,29 +193,19 @@ export const processData = (allData, pickingData = []) => {
 
     summary.dailyStatusPercentages = summary.dailySummaries.map(day => {
         const total = day.total;
-        if (total === 0) {
-            return { 
-                date: format(parseISO(day.date), 'dd/MM'),
-                totalCount: 0,
-                doneCount: 0,
-            };
-        }
-
-        const percentages = {
+        const dayData = {
             date: format(parseISO(day.date), 'dd/MM'),
-            totalCount: total, // Celkový počet
-            doneCount: day.status_done_all || 0, // Počet hotových
-            status10: ((day.statusCounts[10] || 0) / total) * 100,
-            status31: ((day.statusCounts[31] || 0) / total) * 100,
-            status35: ((day.statusCounts[35] || 0) / total) * 100,
-            status40: ((day.statusCounts[40] || 0) / total) * 100,
-            status50: ((day.statusCounts[50] || 0) / total) * 100,
-            status60: ((day.statusCounts[60] || 0) / total) * 100,
-            status70: ((day.statusCounts[70] || 0) / total) * 100,
-            status80: ((day.statusCounts[80] || 0) / total) * 100,
-            status90: ((day.statusCounts[90] || 0) / total) * 100,
+            totalCount: total,
+            doneCount: day.status_done_all || 0,
         };
-        return percentages;
+
+        Object.keys(statusConfig).forEach(statusKey => {
+            const count = day.statusCounts[statusKey] || 0;
+            dayData[`status${statusKey}`] = (total > 0) ? (count / total) * 100 : 0; // Procenta pro výšku sloupce
+            dayData[`status${statusKey}_count`] = count; // Absolutní počet pro tooltip
+        });
+        
+        return dayData;
     });
 
     return summary;

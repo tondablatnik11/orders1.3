@@ -14,13 +14,16 @@ const CustomTooltip = ({ active, payload, label }) => {
         return (
             <div className="p-3 rounded-lg shadow-xl border border-slate-700 bg-slate-800/90 backdrop-blur-sm">
                 <p className="font-bold text-slate-200 mb-2">{`Den: ${label}`}</p>
-                {payload.slice().reverse().map((entry, index) => (
-                    entry.value > 0 && (
+                {payload.slice().reverse().map((entry, index) => {
+                    const countKey = `${entry.dataKey}_count`;
+                    const count = entry.payload[countKey];
+                    
+                    return count > 0 && (
                         <p key={`item-${index}`} style={{ color: entry.payload.fill || entry.color }} className="text-sm">
-                            {`${entry.name}: ${entry.value.toFixed(1)}%`}
+                            {`Status ${entry.name}: ${count}`}
                         </p>
-                    )
-                ))}
+                    );
+                })}
             </div>
         );
     }
@@ -36,8 +39,9 @@ const CustomBarLabel = (props) => {
 
     return (
         <g>
+            {/* Změna: Formát popisku upraven na "X z Y" */}
             <text x={x + width / 2} y={y - 10} fill="#cbd5e1" textAnchor="middle" dominantBaseline="middle" fontSize={12} fontWeight="bold">
-                {`${doneCount}/${totalCount}`}
+                {`${doneCount} z ${totalCount}`}
             </text>
         </g>
     );
@@ -77,8 +81,10 @@ export default function StatusDistributionChart({ onBarClick }) {
         if (chartData && chartData.length > 0) {
             const todayFormatted = format(startOfToday(), 'dd/MM');
             const todayIndex = chartData.findIndex(d => d.date === todayFormatted);
-            const visibleRange = 30;
-            const daysBefore = 15;
+            
+            // Změna: Výchozí rozsah zoomu nastaven na 8 dní
+            const visibleRange = 8;
+            const daysBefore = 4;
 
             if (todayIndex !== -1) {
                 const startIndex = Math.max(0, todayIndex - daysBefore);
@@ -94,7 +100,6 @@ export default function StatusDistributionChart({ onBarClick }) {
     
     const handleLegendClick = (e) => {
         const { dataKey, payload } = e;
-        // Recharts má v 'payload' objektu vlastnost 'inactive', kterou můžeme použít pro toggle
         setHiddenStatuses(prev => ({ ...prev, [dataKey]: !prev[dataKey] }));
         payload.inactive = !payload.inactive;
     };
