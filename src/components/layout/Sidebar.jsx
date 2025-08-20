@@ -1,6 +1,7 @@
 'use client';
 import { forwardRef, useState } from 'react';
-import { ChevronsLeft, ChevronsRight, Home, Search, Bell, Warehouse, AlertTriangle, LogOut, Settings, Ticket, PackageCheck, Printer, Zap, PlayCircle, ChevronDown } from 'lucide-react';
+// ZDE JE OPRAVA: Přidána ikona 'CalendarDays'
+import { ChevronsLeft, ChevronsRight, Home, Search, Bell, Warehouse, AlertTriangle, LogOut, Settings, Ticket, PackageCheck, Printer, Zap, PlayCircle, ChevronDown, CalendarDays } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Image from 'next/image';
 
@@ -8,7 +9,7 @@ const Sidebar = forwardRef(({ activeTab, onTabChange, isOpen, isCollapsed, setCo
     const { user, userProfile, logout } = useAuth();
     const [openGroup, setOpenGroup] = useState('operativa'); // Defaultně otevřená skupina
 
-    // Nová struktura menu s vnořenými položkami
+    // Struktura menu s vnořenými položkami
     const menuItems = [
         { id: 'dashboard', label: 'Přehled', icon: Home },
         { id: 'delayedOrders', label: 'Zpožděné zakázky', icon: CalendarDays },
