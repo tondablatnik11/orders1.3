@@ -1,33 +1,50 @@
 "use client";
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useData } from '@/hooks/useData';
-import { format, startOfDay, addDays, parseISO, isValid } from 'date-fns';
+import { useUI } from '@/hooks/useUI';
+import { format, startOfDay, addDays, parseISO, isSameDay } from 'date-fns';
+import { SummaryCard } from '@/components/shared/SummaryCard';
+import { OrderListModal } from '@/components/modals/OrderListModal';
+import { Package, Truck, Zap } from 'lucide-react';
 
-// Zde můžete znovu použít existující komponenty pro zobrazení seznamu zakázek a KPI
-// Pro jednoduchost zde použijeme základní zobrazení, které můžete rozšířit.
-import { SummaryCard } from '@/components/shared/SummaryCard'; 
-import { Package, Truck } from 'lucide-react';
+// Pomocná funkce pro agregaci dat pro KPI karty
+const getSubSummary = (orders) => {
+    const doneStatuses = [50, 60, 70, 80, 90];
+    const inProgressStatuses = [35, 40];
 
-const OrderSection = ({ title, orders }) => {
-    // Agregace dat pro KPI karty
-    const statusCounts = orders.reduce((acc, order) => {
+    const summary = {
+        total: orders.length,
+        done: 0,
+        inProgress: 0,
+        breakdown: {},
+    };
+
+    orders.forEach(order => {
         const status = Number(order.Status);
-        acc[status] = (acc[status] || 0) + 1;
-        return acc;
-    }, {});
+        summary.breakdown[status] = (summary.breakdown[status] || 0) + 1;
+        if (doneStatuses.includes(status)) summary.done++;
+        if (inProgressStatuses.includes(status)) summary.inProgress++;
+    });
+    return summary;
+};
+
+// Komponenta pro jednu sekci (Normální / OEM)
+const OrderSection = ({ title, orders, onKpiClick, onOrderClick, t }) => {
+    const subSummary = getSubSummary(orders);
 
     return (
         <div className="glass-card p-4 rounded-xl">
             <h2 className="text-2xl font-bold text-cyan-400 mb-4">{title}</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                 <SummaryCard title="Celkem k práci" value={orders.length} icon={Package} color="blue" breakdown={statusCounts} />
-                 {/* Zde můžete přidat další specifické KPI karty pro daný typ zakázek */}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
+                 <SummaryCard title="Celkem" value={subSummary.total} icon={Package} color="blue" breakdown={subSummary.breakdown} onStatusClick={(status) => onKpiClick(status, `Status ${status} - ${title}`, orders)} />
+                 <SummaryCard title="Hotovo" value={subSummary.done} icon={Zap} color="green" breakdown={{}} onStatusClick={(status) => onKpiClick(status, `Status ${status} - ${title}`, orders)} />
+                 <SummaryCard title="V procesu" value={subSummary.inProgress} icon={Zap} color="orange" breakdown={{}} onStatusClick={(status) => onKpiClick(status, `Status ${status} - ${title}`, orders)} />
             </div>
             
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-96">
                 <table className="w-full text-left">
                     <thead>
-                        <tr className="border-b border-slate-700">
+                        <tr className="border-b border-slate-700 sticky top-0 bg-slate-900/50 backdrop-blur-sm">
                             <th className="p-2">Delivery No</th>
                             <th className="p-2">Loading Date</th>
                             <th className="p-2">Status</th>
@@ -35,25 +52,28 @@ const OrderSection = ({ title, orders }) => {
                         </tr>
                     </thead>
                     <tbody>
-                        {orders.slice(0, 20).map(order => ( // Zobrazíme jen prvních 20 pro přehlednost
-                            <tr key={order['Delivery No']} className="border-b border-slate-800 hover:bg-slate-800/50">
+                        {orders.map(order => (
+                            <tr key={order['Delivery No']} className="border-b border-slate-800 hover:bg-slate-800/50 cursor-pointer" onClick={() => onOrderClick(order)}>
                                 <td className="p-2 font-mono">{order['Delivery No']}</td>
                                 <td className="p-2">{format(parseISO(order['Loading Date']), 'dd.MM.yyyy')}</td>
                                 <td className="p-2">{order.Status}</td>
-                                <td className="p-2">{order['Name of ship-to party']}</td>
+                                <td className="p-2 truncate max-w-xs">{order['Name of ship-to party']}</td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
-                 {orders.length > 20 && <p className="text-center mt-4 text-slate-400">... a {orders.length - 20} dalších.</p>}
+                 {orders.length === 0 && <p className="text-center p-4 text-slate-400">Žádné zakázky k zobrazení.</p>}
             </div>
         </div>
     );
 };
 
+
 export default function ToBeProcessedTab() {
-    const { allOrdersData, isLoadingData } = useData();
+    const { allOrdersData, isLoadingData, setSelectedOrderDetails } = useData();
+    const { t } = useUI();
     const today = startOfDay(new Date());
+    const [modalState, setModalState] = useState({ isOpen: false, title: '', orders: [] });
 
     const { normalOrders, oemOrders } = useMemo(() => {
         if (!allOrdersData) return { normalOrders: [], oemOrders: [] };
@@ -61,16 +81,17 @@ export default function ToBeProcessedTab() {
         const tomorrow = addDays(today, 1);
         const fourDaysFromNow = addDays(today, 4);
 
+        // Filtrování "Normálních zakázek" (DNES a ZÍTRA)
         const normalOrders = allOrdersData.filter(order => {
             const loadingDate = order["Loading Date"] ? startOfDay(parseISO(order["Loading Date"])) : null;
             return (
                 order.order_type !== 'O' &&
                 loadingDate &&
-                (format(loadingDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd') ||
-                 format(loadingDate, 'yyyy-MM-dd') === format(tomorrow, 'yyyy-MM-dd'))
+                (isSameDay(loadingDate, today) || isSameDay(loadingDate, tomorrow))
             );
         });
 
+        // Filtrování "OEM zakázek" (DNES + 4 DNY)
         const oemOrders = allOrdersData.filter(order => {
             const loadingDate = order["Loading Date"] ? startOfDay(parseISO(order["Loading Date"])) : null;
             return (
@@ -85,22 +106,40 @@ export default function ToBeProcessedTab() {
 
     }, [allOrdersData, today]);
 
+    const handleKpiClick = (status, title, sourceOrders) => {
+        const filtered = sourceOrders.filter(o => Number(o.Status) === status);
+        setModalState({ isOpen: true, title: title, orders: filtered });
+    };
+
+    const handleOrderClick = (order) => {
+        setSelectedOrderDetails(order);
+    };
+
     if (isLoadingData) {
-        return <div className="p-6 text-center">Načítám data...</div>;
+        return <div className="p-6 text-center text-xl font-bold">Načítám operativní data...</div>;
     }
 
     return (
         <div className="space-y-8 p-6">
             <div className="flex items-center gap-4">
-                 <Truck className="w-10 h-10 text-cyan-400" />
+                 <Zap className="w-10 h-10 text-cyan-400" />
                  <div>
                     <h1 className="text-3xl font-bold text-slate-100">Zakázky ke Zpracování</h1>
-                    <p className="text-slate-400">Přehled zakázek vyžadujících vaši pozornost na základě dnešního data: {format(today, 'dd.MM.yyyy')}</p>
+                    <p className="text-slate-400">Aktivní přehled prioritních zakázek pro den {format(today, 'dd.MM.yyyy')}</p>
                  </div>
             </div>
             
-            <OrderSection title="Normální Zakázky (Dnes a Zítra)" orders={normalOrders} />
-            <OrderSection title="OEM Zakázky (Následující 4 dny)" orders={oemOrders} />
+            <OrderSection title="Normální Zakázky (Dnes a Zítra)" orders={normalOrders} onKpiClick={handleKpiClick} onOrderClick={handleOrderClick} t={t} />
+            <OrderSection title="OEM Zakázky (Následující 4 dny)" orders={oemOrders} onKpiClick={handleKpiClick} onOrderClick={handleOrderClick} t={t} />
+            
+            <OrderListModal 
+                isOpen={modalState.isOpen}
+                onClose={() => setModalState({ isOpen: false, title: '', orders: [] })}
+                title={modalState.title}
+                orders={modalState.orders}
+                onSelectOrder={handleOrderClick}
+                t={t}
+            />
         </div>
     );
 }

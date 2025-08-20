@@ -15,14 +15,12 @@ import ErrorMonitorTab from '../tabs/ErrorMonitorTab';
 import OrderSearchTab from '../tabs/OrderSearchTab';
 import AnnouncedLoadingsTab from '../tabs/AnnouncedLoadingsTab';
 import DelayedOrdersTab from '../tabs/DelayedOrdersTab';
-import DailySummaryTab from '../tabs/DailySummaryTab';
-import WarehouseActivitiesTab from '../tabs/WarehouseActivitiesTab';
-import ChatTab from '../tabs/ChatTab';
-import SettingsTab from '../tabs/SettingsTab';
-import TicketsTab from '../tabs/TicketsTab';
 import PickingTab from '../tabs/PickingTab';
 import FaultyLabelsTab from '../tabs/FaultyLabelsTab';
 import WarehouseOverviewTab from '../tabs/WarehouseOverviewTab';
+import TicketsTab from '../tabs/TicketsTab';
+import SettingsTab from '../tabs/SettingsTab';
+import ToBeProcessedTab from '../tabs/ToBeProcessedTab'; // <-- NOVÝ IMPORT
 
 const DashboardLayout = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -43,15 +41,16 @@ const DashboardLayout = () => {
             case 'dashboard': return <DashboardTab setActiveTab={setActiveTab} />;
             case 'delayedOrders': return <DelayedOrdersTab />;
             case 'orderSearch': return <OrderSearchTab initialQuery={globalSearchQuery} clearInitialQuery={() => setGlobalSearchQuery('')} />;
+            
+            // Záložky ze skupiny Operativa
+            case 'processing': return <ToBeProcessedTab />; // <-- NOVÁ POLOŽKA
             case 'announcedLoadings': return <AnnouncedLoadingsTab />;
-            case 'dailySummary': return <DailySummaryTab />;
-            case 'warehouseActivities': return <WarehouseActivitiesTab />;
-            case 'picking': return <PickingTab />;
             case 'faultyLabels': return <FaultyLabelsTab />;
+            case 'tickets': return <TicketsTab />;
+
+            case 'picking': return <PickingTab />;
             case 'warehouseOverview': return <WarehouseOverviewTab />;
             case 'errorMonitor': return <ErrorMonitorTab />;
-            case 'tickets': return <TicketsTab />;
-            case 'chat': return <ChatTab />;
             case 'settings': return <SettingsTab />;
             default: return <DashboardTab setActiveTab={setActiveTab} />;
         }
@@ -83,13 +82,11 @@ const DashboardLayout = () => {
                     activeTab={activeTab}
                     onMenuClick={() => setSidebarOpen(!isSidebarOpen)}
                 />
-                {/* --- KLÍČOVÁ OPRAVA ZDE --- */}
                 <main className="flex-1 overflow-y-auto p-4 md:p-6 h-full">
                     <div className="animate-fadeInUp h-full">
                         {renderActiveTab()}
                     </div>
                 </main>
-                {/* --- KONEC OPRAVY --- */}
             </div>
             
             {selectedOrderDetails && (

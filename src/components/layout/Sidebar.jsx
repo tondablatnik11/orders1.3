@@ -1,21 +1,31 @@
 'use client';
-import { forwardRef } from 'react';
-import { ChevronsLeft, ChevronsRight, Home, Search, Bell, CalendarDays, Truck, Warehouse, AlertTriangle, LogOut, MessageSquare, Settings, Ticket, PackageCheck, Printer } from 'lucide-react';
+import { forwardRef, useState } from 'react';
+import { ChevronsLeft, ChevronsRight, Home, Search, Bell, Warehouse, AlertTriangle, LogOut, Settings, Ticket, PackageCheck, Printer, Zap, PlayCircle, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Image from 'next/image';
 
 const Sidebar = forwardRef(({ activeTab, onTabChange, isOpen, isCollapsed, setCollapsed }, ref) => {
     const { user, userProfile, logout } = useAuth();
+    const [openGroup, setOpenGroup] = useState('operativa'); // Defaultně otevřená skupina
 
+    // Nová struktura menu s vnořenými položkami
     const menuItems = [
         { id: 'dashboard', label: 'Přehled', icon: Home },
         { id: 'delayedOrders', label: 'Zpožděné zakázky', icon: CalendarDays },
         { id: 'orderSearch', label: 'Hledat zakázku', icon: Search },
-        { id: 'announcedLoadings', label: 'Ohlášené nakládky', icon: Bell },
+        { 
+          id: 'operativa', 
+          label: 'Operativa', 
+          icon: Zap,
+          subItems: [
+            { id: 'processing', label: 'K zpracování', icon: PlayCircle },
+            { id: 'announcedLoadings', label: 'Ohlášené nakládky', icon: Bell },
+            { id: 'faultyLabels', label: 'Chybné etikety', icon: Printer },
+            { id: 'tickets', label: 'Tickety', icon: Ticket },
+          ]
+        },
         { id: 'picking', label: 'Pickování', icon: PackageCheck },
-        { id: 'faultyLabels', label: 'Chybné etikety', icon: Printer },
         { id: 'errorMonitor', label: 'Error Monitor', icon: AlertTriangle },
-        { id: 'tickets', label: 'Tickety', icon: Ticket },
         { id: 'warehouseOverview', label: 'Přehled Skladu', icon: Warehouse },
     ];
     
@@ -23,24 +33,49 @@ const Sidebar = forwardRef(({ activeTab, onTabChange, isOpen, isCollapsed, setCo
         { id: 'settings', label: 'Nastavení', icon: Settings },
     ];
 
-    const NavLink = ({ item }) => {
+    const NavItem = ({ item, isSubItem = false }) => {
         const isActive = activeTab === item.id;
         return (
-            <li>
-                <a
-                    href="#"
-                    onClick={(e) => { e.preventDefault(); onTabChange(item.id); }}
-                    title={isCollapsed ? item.label : ''}
-                    className={`flex items-center gap-4 px-4 py-3 rounded-lg cursor-pointer transition-all duration-200 group relative ${
-                        isActive 
-                        ? 'bg-sky-500/20 text-sky-300 font-semibold' 
-                        : 'text-slate-400 hover:bg-slate-700/50 hover:text-white'
+            <a
+                href="#"
+                onClick={(e) => { e.preventDefault(); onTabChange(item.id); }}
+                title={isCollapsed ? item.label : ''}
+                className={`flex items-center gap-4 rounded-lg cursor-pointer transition-all duration-200 group relative ${isSubItem ? 'py-2.5 pr-4 pl-14' : 'px-4 py-3'} ${
+                    isActive 
+                    ? 'bg-sky-500/20 text-sky-300 font-semibold' 
+                    : 'text-slate-400 hover:bg-slate-700/50 hover:text-white'
+                }`}
+            >
+                {item.icon && <item.icon className="w-6 h-6 flex-shrink-0" />}
+                <span className={`transition-opacity duration-200 whitespace-nowrap ${isCollapsed ? 'opacity-0 absolute left-full ml-4' : 'opacity-100'}`}>{item.label}</span>
+            </a>
+        );
+    };
+
+    const NavGroup = ({ item }) => {
+        const isGroupActive = item.subItems.some(sub => sub.id === activeTab);
+        const isOpen = openGroup === item.id;
+
+        return (
+            <div>
+                <button
+                    onClick={() => setOpenGroup(isOpen ? null : item.id)}
+                    className={`w-full flex items-center justify-between gap-4 px-4 py-3 rounded-lg cursor-pointer transition-all duration-200 group relative ${
+                        isGroupActive ? 'text-white' : 'text-slate-400 hover:bg-slate-700/50 hover:text-white'
                     }`}
                 >
-                    <item.icon className="w-6 h-6 flex-shrink-0" />
-                    <span className={`transition-opacity duration-200 whitespace-nowrap ${isCollapsed ? 'opacity-0 absolute left-full ml-4' : 'opacity-100'}`}>{item.label}</span>
-                </a>
-            </li>
+                    <div className="flex items-center gap-4">
+                        <item.icon className="w-6 h-6 flex-shrink-0" />
+                        <span className={`transition-opacity duration-200 whitespace-nowrap ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>{item.label}</span>
+                    </div>
+                    {!isCollapsed && <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />}
+                </button>
+                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen && !isCollapsed ? 'max-h-96 mt-1' : 'max-h-0'}`}>
+                    <ul className="space-y-1">
+                        {item.subItems.map(subItem => <li key={subItem.id}><NavItem item={subItem} isSubItem={true} /></li>)}
+                    </ul>
+                </div>
+            </div>
         );
     };
 
@@ -54,23 +89,25 @@ const Sidebar = forwardRef(({ activeTab, onTabChange, isOpen, isCollapsed, setCo
         >
             <div>
                 <div className={`flex items-center h-20 mb-6 transition-all duration-300 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
-                    {/* Změna: Podmíněné zobrazení loga */}
                     {!isCollapsed && <Image src="/logo.png" alt="Firemní Logo" width={150} height={40} style={{ objectFit: 'contain' }} />}
                     {isCollapsed && <Image src="/logo-icon.png" alt="Logo Ikonka" width={40} height={40} />}
-                    
                     <button onClick={() => setCollapsed(!isCollapsed)} className="hidden lg:block p-2 rounded-full hover:bg-slate-700/50 text-slate-400 absolute -right-4 top-20 bg-slate-800 border border-slate-700">
                         {isCollapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
                     </button>
                 </div>
                 <nav>
                     <ul className="space-y-2">
-                        {menuItems.map(item => <NavLink key={item.id} item={item} />)}
+                        {menuItems.map(item => (
+                            <li key={item.id}>
+                                {item.subItems ? <NavGroup item={item} /> : <NavItem item={item} />}
+                            </li>
+                        ))}
                     </ul>
                 </nav>
             </div>
             <div className={`transition-all duration-300 ${isCollapsed ? 'space-y-2' : 'space-y-4'}`}>
                 <ul className="space-y-2 border-t border-slate-700/50 pt-4">
-                    {bottomMenuItems.map(item => <NavLink key={item.id} item={item} />)}
+                    {bottomMenuItems.map(item => <li key={item.id}><NavItem item={item} /></li>)}
                     <li>
                         <a href="#" onClick={logout} title="Odhlásit se" className="flex items-center gap-4 px-4 py-3 rounded-lg cursor-pointer transition-colors text-slate-400 hover:bg-slate-700/50 hover:text-white group relative">
                             <LogOut className="w-6 h-6 flex-shrink-0" />
