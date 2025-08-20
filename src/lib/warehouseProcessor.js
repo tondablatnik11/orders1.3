@@ -1,94 +1,77 @@
 import * as XLSX from 'xlsx';
-// PŘIDÁNO: Chybějící import pro statusConfig, který byl příčinou minulé chyby
 import { statusConfig } from '@/config/statusConfig';
 
 // --- Konfigurace a PARSOVACÍ FUNKCE (beze změny) ---
-export const binTypeToHeightMap = { 'K1': 0.4, 'KLT': 0.4, 'EP1': 0.7, 'EP2': 1.0, 'EP3': 1.2, 'EP4': 1.5 };
+export const binTypeToHeightMap = { 'K1': 0.4, 'KLT': 0.4, 'P1': 0.7, 'P2': 1.0, 'P3': 1.2, 'P4': 1.5 };
 const parseFileToJson = (file) => new Promise((resolve, reject) => { /* ... kód beze změny ... */ });
 export const parseStockFile = parseFileToJson;
 export const parseBinMasterFile = parseFileToJson;
 
-// --- HLAVNÍ FUNKCE PRO ZPRACOVÁNÍ DAT (S OPRAVOU) ---
+// --- HLAVNÍ FUNKCE PRO ZPRACOVÁNÍ DAT (beze změny) ---
 export const processWarehouseData = (layoutData, stockData, pickingData, binMasterData) => {
     if (!layoutData) return { grid: new Map(), dimensions: null, labels: [], kpis: null };
-
-    // OPRAVA: Přidán fallback na prázdné pole [], aby se zabránilo pádu při null datech
     const stockMap = new Map((stockData || []).map(item => [String(item.storage_bin), item]));
     const binMasterMap = new Map((binMasterData || []).map(item => [String(item.storage_bin), item]));
-    
     const pickingFrequency = (pickingData || []).reduce((acc, pick) => {
         const bin = String(pick.source_storage_bin);
         if(bin) acc.set(bin, (acc.get(bin) || 0) + 1);
         return acc;
     }, new Map());
-
     const warehouseGrid = new Map();
     layoutData.forEach(position => {
         const binId = String(position.id);
         const stockInfo = stockMap.get(binId);
         const masterInfo = binMasterMap.get(binId) || {};
-        
         warehouseGrid.set(binId, {
-            id: binId,
-            address: position.address,
+            id: binId, address: position.address,
             type: stockInfo?.storage_bin_type || masterInfo.storage_bin_type || position.type || 'N/A',
-            pickingArea: masterInfo.picking_area,
-            zone: masterInfo.zone,
+            pickingArea: masterInfo.picking_area, zone: masterInfo.zone,
             maximum_weight: masterInfo.maximum_weight || 0,
             status: stockInfo ? 'occupied' : 'empty',
             stockData: stockInfo ? [stockInfo] : null,
             pickCount: pickingFrequency?.get(binId) || 0,
         });
     });
-
     const kpis = calculateAdvancedKPIs(warehouseGrid, pickingData, stockData, binMasterData);
     const { dimensions, labels } = create3DLayout(warehouseGrid);
     return { grid: warehouseGrid, dimensions, labels, kpis };
 };
 
-// --- VÝPOČET POKROČILÝCH KPI (S OPRAVOU) ---
+// --- KOMPLETNĚ PŘEPRACOVANÁ A ZJEDNODUŠENÁ FUNKCE PRO VÝPOČET KPI ---
 export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterData) => {
     const gridArray = Array.from(grid.values());
     const occupiedBins = gridArray.filter(bin => bin.status === 'occupied');
     const totalBins = grid.size;
-    
-    // --- ABC Analýza (beze změny) ---
-    const materialPickFrequency = (pickingData || []).reduce((acc, pick) => {
-        const mat = pick.material;
-        if(mat) acc.set(mat, (acc.get(mat) || 0) + 1);
-        return acc;
-    }, new Map());
-    const sortedMaterials = [...(materialPickFrequency?.entries() || [])].sort((a, b) => b[1] - a[1]);
-    const totalPicks = sortedMaterials.reduce((sum, [, count]) => sum + count, 0);
-    const abcAnalysis = { A: {materials: [], picks: 0}, B: {materials: [], picks: 0}, C: {materials: [], picks: 0} };
-    let cumulativePercentage = 0;
-    sortedMaterials.forEach(([material, count]) => {
-        cumulativePercentage += (totalPicks > 0 ? (count / totalPicks) * 100 : 0);
-        const locations = gridArray.filter(b => b.stockData && b.stockData[0]?.material === material).length;
-        const materialInfo = { material, count, locations };
-        if (cumulativePercentage <= 80) { abcAnalysis.A.materials.push(materialInfo); abcAnalysis.A.picks += count; } 
-        else if (cumulativePercentage <= 95) { abcAnalysis.B.materials.push(materialInfo); abcAnalysis.B.picks += count; } 
-        else { abcAnalysis.C.materials.push(materialInfo); abcAnalysis.C.picks += count; }
+    const binTypesOfInterest = ['K1', 'P1', 'P2', 'P3', 'P4'];
+
+    // --- KPI podle typu pozice (pro nové karty) ---
+    const byBinType = {};
+    binTypesOfInterest.forEach(type => {
+        byBinType[type] = { total: 0, occupied: 0 };
     });
 
-    // --- Ostatní KPI (beze změny) ---
-    const byBinType = gridArray.reduce((acc, bin) => {
-        const type = bin.type || 'N/A';
-        if (!acc[type]) acc[type] = { total: 0, occupied: 0, pickCount: 0 };
-        acc[type].total++;
-        if (bin.status === 'occupied') acc[type].occupied++;
-        acc[type].pickCount += bin.pickCount;
-        return acc;
-    }, {});
-    Object.values(byBinType).forEach(stats => { stats.rate = stats.total > 0 ? (stats.occupied / stats.total) * 100 : 0; });
-    
-    // --- OPRAVA: Analýza po řadách ---
-    // Tato logika je nyní zjednodušená a spoléhá na již normalizovaná data (EP1, EP2 atd.)
+    (binMasterData || []).forEach(bin => {
+        const type = bin.storage_bin_type;
+        if (byBinType[type]) {
+            byBinType[type].total++;
+        }
+    });
+    (stockData || []).forEach(item => {
+        const type = item.storage_bin_type;
+        if (byBinType[type]) {
+            byBinType[type].occupied++;
+        }
+    });
+
+    Object.values(byBinType).forEach(stats => {
+        stats.rate = stats.total > 0 ? (stats.occupied / stats.total) * 100 : 0;
+    });
+
+    // --- Analýza po řadách ---
     const byRowAndType = {};
-    const displayTypeMapping = { 'EP1': 'P1', 'EP2': 'P2', 'EP3': 'P3', 'EP4': 'P4', 'K1': 'K1' };
     (binMasterData || []).forEach(bin => {
         const row = bin.storage_bin?.substring(0, 2);
-        const type = displayTypeMapping[bin.storage_bin_type] || bin.storage_bin_type;
+        const type = bin.storage_bin_type;
         if (row && type) {
             if (!byRowAndType[row]) byRowAndType[row] = {};
             if (!byRowAndType[row][type]) byRowAndType[row][type] = { total: 0, occupied: 0 };
@@ -97,45 +80,44 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
     });
     (stockData || []).forEach(item => {
         const row = item.storage_bin?.substring(0, 2);
-        const type = displayTypeMapping[item.storage_bin_type] || item.storage_bin_type;
+        const type = item.storage_bin_type;
         if (row && type && byRowAndType[row] && byRowAndType[row][type]) {
             byRowAndType[row][type].occupied++;
         }
     });
 
-    // --- Detailní analýza řad 13-18 (již opravená, beze změny) ---
+    // --- Detailní analýza řad 13-18 ---
     const detailedRowAnalysis = [];
     const targetRows = ['13', '14', '15', '16', '17', '18'];
-    const binTypes = ['K1', 'EP1', 'EP2', 'EP3', 'EP4'];
-    const analysisData = (binMasterData || []).reduce((acc, bin) => {
+    const analysisData = {};
+    
+    (binMasterData || []).forEach(bin => {
         const row = bin.storage_bin?.substring(0, 2);
         if (targetRows.includes(row)) {
             const type = bin.storage_bin_type;
-            if (binTypes.includes(type)) {
-                if (!acc[row]) acc[row] = {};
-                if (!acc[row][type]) acc[row][type] = { total: 0, occupied: 0 };
-                acc[row][type].total++;
+            if (binTypesOfInterest.includes(type)) {
+                if (!analysisData[row]) analysisData[row] = {};
+                if (!analysisData[row][type]) analysisData[row][type] = { total: 0, occupied: 0 };
+                analysisData[row][type].total++;
             }
         }
-        return acc;
-    }, {});
+    });
     (stockData || []).forEach(item => {
         const row = item.storage_bin?.substring(0, 2);
         if (targetRows.includes(row)) {
             const type = item.storage_bin_type;
-            if (binTypes.includes(type)) {
-                if (!analysisData[row]) analysisData[row] = {};
-                if (!analysisData[row][type]) analysisData[row][type] = { total: 0, occupied: 0 };
+            if (binTypesOfInterest.includes(type) && analysisData[row] && analysisData[row][type]) {
                 analysisData[row][type].occupied++;
             }
         }
     });
+    
     for (const row of targetRows) {
         const rowData = { row };
-        for (const type of binTypes) {
+        for (const type of binTypesOfInterest) {
             const total = analysisData[row]?.[type]?.total || 0;
             const occupied = analysisData[row]?.[type]?.occupied || 0;
-            const typeKey = type === 'K1' ? 'KLT' : type;
+            const typeKey = type === 'K1' ? 'KLT' : type; // K1 interně, KLT v grafu
             rowData[`occupied_${typeKey}`] = occupied;
             rowData[`empty_${typeKey}`] = total - occupied;
         }
@@ -144,19 +126,15 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
     
     return {
         overall: {
-            totalBins, occupiedBins: occupiedBins.length,
+            totalBins, 
+            occupiedBins: occupiedBins.length,
+            freeBins: totalBins - occupiedBins.length,
             occupancyRate: totalBins > 0 ? (occupiedBins.length / totalBins) * 100 : 0,
-            totalPicks: totalPicks,
-            weightOccupancyRate: 50.0, // Příklad - nutno implementovat výpočet
-            picksPerDay: totalPicks / 90,
-            totalSKUs: materialPickFrequency.size,
-            pickingEfficiency: occupiedBins.length > 0 ? totalPicks / materialPickFrequency.size : 0,
-            slowMoversCount: 0, // Příklad - nutno implementovat výpočet
         },
-        abcAnalysis, 
         byBinType,
         byRowAndType,
         detailedRowAnalysis,
+        abcAnalysis: {}, // Placeholder, aby se předešlo chybám v jiných komponentách
     };
 };
 
