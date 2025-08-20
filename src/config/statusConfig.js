@@ -1,15 +1,20 @@
 // src/config/statusConfig.js
 
 export const statusConfig = {
-    '10': { label: 'Nová', color: '#3b82f6' },        // Blue
-    '31': { label: 'Vytvořeno', color: '#22d3ee' },    // Cyan
-    '35': { label: 'Tisknuto', color: '#a855f7' },     // Purple
-    '40': { label: 'V procesu', color: '#f97316' },   // Orange
-    '50': { label: 'Vychystáno', color: '#eab308' },  // Yellow
-    '60': { label: 'Zabaleno', color: '#84cc16' },     // Lime
-    '70': { label: 'Naloženo', color: '#22c55e' },     // Green
-    '80': { label: 'Fakturováno', color: '#10b981' },  // Emerald
-    '90': { label: 'Dokončeno', color: '#16a34a' },    // Dark Green
+    // Fáze plánování (studené barvy)
+    '10': { label: 'Nová', color: '#60a5fa' },        // Light Blue
+    '31': { label: 'Vytvořeno', color: '#38bdf8' },    // Cyan
+    '35': { label: 'Tisknuto', color: '#818cf8' },     // Indigo
+    
+    // Fáze v procesu (teplé barvy)
+    '40': { label: 'V procesu', color: '#facc15' },   // Yellow
+    '50': { label: 'Vychystáno', color: '#fb923c' },  // Orange
+    '60': { label: 'Zabaleno', color: '#f87171' },     // Red-Orange
+    
+    // Fáze dokončení (zelené barvy)
+    '70': { label: 'Naloženo', color: '#a3e635' },     // Lime
+    '80': { label: 'Fakturováno', color: '#4ade80' },  // Green
+    '90': { label: 'Dokončeno', color: '#34d399' },    // Emerald
 };
 
 // Obecné barvy pro grafy, pokud nejsou specifické pro status

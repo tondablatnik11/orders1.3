@@ -193,10 +193,18 @@ export const processData = (allData, pickingData = []) => {
 
     summary.dailyStatusPercentages = summary.dailySummaries.map(day => {
         const total = day.total;
-        if (total === 0) return { date: day.date };
+        if (total === 0) {
+            return { 
+                date: format(parseISO(day.date), 'dd/MM'),
+                totalCount: 0,
+                doneCount: 0,
+            };
+        }
 
         const percentages = {
             date: format(parseISO(day.date), 'dd/MM'),
+            totalCount: total, // Celkový počet
+            doneCount: day.status_done_all || 0, // Počet hotových
             status10: ((day.statusCounts[10] || 0) / total) * 100,
             status31: ((day.statusCounts[31] || 0) / total) * 100,
             status35: ((day.statusCounts[35] || 0) / total) * 100,
