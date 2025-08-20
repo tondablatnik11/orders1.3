@@ -58,32 +58,48 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
     const totalBins = grid.size;
     const binTypesOfInterest = ['K1', 'P1', 'P2', 'P3', 'P4'];
 
-    const byBinType = {};
-    binTypesOfInterest.forEach(type => {
-        byBinType[type] = { total: 0, occupied: 0 };
+    // Helper funkce pro sjednocení K1 a KLT
+    const normalizeKType = (type) => (String(type).toUpperCase() === 'KLT' ? 'K1' : type);
+
+    // --- Plně funkční ABC Analýza ---
+    const materialPickFrequency = (pickingData || []).reduce((acc, pick) => {
+        const mat = pick.material;
+        if (mat) acc.set(mat, (acc.get(mat) || 0) + 1);
+        return acc;
+    }, new Map());
+    const sortedMaterials = [...materialPickFrequency.entries()].sort((a, b) => b[1] - a[1]);
+    const totalPicks = sortedMaterials.reduce((sum, [, count]) => sum + count, 0);
+    const abcAnalysis = { A: { materials: [], picks: 0 }, B: { materials: [], picks: 0 }, C: { materials: [], picks: 0 } };
+    let cumulativePercentage = 0;
+    sortedMaterials.forEach(([material, count]) => {
+        cumulativePercentage += (totalPicks > 0 ? (count / totalPicks) * 100 : 0);
+        const locations = gridArray.filter(b => b.stockData && b.stockData.some(item => item.material === material)).length;
+        const materialInfo = { material, count, locations };
+        if (cumulativePercentage <= 80) { abcAnalysis.A.materials.push(materialInfo); abcAnalysis.A.picks += count; }
+        else if (cumulativePercentage <= 95) { abcAnalysis.B.materials.push(materialInfo); abcAnalysis.B.picks += count; }
+        else { abcAnalysis.C.materials.push(materialInfo); abcAnalysis.C.picks += count; }
     });
 
+    // --- KPI podle typu pozice (s normalizací KLT na K1) ---
+    const byBinType = {};
+    binTypesOfInterest.forEach(type => { byBinType[type] = { total: 0, occupied: 0 }; });
     (binMasterData || []).forEach(bin => {
-        const type = bin.storage_bin_type;
-        if (byBinType[type]) {
-            byBinType[type].total++;
-        }
+        const type = normalizeKType(bin.storage_bin_type);
+        if (byBinType[type]) byBinType[type].total++;
     });
     (stockData || []).forEach(item => {
-        const type = item.storage_bin_type;
-        if (byBinType[type]) {
-            byBinType[type].occupied++;
-        }
+        const type = normalizeKType(item.storage_bin_type);
+        if (byBinType[type]) byBinType[type].occupied++;
     });
-
     Object.values(byBinType).forEach(stats => {
         stats.rate = stats.total > 0 ? (stats.occupied / stats.total) * 100 : 0;
     });
 
+    // --- Analýza po řadách (s normalizací KLT na K1) ---
     const byRowAndType = {};
     (binMasterData || []).forEach(bin => {
         const row = bin.storage_bin?.substring(0, 2);
-        const type = bin.storage_bin_type;
+        const type = normalizeKType(bin.storage_bin_type);
         if (row && type) {
             if (!byRowAndType[row]) byRowAndType[row] = {};
             if (!byRowAndType[row][type]) byRowAndType[row][type] = { total: 0, occupied: 0 };
@@ -92,20 +108,20 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
     });
     (stockData || []).forEach(item => {
         const row = item.storage_bin?.substring(0, 2);
-        const type = item.storage_bin_type;
+        const type = normalizeKType(item.storage_bin_type);
         if (row && type && byRowAndType[row] && byRowAndType[row][type]) {
             byRowAndType[row][type].occupied++;
         }
     });
 
+    // --- Detailní analýza řad 13-18 (s normalizací KLT na K1) ---
     const detailedRowAnalysis = [];
     const targetRows = ['13', '14', '15', '16', '17', '18'];
     const analysisData = {};
-    
     (binMasterData || []).forEach(bin => {
         const row = bin.storage_bin?.substring(0, 2);
         if (targetRows.includes(row)) {
-            const type = bin.storage_bin_type;
+            const type = normalizeKType(bin.storage_bin_type);
             if (binTypesOfInterest.includes(type)) {
                 if (!analysisData[row]) analysisData[row] = {};
                 if (!analysisData[row][type]) analysisData[row][type] = { total: 0, occupied: 0 };
@@ -116,21 +132,19 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
     (stockData || []).forEach(item => {
         const row = item.storage_bin?.substring(0, 2);
         if (targetRows.includes(row)) {
-            const type = item.storage_bin_type;
+            const type = normalizeKType(item.storage_bin_type);
             if (binTypesOfInterest.includes(type) && analysisData[row] && analysisData[row][type]) {
                 analysisData[row][type].occupied++;
             }
         }
     });
-    
     for (const row of targetRows) {
         const rowData = { row };
         for (const type of binTypesOfInterest) {
             const total = analysisData[row]?.[type]?.total || 0;
             const occupied = analysisData[row]?.[type]?.occupied || 0;
-            const typeKey = type;
-            rowData[`occupied_${typeKey}`] = occupied;
-            rowData[`empty_${typeKey}`] = total - occupied;
+            rowData[`occupied_${type}`] = occupied;
+            rowData[`empty_${type}`] = total - occupied;
         }
         detailedRowAnalysis.push(rowData);
     }
@@ -158,7 +172,7 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
         byRowAndType,
         detailedRowAnalysis,
         typeOccupancyByRow,
-        abcAnalysis: {},
+        abcAnalysis,
     };
 };
 

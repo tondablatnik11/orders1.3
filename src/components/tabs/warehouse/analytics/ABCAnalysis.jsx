@@ -26,7 +26,6 @@ const ABCTable = ({ materials }) => (
                     <tr key={item.material} className="border-b border-border/50 hover:bg-muted/50">
                         <td className="text-left p-2 font-medium">{item.material}</td>
                         <td className="text-right p-2 text-foreground">{item.count}</td>
-                        {/* OPRAVA ZDE: Zobrazení počtu pozic */}
                         <td className="text-right p-2 text-foreground">{item.locations}</td>
                     </tr>
                 ))}
@@ -36,15 +35,16 @@ const ABCTable = ({ materials }) => (
 );
 
 export const ABCAnalysis = ({ kpis }) => {
-    if (!kpis || !kpis.abcAnalysis) {
-        return <div className="p-4 text-center">Data pro ABC analýzu nejsou k dispozici.</div>;
+    // Robustnější kontrola, aby se předešlo pádu
+    if (!kpis || !kpis.abcAnalysis || !kpis.abcAnalysis.A || !kpis.abcAnalysis.B || !kpis.abcAnalysis.C) {
+        return <div className="p-4 text-center text-muted-foreground">Data pro ABC analýzu nejsou k dispozici.</div>;
     }
 
     const { A, B, C } = kpis.abcAnalysis;
     const totalPicks = (A.picks || 0) + (B.picks || 0) + (C.picks || 0);
 
     if (totalPicks === 0) {
-        return <div className="p-4 text-center">Nenalezeny žádné pickovací data pro vytvoření ABC analýzy.</div>;
+        return <div className="p-4 text-center text-muted-foreground">Nenalezeny žádné pickovací data pro vytvoření ABC analýzy.</div>;
     }
 
     const chartData = [
