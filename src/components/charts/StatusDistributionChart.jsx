@@ -15,7 +15,6 @@ const CustomTooltip = ({ active, payload, label }) => {
             <div className="glass-card p-4 rounded-lg shadow-xl">
                 <p className="font-bold text-slate-200 mb-2">{`Den: ${label}`}</p>
                 {payload.slice().reverse().map((entry, index) => (
-                    // Zobrazujeme jen položky s hodnotou > 0
                     entry.value > 0 && (
                         <p key={`item-${index}`} style={{ color: entry.fill }} className="text-sm">
                             {`${entry.name}: ${entry.value.toFixed(1)}%`}
@@ -28,11 +27,13 @@ const CustomTooltip = ({ active, payload, label }) => {
     return null;
 };
 
+// ZDE JE OPRAVA
 const CustomBarLabel = (props) => {
-    const { x, y, width, payload } = props;
-    const { doneCount, totalCount } = payload;
-    
-    if (totalCount === 0) {
+    // Destrukturujeme doneCount a totalCount přímo z props, nikoliv z props.payload
+    const { x, y, width, doneCount, totalCount } = props;
+
+    // Přidáváme robustnější kontrolu pro případ, že by data chyběla
+    if (typeof totalCount !== 'number' || typeof doneCount !== 'number' || totalCount === 0) {
         return null;
     }
 
@@ -121,7 +122,7 @@ export default function StatusDistributionChart({ onBarClick }) {
                 <CardTitle className="flex items-center gap-2">
                     <BarChart2 className="w-5 h-5 text-cyan-400" />
                     <span className="text-lg">Rozložení Statusů (Procentuálně)</span>
-                </CardTitle> {/* <-- ZDE BYLA CHYBA, NYNÍ JE OPRAVENA */}
+                </CardTitle>
             </CardHeader>
             <CardContent>
                 <ResponsiveContainer width="100%" height={400}>
