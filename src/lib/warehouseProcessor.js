@@ -2,7 +2,20 @@ import * as XLSX from 'xlsx';
 import { statusConfig } from '@/config/statusConfig';
 
 export const binTypeToHeightMap = { 'K1': 0.4, 'KLT': 0.4, 'P1': 0.7, 'P2': 1.0, 'P3': 1.2, 'P4': 1.5 };
-const parseFileToJson = (file) => new Promise((resolve, reject) => { /* ... kód beze změny ... */ });
+
+const parseFileToJson = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            resolve(XLSX.utils.sheet_to_json(worksheet));
+        } catch (error) { reject(error); }
+    };
+    reader.onerror = (error) => reject(error);
+    reader.readAsArrayBuffer(file);
+});
 export const parseStockFile = parseFileToJson;
 export const parseBinMasterFile = parseFileToJson;
 
@@ -15,96 +28,140 @@ export const processWarehouseData = (layoutData, stockData, pickingData, binMast
         if(bin) acc.set(bin, (acc.get(bin) || 0) + 1);
         return acc;
     }, new Map());
+
     const warehouseGrid = new Map();
     layoutData.forEach(position => {
         const binId = String(position.id);
         const stockInfo = stockMap.get(binId);
         const masterInfo = binMasterMap.get(binId) || {};
         warehouseGrid.set(binId, {
-            id: binId, address: position.address, type: stockInfo?.storage_bin_type || masterInfo.storage_bin_type || position.type || 'N/A',
-            pickingArea: masterInfo.picking_area, zone: masterInfo.zone, maximum_weight: masterInfo.maximum_weight || 0,
-            status: stockInfo ? 'occupied' : 'empty', stockData: stockInfo ? [stockInfo] : null, pickCount: pickingFrequency?.get(binId) || 0,
+            id: binId,
+            address: position.address,
+            type: stockInfo?.storage_bin_type || masterInfo.storage_bin_type || position.type || 'N/A',
+            pickingArea: masterInfo.picking_area,
+            zone: masterInfo.zone,
+            maximum_weight: masterInfo.maximum_weight || 0,
+            status: stockInfo ? 'occupied' : 'empty',
+            stockData: stockInfo ? [stockInfo] : null,
+            pickCount: pickingFrequency?.get(binId) || 0,
         });
     });
+
     const kpis = calculateAdvancedKPIs(warehouseGrid, pickingData, stockData, binMasterData);
     const { dimensions, labels } = create3DLayout(warehouseGrid);
     return { grid: warehouseGrid, dimensions, labels, kpis };
 };
 
-// --- FINÁLNÍ A KOMPLETNÍ FUNKCE PRO VÝPOČET KPI ---
 export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterData) => {
     const gridArray = Array.from(grid.values());
     const occupiedBins = gridArray.filter(bin => bin.status === 'occupied');
     const totalBins = grid.size;
     const binTypesOfInterest = ['K1', 'P1', 'P2', 'P3', 'P4'];
 
-    // --- ABC Analýza (obnoveno) ---
-    const materialPickFrequency = (pickingData || []).reduce((acc, pick) => {
-        const mat = pick.material;
-        if (mat) acc.set(mat, (acc.get(mat) || 0) + 1);
-        return acc;
-    }, new Map());
-    const sortedMaterials = [...(materialPickFrequency?.entries() || [])].sort((a, b) => b[1] - a[1]);
-    const totalPicks = sortedMaterials.reduce((sum, [, count]) => sum + count, 0);
-    const abcAnalysis = { A: { materials: [], picks: 0 }, B: { materials: [], picks: 0 }, C: { materials: [], picks: 0 } };
-    let cumulativePercentage = 0;
-    sortedMaterials.forEach(([material, count]) => {
-        cumulativePercentage += (totalPicks > 0 ? (count / totalPicks) * 100 : 0);
-        const locations = gridArray.filter(b => b.stockData && b.stockData[0]?.material === material).length;
-        const materialInfo = { material, count, locations };
-        if (cumulativePercentage <= 80) { abcAnalysis.A.materials.push(materialInfo); abcAnalysis.A.picks += count; }
-        else if (cumulativePercentage <= 95) { abcAnalysis.B.materials.push(materialInfo); abcAnalysis.B.picks += count; }
-        else { abcAnalysis.C.materials.push(materialInfo); abcAnalysis.C.picks += count; }
+    const byBinType = {};
+    binTypesOfInterest.forEach(type => {
+        byBinType[type] = { total: 0, occupied: 0 };
     });
 
-    // --- KPI podle typu pozice ---
-    const byBinType = {};
-    binTypesOfInterest.forEach(type => { byBinType[type] = { total: 0, occupied: 0 }; });
     (binMasterData || []).forEach(bin => {
         const type = bin.storage_bin_type;
-        if (byBinType[type]) byBinType[type].total++;
+        if (byBinType[type]) {
+            byBinType[type].total++;
+        }
     });
     (stockData || []).forEach(item => {
         const type = item.storage_bin_type;
-        if (byBinType[type]) byBinType[type].occupied++;
+        if (byBinType[type]) {
+            byBinType[type].occupied++;
+        }
     });
-    Object.values(byBinType).forEach(stats => { stats.rate = stats.total > 0 ? (stats.occupied / stats.total) * 100 : 0; });
 
-    // --- Analýza po řadách ---
+    Object.values(byBinType).forEach(stats => {
+        stats.rate = stats.total > 0 ? (stats.occupied / stats.total) * 100 : 0;
+    });
+
     const byRowAndType = {};
-    (binMasterData || []).forEach(bin => { /* ... kód beze změny ... */ });
-    (stockData || []).forEach(item => { /* ... kód beze změny ... */ });
+    (binMasterData || []).forEach(bin => {
+        const row = bin.storage_bin?.substring(0, 2);
+        const type = bin.storage_bin_type;
+        if (row && type) {
+            if (!byRowAndType[row]) byRowAndType[row] = {};
+            if (!byRowAndType[row][type]) byRowAndType[row][type] = { total: 0, occupied: 0 };
+            byRowAndType[row][type].total++;
+        }
+    });
+    (stockData || []).forEach(item => {
+        const row = item.storage_bin?.substring(0, 2);
+        const type = item.storage_bin_type;
+        if (row && type && byRowAndType[row] && byRowAndType[row][type]) {
+            byRowAndType[row][type].occupied++;
+        }
+    });
 
-    // --- Detailní analýza řad 13-18 ---
     const detailedRowAnalysis = [];
     const targetRows = ['13', '14', '15', '16', '17', '18'];
     const analysisData = {};
-    (binMasterData || []).forEach(bin => { /* ... kód beze změny ... */ });
-    (stockData || []).forEach(item => { /* ... kód beze změny ... */ });
-    for (const row of targetRows) { /* ... kód beze změny ... */ }
     
+    (binMasterData || []).forEach(bin => {
+        const row = bin.storage_bin?.substring(0, 2);
+        if (targetRows.includes(row)) {
+            const type = bin.storage_bin_type;
+            if (binTypesOfInterest.includes(type)) {
+                if (!analysisData[row]) analysisData[row] = {};
+                if (!analysisData[row][type]) analysisData[row][type] = { total: 0, occupied: 0 };
+                analysisData[row][type].total++;
+            }
+        }
+    });
+    (stockData || []).forEach(item => {
+        const row = item.storage_bin?.substring(0, 2);
+        if (targetRows.includes(row)) {
+            const type = item.storage_bin_type;
+            if (binTypesOfInterest.includes(type) && analysisData[row] && analysisData[row][type]) {
+                analysisData[row][type].occupied++;
+            }
+        }
+    });
+    
+    for (const row of targetRows) {
+        const rowData = { row };
+        for (const type of binTypesOfInterest) {
+            const total = analysisData[row]?.[type]?.total || 0;
+            const occupied = analysisData[row]?.[type]?.occupied || 0;
+            const typeKey = type;
+            rowData[`occupied_${typeKey}`] = occupied;
+            rowData[`empty_${typeKey}`] = total - occupied;
+        }
+        detailedRowAnalysis.push(rowData);
+    }
+    
+    const typeOccupancyByRow = {};
+    binTypesOfInterest.forEach(type => {
+        typeOccupancyByRow[type] = {};
+        targetRows.forEach(row => {
+            const total = analysisData[row]?.[type]?.total || 0;
+            const occupied = analysisData[row]?.[type]?.occupied || 0;
+            if (total > 0) {
+                typeOccupancyByRow[type][row] = { total, occupied };
+            }
+        });
+    });
+
     return {
         overall: {
-            totalBins,
+            totalBins, 
             occupiedBins: occupiedBins.length,
             freeBins: totalBins - occupiedBins.length,
             occupancyRate: totalBins > 0 ? (occupiedBins.length / totalBins) * 100 : 0,
-            // Obnovené KPI, které vaše komponenta očekává
-            weightOccupancyRate: 0, // TODO: Doplnit reálný výpočet
-            picksPerDay: totalPicks > 0 ? totalPicks / 90 : 0,
-            totalSKUs: materialPickFrequency.size,
-            pickingEfficiency: materialPickFrequency.size > 0 ? totalPicks / materialPickFrequency.size : 0,
-            slowMoversCount: 0, // TODO: Doplnit reálný výpočet
         },
-        abcAnalysis, // Obnoveno
         byBinType,
         byRowAndType,
         detailedRowAnalysis,
+        typeOccupancyByRow,
+        abcAnalysis: {},
     };
 };
 
-
-// --- FUNKCE PRO 3D USPOŘÁDÁNÍ (beze změny) ---
 export const create3DLayout = (grid) => {
     if (grid.size === 0) return { dimensions: null, labels: [] };
     const KLT_LEVEL_HEIGHT = 0.8, PALLET_LEVEL_HEIGHT = 2.0, CELL_DEPTH = 1.4, RACK_DEPTH = 1.4, AISLE_WIDTH = 4.0, RACK_SPINE_GAP = 0.2;
