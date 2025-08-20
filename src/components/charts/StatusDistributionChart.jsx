@@ -12,11 +12,11 @@ import { format, startOfToday } from 'date-fns';
 const CustomTooltip = ({ active, payload, label }) => {    
     if (active && payload && payload.length) {
         return (
-            <div className="glass-card p-4 rounded-lg shadow-xl">
+            <div className="p-3 rounded-lg shadow-xl border border-slate-700 bg-slate-800/90 backdrop-blur-sm">
                 <p className="font-bold text-slate-200 mb-2">{`Den: ${label}`}</p>
                 {payload.slice().reverse().map((entry, index) => (
                     entry.value > 0 && (
-                        <p key={`item-${index}`} style={{ color: entry.fill }} className="text-sm">
+                        <p key={`item-${index}`} style={{ color: entry.payload.fill || entry.color }} className="text-sm">
                             {`${entry.name}: ${entry.value.toFixed(1)}%`}
                         </p>
                     )
@@ -27,12 +27,9 @@ const CustomTooltip = ({ active, payload, label }) => {
     return null;
 };
 
-// ZDE JE OPRAVA
 const CustomBarLabel = (props) => {
-    // Destrukturujeme doneCount a totalCount přímo z props, nikoliv z props.payload
     const { x, y, width, doneCount, totalCount } = props;
-
-    // Přidáváme robustnější kontrolu pro případ, že by data chyběla
+    
     if (typeof totalCount !== 'number' || typeof doneCount !== 'number' || totalCount === 0) {
         return null;
     }
@@ -96,8 +93,10 @@ export default function StatusDistributionChart({ onBarClick }) {
     }, [chartData]);
     
     const handleLegendClick = (e) => {
-        const { dataKey } = e;
+        const { dataKey, payload } = e;
+        // Recharts má v 'payload' objektu vlastnost 'inactive', kterou můžeme použít pro toggle
         setHiddenStatuses(prev => ({ ...prev, [dataKey]: !prev[dataKey] }));
+        payload.inactive = !payload.inactive;
     };
 
     if (isLoadingData || chartData.length === 0) {
@@ -132,6 +131,14 @@ export default function StatusDistributionChart({ onBarClick }) {
                         stackOffset="expand"
                         onClick={onBarClick}
                     >
+                        <defs>
+                            {Object.entries(statusConfig).map(([key, config]) => (
+                                <linearGradient key={`gradient-${key}`} id={`color${key}`} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor={config.color} stopOpacity={0.9}/>
+                                    <stop offset="95%" stopColor={config.color} stopOpacity={0.5}/>
+                                </linearGradient>
+                            ))}
+                        </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" strokeOpacity={0.5}/>
                         <XAxis dataKey="date" stroke="#9CA3AF" tick={{ fontSize: 12, fill: "#D1D5DB" }} />
                         <YAxis 
@@ -150,7 +157,7 @@ export default function StatusDistributionChart({ onBarClick }) {
                                     key={`status-bar-${key}`}
                                     dataKey={`status${key}`}
                                     name={config.label}
-                                    fill={config.color}
+                                    fill={`url(#color${key})`}
                                     stackId="statusStack"
                                     hide={hiddenStatuses[`status${key}`]}
                                 >
