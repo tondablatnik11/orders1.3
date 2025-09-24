@@ -19,14 +19,21 @@ const agentNameMap = {
 
 const parseDataDate = (dateInput) => {
     if (!dateInput) return null;
-    let date = parseISO(dateInput);
-    if (!isNaN(date.getTime())) return date;
-
-    if (typeof dateInput === 'number') {
-        date = new Date(Math.round((dateInput - 25569) * 86400 * 1000));
-        if (!isNaN(date.getTime())) return date;
+    try {
+        // parseISO je dostatečně robustní, aby zvládlo ISO string ze Supabase i datum z Excelu
+        const date = parseISO(dateInput);
+        if (isNaN(date.getTime())) {
+            // Fallback pro čistě číselný formát z Excelu
+            const excelDate = new Date(Math.round((dateInput - 25569) * 86400 * 1000));
+            if(isNaN(excelDate.getTime())) return null;
+            return format(excelDate, 'yyyy-MM-dd');
+        };
+        // Vracíme datum VŽDY ve formátu YYYY-MM-DD
+        return format(date, 'yyyy-MM-dd');
+    } catch (error) {
+        console.error("Chyba při parsování data:", dateInput, error);
+        return null;
     }
-    return null;
 };
 
 export const processData = (allData, pickingData = []) => {
@@ -46,7 +53,7 @@ export const processData = (allData, pickingData = []) => {
         deliveryTypes: {},
         ordersByCountry: {},
         recentUpdates: [],
-        allOrdersData: allData,
+        allOrdersData: allData, // ponecháváme původní pro referenci, ale pracujeme s rawData
         dailySummaries: new Map(),
         statusByLoadingDate: {},
         delayedOrdersList: [],
@@ -86,15 +93,17 @@ export const processData = (allData, pickingData = []) => {
         const status = Number(row.Status);
         if (isNaN(status)) return;
         
-        // --- ZMĚNA ZDE ---
-        // Původní kód hledal sloupec "Loading Date".
-        // Nový kód primárně hledá "Pland Gds Mvmnt Date" a jako zálohu použije starý název.
-        const loadingDate = parseDataDate(row["Pland Gds Mvmnt Date"] || row["Loading Date"]);
+        // ZDE JE KLÍČOVÁ ZMĚNA: Aplikujeme naši novou, robustní funkci
+        const loadingDateStr = parseDataDate(row["Pland Gds Mvmnt Date"]);
+        
+        // DŮLEŽITÉ: Přepíšeme původní hodnotu v objektu pro konzistenci v celé aplikaci
+        row["Pland Gds Mvmnt Date"] = loadingDateStr;
         
         const isOEM = row.order_type === 'O';
         
-        if (loadingDate) {
-            const delayDays = differenceInDays(today, startOfDay(loadingDate));
+        if (loadingDateStr) {
+            const loadingDate = parseISO(loadingDateStr); // Pro výpočty potřebujeme Date objekt
+            const delayDays = differenceInDays(today, loadingDate);
             if (delayDays > 0 && remainingStatuses.includes(status)) {
                 summary.delayed++;
                 summary.delayedBreakdown[status] = (summary.delayedBreakdown[status] || 0) + 1;
@@ -103,7 +112,6 @@ export const processData = (allData, pickingData = []) => {
                     delivery: String(row["Delivery No"] || '').trim(),
                     status: status,
                     delType: row["del.type"],
-                    // Interní proměnná se stále jmenuje loadingDate pro zbytek kódu
                     loadingDate: loadingDate.toISOString(),
                     delayDays: delayDays,
                 });
@@ -150,8 +158,8 @@ export const processData = (allData, pickingData = []) => {
             summary.orderTypesOEM[typeName] = (summary.orderTypesOEM[typeName] || 0) + 1;
         }
 
-        if (loadingDate) {
-            const dateKey = format(startOfDay(loadingDate), 'yyyy-MM-dd');
+        if (loadingDateStr) {
+            const dateKey = loadingDateStr;
 
             if (!summary.dailySummaries.has(dateKey)) {
                 summary.dailySummaries.set(dateKey, {

@@ -5,7 +5,7 @@ import { useData } from '@/hooks/useData';
 import { useUI } from '@/hooks/useUI';
 import { DailyOverviewCard } from '@/components/shared/DailyOverviewCard';
 import OrderListModal from '@/components/modals/OrderListModal';
-import { format, parseISO, startOfDay, isToday } from 'date-fns';
+import { format, parseISO, isToday } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const DailySummaryTab = () => {
@@ -20,22 +20,19 @@ const DailySummaryTab = () => {
             return;
         }
 
-        // --- ZAČÁTEK OPRAVY ---
-        // Normalizujeme datum, na které bylo kliknuto, do formátu YYYY-MM-DD
-        const targetDateStr = format(parseISO(date), 'yyyy-MM-dd');
+        // --- FINÁLNÍ OPRAVA ---
+        // 'date' je již ve formátu 'yyyy-MM-dd' ze summary
+        const targetDateStr = date;
 
         const filteredOrders = allOrdersData.filter(order => {
-            const orderDateValue = order["Pland Gds Mvmnt Date"];
-            if (!orderDateValue) return false;
+            // Díky úpravě v dataProcessor jsou nyní formáty shodné
+            const orderDateStr = order["Pland Gds Mvmnt Date"];
+            if (!orderDateStr) return false;
             
-            // Normalizujeme datum objednávky do stejného formátu
-            const orderDateStr = format(parseISO(orderDateValue), 'yyyy-MM-dd');
-            
-            // Spolehlivé porovnání data
+            // Jednoduché a spolehlivé porovnání řetězců
             const dateMatches = orderDateStr === targetDateStr;
             if (!dateMatches) return false;
 
-            // Filtrování podle statusu (pokud 'all', vrátí všechny pro daný den)
             if (statuses === 'all') return true;
             return statuses.includes(Number(order.Status));
         });
@@ -53,13 +50,16 @@ const DailySummaryTab = () => {
     
     useEffect(() => {
         const container = scrollContainerRef.current;
-        if (container) {
+        if (container && !isLoadingData && summary?.dailySummaries?.length > 0) {
             const todayCard = container.querySelector('.animate-pulse-border');
             if (todayCard) {
                 const containerRect = container.getBoundingClientRect();
                 const cardRect = todayCard.getBoundingClientRect();
                 const scrollPosition = cardRect.left - containerRect.left - (containerRect.width / 2) + (cardRect.width / 2);
                 container.scrollLeft = scrollPosition;
+            } else {
+                // Pokud není dnešní karta, scrolluj na konec (poslední den)
+                container.scrollLeft = container.scrollWidth;
             }
         }
     }, [isLoadingData, summary]);
@@ -83,9 +83,9 @@ const DailySummaryTab = () => {
                     className="flex overflow-x-auto space-x-4 p-4 scrollbar-hide"
                     style={{ scrollSnapType: 'x mandatory' }}
                 >
-                    {summary.dailySummaries.map((stats, index) => {
-                         const date = parseISO(stats.date);
-                         const title = format(date, 'd. MMMM');
+                    {summary.dailySummaries.map((stats) => {
+                         const dateObj = parseISO(stats.date);
+                         const title = format(dateObj, 'd. MMMM');
                          return (
                             <div key={stats.date} style={{ scrollSnapAlign: 'center' }}>
                                 <DailyOverviewCard
@@ -94,7 +94,7 @@ const DailySummaryTab = () => {
                                     t={t}
                                     onStatClick={handleStatClick}
                                     date={stats.date} // předáváme datum jako string YYYY-MM-DD
-                                    isToday={isToday(date)}
+                                    isToday={isToday(dateObj)}
                                 />
                             </div>
                          );
