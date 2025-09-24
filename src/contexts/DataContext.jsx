@@ -5,7 +5,6 @@ import { getSupabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
 import { processData } from '@/lib/dataProcessor';
 import { processArrayForDisplay, processErrorDataForSupabase } from '@/lib/errorMonitorProcessor';
-// IMPORTY PRO SKLAD JSOU SPRÁVNĚ ODEBRÁNY
 import toast from 'react-hot-toast';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -13,7 +12,6 @@ export const DataContext = createContext(null);
 export const useData = () => useContext(DataContext);
 
 export const DataProvider = ({ children }) => {
-    // Původní stavy jsou ZACHOVÁNY
     const [allOrdersData, setAllOrdersData] = useState([]);
     const [pickingData, setPickingData] = useState([]);
     const [summary, setSummary] = useState(null);
@@ -23,11 +21,6 @@ export const DataProvider = ({ children }) => {
     const [isLoadingErrorData, setIsLoadingErrorData] = useState(true);
     const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
     const [statusHistory, setStatusHistory] = useState({ isVisible: false, data: [] });
-
-    // Stavy pro sklad, které způsobovaly chyby, JSOU ODSTRANĚNY
-    // const [warehouseStockData, setWarehouseStockData] = useState(null);
-    // const [processedWarehouseData, setProcessedWarehouseData] = useState(null);
-    // const [isLoadingWarehouseData, setIsLoadingWarehouseData] = useState(true);
 
     const { user, loading: authLoading, db, appId } = useAuth();
     const supabase = getSupabase();
@@ -64,8 +57,8 @@ export const DataProvider = ({ children }) => {
 
         } catch (error) {
              if (error && !error.message.includes('security policy') && error.code !== 'PGRST116') {
-                  toast.error("Chyba při inicializaci dat.");
-                  console.error("Data fetch error:", error);
+                 toast.error("Chyba při inicializaci dat.");
+                 console.error("Data fetch error:", error);
              }
         } finally {
             setIsLoadingData(false);
@@ -73,20 +66,15 @@ export const DataProvider = ({ children }) => {
         }
     }, [supabase]);
 
-    // Funkce fetchWarehouseData JE SPRÁVNĚ ODSTRANĚNA
-
     useEffect(() => {
         if (user && !authLoading) {
             fetchAllApplicationData();
-            // Volání fetchWarehouseData je ODSTRANĚNO
         } else if (!user && !authLoading) {
             setIsLoadingData(false);
             setIsLoadingErrorData(false);
-            // Nastavení isLoadingWarehouseData je ODSTRANĚNO
         }
     }, [user, authLoading, fetchAllApplicationData]);
     
-    // VŠECHNY NÁSLEDUJÍCÍ FUNKCE JSOU ZACHOVÁNY V PŮVODNÍ PODOBĚ
     const handleSaveNote = useCallback(async (deliveryNo, note) => {
         const { error } = await supabase.from('deliveries').update({ Note: note, updated_at: new Date().toISOString() }).eq('Delivery No', deliveryNo);
         if (error) {
@@ -163,11 +151,13 @@ export const DataProvider = ({ children }) => {
                 const jsonData = XLSX.utils.sheet_to_json(ws);
                 const parseExcelDate = (excelDate) => excelDate ? new Date(excelDate).toISOString() : null;
                 
+                // --- ZAČÁTEK KLÍČOVÉ OPRAVY ---
                 const transformedData = jsonData.map(row => ({ 
                     "Delivery No": String(row["Delivery No"] || row["Delivery"] || '').trim(), 
                     "Status": Number(row["Status"]), 
                     "del.type": row["del.type"], 
-                    "Loading Date": parseExcelDate(row["Loading Date"]), 
+                    // ZDE JE OPRAVA: Mapujeme nový název sloupce z Excelu na správný název sloupce v DB
+                    "Pland Gds Mvmnt Date": parseExcelDate(row["Pland Gds Mvmnt Date"]), 
                     "Note": row["Note"] || "", 
                     "Forwarding agent name": row["Forwarding agent name"], 
                     "Name of ship-to party": row["Name of ship-to party"], 
@@ -178,6 +168,7 @@ export const DataProvider = ({ children }) => {
                     "updated_at": new Date().toISOString(),
                     "is_archived": false
                 })).filter(row => row["Delivery No"]);
+                // --- KONEC KLÍČOVÉ OPRAVY ---
 
                 if (transformedData.length > 0) {
                     const deliveryNosInImport = new Set(transformedData.map(row => row["Delivery No"]));
@@ -242,8 +233,6 @@ export const DataProvider = ({ children }) => {
         }
     }, [supabase, user, fetchAllApplicationData]);
 
-    // Funkce handleWarehouseFileUpload JE SPRÁVNĚ ODSTRANĚNA
-    
     const handleUpdateStatus = useCallback(async (deliveryNo, newStatus) => {
         const { data, error } = await supabase.from('deliveries').update({ Status: newStatus, updated_at: new Date().toISOString() }).eq('Delivery No', deliveryNo).select();
         if (error) {
@@ -278,13 +267,11 @@ export const DataProvider = ({ children }) => {
         setStatusHistory,
         fetchOrderComments, 
         addOrderComment,
-        // HODNOTY PRO SKLAD JSOU ODSTRANĚNY Z CONTEXTU
     }), [
         allOrdersData, pickingData, summary, previousSummary, isLoadingData,
         fetchAllApplicationData, handleFileUpload, handleErrorLogUpload, errorData, isLoadingErrorData,
         selectedOrderDetails, handleSaveNote, handleUpdateStatus,
         statusHistory, fetchStatusHistory, fetchOrderComments, addOrderComment,
-        // ZÁVISLOSTI PRO SKLAD JSOU ODSTRANĚNY
     ]);
 
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
