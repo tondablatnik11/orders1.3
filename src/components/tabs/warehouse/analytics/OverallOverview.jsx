@@ -4,7 +4,8 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, Cart
 import { Warehouse, Boxes, Check, X, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-const OverallKpiCard = ({ total, occupied, free }) => (
+// --- KOMPONENTA UPRAVENA ---
+const OverallKpiCard = ({ total, occupied, free, onExport }) => (
     <div className="bg-card-alt p-6 rounded-lg border border-border shadow-lg col-span-1 md:col-span-3">
         <div className="flex items-center gap-4 mb-4">
             <Warehouse className="h-10 w-10 text-primary" />
@@ -17,11 +18,17 @@ const OverallKpiCard = ({ total, occupied, free }) => (
             </div>
             <div>
                 <p className="text-sm text-muted-foreground">Obsazeno</p>
-                <p className="text-3xl font-bold text-green-400">{occupied.toLocaleString()}</p>
+                {/* Přidána interaktivita a onClick událost */}
+                <button onClick={() => onExport('occupied')} className="text-3xl font-bold text-green-400 hover:underline" title="Exportovat seznam obsazených pozic">
+                    {occupied.toLocaleString()}
+                </button>
             </div>
             <div>
                 <p className="text-sm text-muted-foreground">Volno</p>
-                <p className="text-3xl font-bold text-sky-400">{free.toLocaleString()}</p>
+                {/* Přidána interaktivita a onClick událost */}
+                <button onClick={() => onExport('empty')} className="text-3xl font-bold text-sky-400 hover:underline" title="Exportovat seznam volných pozic">
+                    {free.toLocaleString()}
+                </button>
             </div>
         </div>
     </div>
@@ -80,36 +87,55 @@ const BinTypeStatCard = ({ type, stats, drilldownData, onExport }) => {
     );
 };
 
+// --- HLAVNÍ KOMPONENTA UPRAVENA ---
 export const OverallOverview = ({ kpis, warehouseGrid }) => {
     if (!kpis || !kpis.overall || !kpis.detailedRowAnalysis || !kpis.byBinType) {
         return <div className="p-4 text-center text-muted-foreground">Načítání hlavního přehledu...</div>;
     }
 
-    const { overall, detailedRowAnalysis, byBinType, typeOccupancyByRow } = kpis;
+    const { overall, detailedRowAnalysis, byBinType, typeOccupancyByRow, binDetails } = kpis;
     const binTypesForDisplay = ['K1', 'P1', 'P2', 'P3', 'P4'];
 
-    const handleExport = (type, row, status) => {
+    const handleDrilldownExport = (type, row, status) => {
         if (!warehouseGrid) {
             alert("Data pro export nejsou k dispozici.");
             return;
         }
-
         const binsToExport = [];
         for (const bin of warehouseGrid.values()) {
             if (bin.address.startsWith(row) && bin.type === type && bin.status === status) {
                 binsToExport.push({ Pozice: bin.address });
             }
         }
-
         if (binsToExport.length === 0) {
             alert(`Nenalezeny žádné ${status === 'occupied' ? 'obsazené' : 'volné'} pozice pro export.`);
             return;
         }
-
         const worksheet = XLSX.utils.json_to_sheet(binsToExport);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Pozice");
         XLSX.writeFile(workbook, `Export_${type}_Rada${row}_${status}.xlsx`);
+    };
+
+    // --- NOVÁ FUNKCE PRO EXPORT Z HLAVNÍ KARTY ---
+    const handleOverallExport = (status) => {
+        if (!binDetails || binDetails.length === 0) {
+            alert("Data pro export nejsou k dispozici.");
+            return;
+        }
+
+        const statusFilter = status === 'occupied' ? 'Obsazeno' : 'Volno';
+        const dataToExport = binDetails.filter(bin => bin['Status'] === statusFilter);
+
+        if (dataToExport.length === 0) {
+            alert(`Nenalezeny žádné ${status === 'occupied' ? 'obsazené' : 'volné'} pozice pro export.`);
+            return;
+        }
+
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Pozice");
+        XLSX.writeFile(workbook, `Export_Celkem_${statusFilter}.xlsx`);
     };
     
     return (
@@ -119,6 +145,7 @@ export const OverallOverview = ({ kpis, warehouseGrid }) => {
                     total={overall.totalBins}
                     occupied={overall.occupiedBins}
                     free={overall.freeBins}
+                    onExport={handleOverallExport} // Předání nové funkce
                 />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -128,7 +155,7 @@ export const OverallOverview = ({ kpis, warehouseGrid }) => {
                         type={type} 
                         stats={byBinType[type]} 
                         drilldownData={typeOccupancyByRow[type]}
-                        onExport={handleExport}
+                        onExport={handleDrilldownExport} // Původní funkce pro drilldown
                     />
                 ))}
             </div>

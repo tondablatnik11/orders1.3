@@ -25,7 +25,7 @@ export const translations = {
     deliveryNo: "Číslo dodávky",
     status: "Status",
     deliveryType: "Typ dodávky",
-    loadingDate: "Datum nakládky",
+    loadingDate: "Plánované datum zpracovaní", // ZMĚNA ZDE
     delay: "Zpoždění (dny)",
     note: "Poznámka",
     loginTitle: "Přihlášení",
@@ -300,7 +300,7 @@ export const translations = {
     deliveryNo: "Delivery No.",
     status: "Status",
     deliveryType: "Delivery Type",
-    loadingDate: "Loading Date",
+    loadingDate: "Planned Goods Movement Date", // ZMĚNA ZDE
     delay: "Delay (days)",
     note: "Note",
     loginTitle: "Login",
@@ -575,7 +575,7 @@ export const translations = {
     deliveryNo: "Liefernummer",
     status: "Status",
     deliveryType: "Lieferart",
-    loadingDate: "Ladedatum",
+    loadingDate: "Geplantes Warenbewegungsdatum", // ZMĚNA ZDE
     delay: "Verzögerung (Tage)",
     note: "Notiz",
     loginTitle: "Anmeldung",

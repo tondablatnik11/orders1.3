@@ -86,8 +86,11 @@ export const processData = (allData, pickingData = []) => {
         const status = Number(row.Status);
         if (isNaN(status)) return;
         
-        const loadingDate = parseDataDate(row["Loading Date"]);
-        // KLÍČOVÁ ZMĚNA: Přidáno isOEM
+        // --- ZMĚNA ZDE ---
+        // Původní kód hledal sloupec "Loading Date".
+        // Nový kód primárně hledá "Pland Gds Mvmnt Date" a jako zálohu použije starý název.
+        const loadingDate = parseDataDate(row["Pland Gds Mvmnt Date"] || row["Loading Date"]);
+        
         const isOEM = row.order_type === 'O';
         
         if (loadingDate) {
@@ -100,6 +103,7 @@ export const processData = (allData, pickingData = []) => {
                     delivery: String(row["Delivery No"] || '').trim(),
                     status: status,
                     delType: row["del.type"],
+                    // Interní proměnná se stále jmenuje loadingDate pro zbytek kódu
                     loadingDate: loadingDate.toISOString(),
                     delayDays: delayDays,
                 });
@@ -165,7 +169,6 @@ export const processData = (allData, pickingData = []) => {
             day.total++;
             day.statusCounts[status] = (day.statusCounts[status] || 0) + 1;
 
-            // OPRAVA: Přidána logika pro sčítání OEM hodnot
             if (status === 10) { day.status10++; if (isOEM) day.status10_oem++; }
             if (status === 31) { day.status31++; if (isOEM) day.status31_oem++; }
             if (status === 35) { day.status35++; if (isOEM) day.status35_oem++; }
@@ -202,8 +205,8 @@ export const processData = (allData, pickingData = []) => {
 
         Object.keys(statusConfig).forEach(statusKey => {
             const count = day.statusCounts[statusKey] || 0;
-            dayData[`status${statusKey}`] = (total > 0) ? (count / total) * 100 : 0; // Procenta pro výšku sloupce
-            dayData[`status${statusKey}_count`] = count; // Absolutní počet pro tooltip
+            dayData[`status${statusKey}`] = (total > 0) ? (count / total) * 100 : 0;
+            dayData[`status${statusKey}_count`] = count;
         });
         
         return dayData;

@@ -53,15 +53,26 @@ export const processWarehouseData = (layoutData, stockData, pickingData, binMast
 };
 
 export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterData) => {
+    console.log("Spouštím 'calculateAdvancedKPIs'. Vstupní data:", {
+        gridSize: grid.size,
+        stockDataCount: stockData?.length || 0,
+        binMasterDataCount: binMasterData?.length || 0,
+    });
+
     const gridArray = Array.from(grid.values());
     const occupiedBins = gridArray.filter(bin => bin.status === 'occupied');
     const totalBins = grid.size;
-    const binTypesOfInterest = ['K1', 'P1', 'P2', 'P3', 'P4'];
+    
+    if (occupiedBins.length === 0 && stockData?.length > 0) {
+        console.warn("DIAGNOSTIKA: Nebyly nalezeny žádné obsazené pozice, přestože soubor stockData obsahuje položky.");
+        console.log("Příklad ID z layoutu (grid):", gridArray[0]?.id);
+        console.log("Příklad 'storage_bin' ze stockData:", stockData[0]?.storage_bin);
+        console.log("Doporučení: Zkontrolujte, zda se formát ID shoduje a zda se sloupec v Excelu jmenuje přesně 'storage_bin'.");
+    }
 
-    // Helper funkce pro sjednocení K1 a KLT
+    const binTypesOfInterest = ['K1', 'P1', 'P2', 'P3', 'P4'];
     const normalizeKType = (type) => (String(type).toUpperCase() === 'KLT' ? 'K1' : type);
 
-    // --- Plně funkční ABC Analýza ---
     const materialPickFrequency = (pickingData || []).reduce((acc, pick) => {
         const mat = pick.material;
         if (mat) acc.set(mat, (acc.get(mat) || 0) + 1);
@@ -80,7 +91,6 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
         else { abcAnalysis.C.materials.push(materialInfo); abcAnalysis.C.picks += count; }
     });
 
-    // --- KPI podle typu pozice (s normalizací KLT na K1) ---
     const byBinType = {};
     binTypesOfInterest.forEach(type => { byBinType[type] = { total: 0, occupied: 0 }; });
     (binMasterData || []).forEach(bin => {
@@ -95,7 +105,6 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
         stats.rate = stats.total > 0 ? (stats.occupied / stats.total) * 100 : 0;
     });
 
-    // --- Analýza po řadách (s normalizací KLT na K1) ---
     const byRowAndType = {};
     (binMasterData || []).forEach(bin => {
         const row = bin.storage_bin?.substring(0, 2);
@@ -114,7 +123,6 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
         }
     });
 
-    // --- Detailní analýza řad 13-18 (s normalizací KLT na K1) ---
     const detailedRowAnalysis = [];
     const targetRows = ['13', '14', '15', '16', '17', '18'];
     const analysisData = {};
@@ -161,6 +169,18 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
         });
     });
 
+    // --- ZAČÁTEK NOVÉ ČÁSTI ---
+    // Vytvoříme detailní seznam všech pozic pro potřeby exportu/zobrazení v modálním okně
+    const binDetails = gridArray.map(bin => ({
+        'Skladová pozice': bin.id,
+        'Status': bin.status === 'occupied' ? 'Obsazeno' : 'Volno',
+        'Typ pozice': bin.type,
+        'Materiál': bin.stockData?.[0]?.material || '-',
+        'Množství': bin.stockData?.[0]?.quantity || '-',
+        'Datum naskladnění': bin.stockData?.[0]?.gr_date || '-',
+    }));
+    // --- KONEC NOVÉ ČÁSTI ---
+
     return {
         overall: {
             totalBins, 
@@ -173,6 +193,7 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
         detailedRowAnalysis,
         typeOccupancyByRow,
         abcAnalysis,
+        binDetails, // Přidáno pro export
     };
 };
 
