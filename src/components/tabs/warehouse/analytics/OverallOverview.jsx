@@ -1,11 +1,11 @@
+// src/components/tabs/warehouse/analytics/OverallOverview.jsx
 "use client";
 import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
 import { Warehouse, Boxes, Check, X, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-// --- KOMPONENTA UPRAVENA ---
-const OverallKpiCard = ({ total, occupied, free, onExport }) => (
+const OverallKpiCard = ({ total, occupied, free, onExportClick }) => (
     <div className="bg-card-alt p-6 rounded-lg border border-border shadow-lg col-span-1 md:col-span-3">
         <div className="flex items-center gap-4 mb-4">
             <Warehouse className="h-10 w-10 text-primary" />
@@ -18,15 +18,21 @@ const OverallKpiCard = ({ total, occupied, free, onExport }) => (
             </div>
             <div>
                 <p className="text-sm text-muted-foreground">Obsazeno</p>
-                {/* Přidána interaktivita a onClick událost */}
-                <button onClick={() => onExport('occupied')} className="text-3xl font-bold text-green-400 hover:underline" title="Exportovat seznam obsazených pozic">
+                <button 
+                    onClick={() => onExportClick('occupied')} 
+                    className="text-3xl font-bold text-green-400 hover:underline" 
+                    title="Exportovat seznam obsazených pozic"
+                >
                     {occupied.toLocaleString()}
                 </button>
             </div>
             <div>
                 <p className="text-sm text-muted-foreground">Volno</p>
-                {/* Přidána interaktivita a onClick událost */}
-                <button onClick={() => onExport('empty')} className="text-3xl font-bold text-sky-400 hover:underline" title="Exportovat seznam volných pozic">
+                <button 
+                    onClick={() => onExportClick('empty')} 
+                    className="text-3xl font-bold text-sky-400 hover:underline" 
+                    title="Exportovat seznam volných pozic"
+                >
                     {free.toLocaleString()}
                 </button>
             </div>
@@ -87,7 +93,6 @@ const BinTypeStatCard = ({ type, stats, drilldownData, onExport }) => {
     );
 };
 
-// --- HLAVNÍ KOMPONENTA UPRAVENA ---
 export const OverallOverview = ({ kpis, warehouseGrid }) => {
     if (!kpis || !kpis.overall || !kpis.detailedRowAnalysis || !kpis.byBinType) {
         return <div className="p-4 text-center text-muted-foreground">Načítání hlavního přehledu...</div>;
@@ -117,7 +122,6 @@ export const OverallOverview = ({ kpis, warehouseGrid }) => {
         XLSX.writeFile(workbook, `Export_${type}_Rada${row}_${status}.xlsx`);
     };
 
-    // --- NOVÁ FUNKCE PRO EXPORT Z HLAVNÍ KARTY ---
     const handleOverallExport = (status) => {
         if (!binDetails || binDetails.length === 0) {
             alert("Data pro export nejsou k dispozici.");
@@ -145,7 +149,7 @@ export const OverallOverview = ({ kpis, warehouseGrid }) => {
                     total={overall.totalBins}
                     occupied={overall.occupiedBins}
                     free={overall.freeBins}
-                    onExport={handleOverallExport} // Předání nové funkce
+                    onExportClick={handleOverallExport}
                 />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -155,13 +159,13 @@ export const OverallOverview = ({ kpis, warehouseGrid }) => {
                         type={type} 
                         stats={byBinType[type]} 
                         drilldownData={typeOccupancyByRow[type]}
-                        onExport={handleDrilldownExport} // Původní funkce pro drilldown
+                        onExport={handleDrilldownExport}
                     />
                 ))}
             </div>
             <div className="bg-card-alt p-4 rounded-lg border border-border shadow-lg mt-6">
-                 <h3 className="text-lg font-semibold mb-4 text-foreground">Detailní Vytíženost Řad 13-18</h3>
-                 <ResponsiveContainer width="100%" height={400}>
+                <h3 className="text-lg font-semibold mb-4 text-foreground">Detailní Vytíženost Řad 13-18</h3>
+                <ResponsiveContainer width="100%" height={400}>
                     <BarChart data={detailedRowAnalysis} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" opacity={0.2}/>
                         <XAxis dataKey="row" />

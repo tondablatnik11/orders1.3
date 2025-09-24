@@ -169,8 +169,6 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
         });
     });
 
-    // --- ZAČÁTEK NOVÉ ČÁSTI ---
-    // Vytvoříme detailní seznam všech pozic pro potřeby exportu/zobrazení v modálním okně
     const binDetails = gridArray.map(bin => ({
         'Skladová pozice': bin.id,
         'Status': bin.status === 'occupied' ? 'Obsazeno' : 'Volno',
@@ -179,7 +177,6 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
         'Množství': bin.stockData?.[0]?.quantity || '-',
         'Datum naskladnění': bin.stockData?.[0]?.gr_date || '-',
     }));
-    // --- KONEC NOVÉ ČÁSTI ---
 
     return {
         overall: {
@@ -193,7 +190,7 @@ export const calculateAdvancedKPIs = (grid, pickingData, stockData, binMasterDat
         detailedRowAnalysis,
         typeOccupancyByRow,
         abcAnalysis,
-        binDetails, // Přidáno pro export
+        binDetails,
     };
 };
 
