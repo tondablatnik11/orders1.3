@@ -1,6 +1,10 @@
 'useclient';
 import { forwardRef, useState } from 'react';
-import { ChevronsLeft, ChevronsRight, Home, Search, Bell, Warehouse, AlertTriangle, LogOut, Settings, Ticket, PackageCheck, Printer, Zap, PlayCircle, ChevronDown, CalendarDays, Archive } from 'lucide-react';
+import { 
+    ChevronsLeft, ChevronsRight, Home, Search, Bell, Warehouse, AlertTriangle, 
+    LogOut, Settings, Ticket, PackageCheck, Printer, Zap, PlayCircle, 
+    ChevronDown, CalendarDays, Archive, PieChart // <-- PŘIDÁNA IKONA PieChart
+} from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Image from 'next/image';
 
@@ -33,6 +37,7 @@ const Sidebar = forwardRef(({ activeTab, onTabChange, isOpen, isCollapsed, setCo
         { id: 'picking', label: 'Pickování', icon: PackageCheck },
         { id: 'errorMonitor', label: 'Error Monitor', icon: AlertTriangle },
         { id: 'warehouseOverview', label: 'Přehled Skladu', icon: Warehouse },
+        { id: 'customerAnalysis', label: 'Analýza Zákazníků', icon: PieChart }, // <-- NOVÁ POLOŽKA
     ];
     
     const bottomMenuItems = [

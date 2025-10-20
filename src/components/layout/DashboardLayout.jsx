@@ -20,7 +20,8 @@ import FaultyLabelsTab from '../tabs/FaultyLabelsTab';
 import WarehouseOverviewTab from '../tabs/WarehouseOverviewTab';
 import TicketsTab from '../tabs/TicketsTab';
 import SettingsTab from '../tabs/SettingsTab';
-import ToBeProcessedTab from '../tabs/ToBeProcessedTab'; // <-- NOVÝ IMPORT
+import ToBeProcessedTab from '../tabs/ToBeProcessedTab';
+import CustomerMaterialTab from '../tabs/CustomerMaterialTab'; // <-- NOVÝ IMPORT
 
 const DashboardLayout = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -43,7 +44,7 @@ const DashboardLayout = () => {
             case 'orderSearch': return <OrderSearchTab initialQuery={globalSearchQuery} clearInitialQuery={() => setGlobalSearchQuery('')} />;
             
             // Záložky ze skupiny Operativa
-            case 'processing': return <ToBeProcessedTab />; // <-- NOVÁ POLOŽKA
+            case 'processing': return <ToBeProcessedTab />;
             case 'announcedLoadings': return <AnnouncedLoadingsTab />;
             case 'faultyLabels': return <FaultyLabelsTab />;
             case 'tickets': return <TicketsTab />;
@@ -51,6 +52,10 @@ const DashboardLayout = () => {
             case 'picking': return <PickingTab />;
             case 'warehouseOverview': return <WarehouseOverviewTab />;
             case 'errorMonitor': return <ErrorMonitorTab />;
+
+            // Nová záložka pro analýzu
+            case 'customerAnalysis': return <CustomerMaterialTab />; // <-- NOVÁ POLOŽKA
+
             case 'settings': return <SettingsTab />;
             default: return <DashboardTab setActiveTab={setActiveTab} />;
         }
