@@ -45,6 +45,7 @@ const CustomerMaterialTable = ({ customerName, data, onExport, onMaterialClick }
         <button
           onClick={() => onExport(customerName, data)}
           className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors text-sm font-medium"
+          disabled={!data || data.length === 0} // Deaktivujeme tlačítko, pokud nejsou data
         >
           <FileDown size={16} />
           Exportovat
@@ -59,7 +60,11 @@ const CustomerMaterialTable = ({ customerName, data, onExport, onMaterialClick }
                   Materiál
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-wh-text-secondary uppercase tracking-wider">
-                  Celkové Množství
+                  Celk. Objednané Množství
+                </th>
+                 {/* NOVÝ SLOUPEC V TABULCE (nepovinné, pro přehlednost) */}
+                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-wh-text-secondary uppercase tracking-wider">
+                  Pozice ve Skladu (Bin (ks))
                 </th>
               </tr>
             </thead>
@@ -70,13 +75,17 @@ const CustomerMaterialTable = ({ customerName, data, onExport, onMaterialClick }
                     <button
                       onClick={() => onMaterialClick(item.material)}
                       className="text-sky-400 hover:text-sky-300 hover:underline transition-colors"
-                      title={`Zobrazit pozice (LT10) pro ${item.material}`}
+                      title={`Zobrazit detailní pozice (LT10) pro ${item.material}`}
                     >
                       {item.material}
                     </button>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-wh-text-secondary font-mono">
                     {new Intl.NumberFormat('cs-CZ').format(item.celkove_mnozstvi)}
+                  </td>
+                   {/* NOVÁ BUŇKA V TABULCE (nepovinné) */}
+                   <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-400">
+                    {item.pozice_info}
                   </td>
                 </tr>
               ))}
@@ -93,7 +102,7 @@ const CustomerMaterialTable = ({ customerName, data, onExport, onMaterialClick }
  * Hlavní komponenta záložky
  */
 const CustomerMaterialTab = () => {
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(null); // Data nyní obsahují { zakaznik, material, celkove_mnozstvi, pozice_info }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -107,7 +116,6 @@ const CustomerMaterialTab = () => {
       setLoading(true);
       setError(null);
       try {
-        // Toto volání nyní respektuje hlavičky z API (Krok 1)
         const response = await fetch('/api/analytics/customer-materials');
         
         if (!response.ok) {
@@ -126,60 +134,66 @@ const CustomerMaterialTab = () => {
     fetchData();
   }, []);
 
-  // Krok 1: Získáme seznam unikátních zákazníků (Master list)
   const uniqueCustomers = useMemo(() => {
     if (!data) return [];
     
     const customerSet = new Set(data.map(item => item.zakaznik || 'Neznámý zákazník'));
     const allCustomers = Array.from(customerSet);
 
-    // ===================================================================
-    // PŘIDÁNO: PRIORITIZACE ZÁKAZNÍKŮ
-    // ===================================================================
+    // Prioritizace skupin
     const prioritized = [];
-    // Zkontrolujeme a přidáme Daimler
-    if (allCustomers.includes('DAIMLER (Group)')) {
-      prioritized.push('DAIMLER (Group)');
-    }
-    // Zkontrolujeme a přidáme Volvo
-    if (allCustomers.includes('VOLVO (Group)')) {
-      prioritized.push('VOLVO (Group)');
-    }
+    if (allCustomers.includes('DAIMLER (Group)')) prioritized.push('DAIMLER (Group)');
+    if (allCustomers.includes('VOLVO (Group)')) prioritized.push('VOLVO (Group)');
     
-    // Přidáme všechny ostatní, kteří nejsou ve skupinách, a seřadíme je abecedně
     const otherCustomers = allCustomers
       .filter(c => c !== 'DAIMLER (Group)' && c !== 'VOLVO (Group)')
       .sort();
       
-    // Spojíme pole: prioritizovaní jsou první, pak zbytek
     return [...prioritized, ...otherCustomers];
   }, [data]);
 
-  // Krok 2: Filtrujeme seznam zákazníků podle vyhledávání
   const filteredCustomers = useMemo(() => {
     return uniqueCustomers.filter(customer =>
       customer.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [uniqueCustomers, searchTerm]);
 
-  // Krok 3: Získáme data pouze pro vybraného zákazníka (Detail data)
   const selectedCustomerData = useMemo(() => {
     if (!data || !selectedCustomer) return [];
+    // Data pro detail již obsahují 'pozice_info', nemusíme nic měnit
     return data
       .filter(item => (item.zakaznik || 'Neznámý zákazník') === selectedCustomer)
       .sort((a, b) => b.celkove_mnozstvi - a.celkove_mnozstvi);
   }, [data, selectedCustomer]);
 
   /**
-   * Funkce exportu
+   * AKTUALIZOVANÁ FUNKCE EXPORTU
    */
   const handleExport = (customerName, customerData) => {
+    if (!customerData || customerData.length === 0) {
+      console.warn("Žádná data k exportu.");
+      return; // Předejdeme chybě, pokud by data byla prázdná
+    }
     try {
+      // ===================================================================
+      // ZDE JE KLÍČOVÁ ZMĚNA: Přidáváme pole 'pozice_info' do exportu
+      // ===================================================================
       const ws_data = customerData.map(item => ({
         Material: item.material,
-        "Celkové Množství": item.celkove_mnozstvi,
+        "Celkové Objednané Množství": item.celkove_mnozstvi,
+        "Pozice ve Skladu (Bin (ks))": item.pozice_info, // <-- NOVÝ SLOUPEC
       }));
+      // ===================================================================
+
       const ws = XLSX.utils.json_to_sheet(ws_data);
+
+      // Nastavení šířky sloupců (volitelné, ale užitečné)
+      ws['!cols'] = [
+        { wch: 20 }, // Material
+        { wch: 25 }, // Celkové Množství
+        { wch: 60 }  // Pozice ve Skladu (delší text)
+      ];
+
       const wb = XLSX.utils.book_new();
       
       const sheetName = customerName.replace(/[\*:\/\\?\s\[\]]/g, '').substring(0, 31);
@@ -189,6 +203,7 @@ const CustomerMaterialTab = () => {
 
     } catch (exportError) {
       console.error("Chyba při exportu do Excelu:", exportError);
+      // Zde můžete přidat notifikaci pro uživatele
     }
   };
   
@@ -197,13 +212,9 @@ const CustomerMaterialTab = () => {
     setIsModalOpen(true);
   };
 
-  // --- Renderovací logika ---
-
   if (loading) return <LoadingState />;
   if (error) return <ErrorState error={error} />;
   if (!data || data.length === 0) return <EmptyState />;
-
-  // --- Nový Master-Detail layout ---
 
   return (
     <div className="h-full flex flex-col">
@@ -211,24 +222,18 @@ const CustomerMaterialTab = () => {
         Analýza: Nejčastější materiály podle zákazníka
       </h1>
       
-      {/* Kontejner pro Master-Detail mřížku */}
       <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-6 h-[calc(100%-5rem)]">
         
-        {/* Master sloupec (levý) - Seznam zákazníků */}
         <div className="md:col-span-1 bg-wh-card border border-wh-border rounded-lg p-4 flex flex-col h-full">
           <h2 className="text-lg font-semibold text-wh-text-primary mb-4">
             Zákazníci ({filteredCustomers.length})
           </h2>
           
-          {/* Vyhledávací pole */}
           <div className="relative mb-4">
             <input
               type="text"
               placeholder="Hledat zákazníka..."
               value={searchTerm}
-              // ===================================================================
-              // OPRAVA CHYBY Z MINULA (překlep e.traget -> e.target)
-              // ===================================================================
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-8 py-2 rounded-lg bg-slate-800 border border-wh-border text-wh-text-primary focus:ring-2 focus:ring-sky-500 focus:outline-none"
             />
@@ -244,7 +249,6 @@ const CustomerMaterialTab = () => {
             )}
           </div>
           
-          {/* Rolovatelný seznam zákazníků */}
           <div className="flex-1 overflow-y-auto pr-2">
             <ul className="space-y-2">
               {filteredCustomers.map(customer => (
@@ -258,7 +262,6 @@ const CustomerMaterialTab = () => {
                     }`}
                     title={customer}
                   >
-                    {/* Zvýraznění prioritizovaných skupin */}
                     {(customer.includes('(Group)')) ? (
                       <span className="font-bold text-yellow-400">{customer}</span>
                     ) : (
@@ -271,7 +274,6 @@ const CustomerMaterialTab = () => {
           </div>
         </div>
 
-        {/* Detail sloupec (pravý) - Tabulka materiálů */}
         <div className="md:col-span-3 h-full">
           {selectedCustomer ? (
             <CustomerMaterialTable
@@ -290,7 +292,6 @@ const CustomerMaterialTab = () => {
         </div>
       </div>
       
-      {/* Vykreslení modálního okna */}
       {isModalOpen && (
         <StockPositionModal
           materialCode={selectedMaterial}
