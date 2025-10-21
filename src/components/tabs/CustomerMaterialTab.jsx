@@ -31,7 +31,7 @@ const EmptyState = () => (
 );
 
 /**
- * Komponenta "Detail" - Zjednodušené zobrazení v UI
+ * Komponenta "Detail" - FINÁLNÍ OPRAVA ZOBRAZENÍ
  */
 const CustomerMaterialTable = ({ customerName, data, onExport, onMaterialClick }) => {
   return (
@@ -59,7 +59,7 @@ const CustomerMaterialTable = ({ customerName, data, onExport, onMaterialClick }
                   Celk. Objednané Množství
                 </th>
                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-wh-text-secondary uppercase tracking-wider">
-                  Počet Pozic
+                  Pozice ve Skladu (Bin (ks))
                 </th>
               </tr>
             </thead>
@@ -78,8 +78,16 @@ const CustomerMaterialTable = ({ customerName, data, onExport, onMaterialClick }
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-wh-text-secondary font-mono">
                     {new Intl.NumberFormat('cs-CZ').format(item.celkove_mnozstvi)}
                   </td>
-                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
-                    {Array.isArray(item.pozice_data) ? item.pozice_data.length : 0}
+                   {/* =================================================================== */}
+                   {/* FINÁLNÍ OPRAVA: Zobrazíme spojený text pozic a množství */}
+                   {/* =================================================================== */}
+                   <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-400">
+                    {/* Zkontrolujeme, zda data existují a jsou pole */}
+                    {Array.isArray(item.pozice_data) && item.pozice_data.length > 0
+                      ? item.pozice_data
+                          .map(pos => `${pos.bin} (${pos.qty}ks)`) // Formátujeme každý objekt
+                          .join(', ') // Spojíme čárkou a mezerou
+                      : 'Nenalezeno'} {/* Text, pokud nejsou pozice */}
                   </td>
                 </tr>
               ))}
@@ -110,7 +118,10 @@ const CustomerMaterialTab = ({/* ... props ... */}) => {
       setError(null);
       try {
         const response = await fetch('/api/analytics/customer-materials');
-        if (!response.ok) { /* ... error handling ... */ }
+        if (!response.ok) {
+           const errData = await response.json();
+           throw new Error(errData.error || `Chyba ${response.status}`);
+        }
         const result = await response.json();
         setData(result);
       } catch (err) { setError(err.message); }
@@ -139,6 +150,7 @@ const CustomerMaterialTab = ({/* ... props ... */}) => {
     );
   }, [uniqueCustomers, searchTerm]);
 
+
   const selectedCustomerData = useMemo(() => {
     if (!data || !selectedCustomer) return [];
     return data
@@ -146,82 +158,57 @@ const CustomerMaterialTab = ({/* ... props ... */}) => {
       .sort((a, b) => b.celkove_mnozstvi - a.celkove_mnozstvi);
   }, [data, selectedCustomer]);
 
-  // ===================================================================
-  // ZDE JE FINÁLNÍ OPRAVA EXPORTU
-  // ===================================================================
   /**
-   * Generuje Excel soubor s detailním rozpisem pozic a místem pro diference.
+   * Funkce exportu (bez změny)
    */
   const handleExport = (customerName, customerData) => {
     if (!customerData || customerData.length === 0) return;
-
     try {
-      // 1. Najdeme maximální počet pozic pro správné generování sloupců
       let maxBins = 0;
       customerData.forEach(item => {
         if (Array.isArray(item.pozice_data) && item.pozice_data.length > maxBins) {
           maxBins = item.pozice_data.length;
         }
       });
-
-      // 2. Vytvoříme hlavičky dynamicky
       const headers = ["Material", "Celk. Objednané Množství"];
-      const colWidths = [{ wch: 20 }, { wch: 25 }]; // Šířky pro první dva sloupce
+      const colWidths = [{ wch: 20 }, { wch: 25 }];
       for (let i = 1; i <= maxBins; i++) {
-        headers.push(`Bin ${i}`);          // Hlavička pro pozici
-        headers.push(`Množství ${i}`);    // Hlavička pro množství na pozici
-        headers.push(`Diference ${i}`);   // Hlavička pro rozdíl
-        colWidths.push({ wch: 15 }); // Šířka Bin
-        colWidths.push({ wch: 10 }); // Šířka Množství
-        colWidths.push({ wch: 10 }); // Šířka Diference
+        headers.push(`Bin ${i}`);
+        headers.push(`Množství ${i}`);
+        headers.push(`Diference ${i}`);
+        colWidths.push({ wch: 15 });
+        colWidths.push({ wch: 10 });
+        colWidths.push({ wch: 10 });
       }
-
-      // 3. Připravíme data řádek po řádku
       const ws_data = customerData.map(item => {
-        // Základní informace o materiálu
         const rowData = {
           Material: item.material,
           "Celk. Objednané Množství": item.celkove_mnozstvi,
         };
-
-        // Dynamicky přidáme sloupce pro každou pozici
         if (Array.isArray(item.pozice_data)) {
           item.pozice_data.forEach((pos, index) => {
-            const i = index + 1; // Číslování sloupců od 1
-            if (i <= maxBins) { // Jen do maximálního počtu sloupců
+            const i = index + 1;
+            if (i <= maxBins) {
               rowData[`Bin ${i}`] = pos.bin;
               rowData[`Množství ${i}`] = pos.qty;
-              rowData[`Diference ${i}`] = ''; // Prázdné místo pro zápis
+              rowData[`Diference ${i}`] = '';
             }
           });
         }
         return rowData;
       });
-
-      // 4. Vytvoříme Excel worksheet a workbook
-      const ws = XLSX.utils.json_to_sheet([]); // Začneme s prázdným listem
-
-      // Manuálně přidáme hlavičky
+      const ws = XLSX.utils.json_to_sheet([]);
       XLSX.utils.sheet_add_aoa(ws, [headers], { origin: 'A1' });
-
-      // Přidáme data pod hlavičky
       XLSX.utils.sheet_add_json(ws, ws_data, { origin: 'A2', skipHeader: true });
-
-      ws['!cols'] = colWidths; // Nastavíme šířky sloupců
-
+      ws['!cols'] = colWidths;
       const wb = XLSX.utils.book_new();
       const sheetName = customerName.replace(/[\*:\/\\?\s\[\]]/g, '').substring(0, 31);
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
-
-      // 5. Stáhneme soubor
       XLSX.writeFile(wb, `analyza_materialu_${sheetName}_s_pozicemi_a_diferencemi.xlsx`);
-
     } catch (exportError) {
       console.error("Chyba při exportu do Excelu:", exportError);
-      // Zde můžete přidat toast notifikaci
     }
   };
-  // ===================================================================
 
   const handleMaterialClick = (materialCode) => {
     setSelectedMaterial(materialCode);
@@ -252,13 +239,13 @@ const CustomerMaterialTab = ({/* ... props ... */}) => {
               className="w-full pl-10 pr-8 py-2 rounded-lg bg-slate-800 border border-wh-border text-wh-text-primary focus:ring-2 focus:ring-sky-500 focus:outline-none"
             />
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-wh-text-secondary" />
-            {searchTerm && ( <button onClick={() => setSearchTerm('')} /* ... */ > <X/> </button> )}
+            {searchTerm && ( <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-slate-700" title="Vymazat hledání"> <X className="w-4 h-4 text-wh-text-secondary hover:text-white" /> </button> )}
           </div>
           <div className="flex-1 overflow-y-auto pr-2">
             <ul className="space-y-2">
               {filteredCustomers.map(customer => (
                 <li key={customer}>
-                  <button onClick={() => setSelectedCustomer(customer)} /* ... classes ... */ >
+                  <button onClick={() => setSelectedCustomer(customer)} className={`w-full text-left px-4 py-2.5 rounded-lg transition-colors duration-150 truncate ${ selectedCustomer === customer ? 'bg-sky-600 text-white font-semibold shadow-md' : 'bg-slate-700/50 hover:bg-slate-700 text-wh-text-secondary hover:text-wh-text-primary'}`} title={customer}>
                     {(customer.includes('(Group)')) ? ( <span className="font-bold text-yellow-400">{customer}</span> ) : ( customer )}
                   </button>
                 </li>
@@ -274,7 +261,7 @@ const CustomerMaterialTab = ({/* ... props ... */}) => {
               onExport={handleExport}
               onMaterialClick={handleMaterialClick}
             />
-          ) : ( <div /* ... placeholder ... */ > Vyberte zákazníka... </div> )}
+          ) : ( <div className="flex items-center justify-center h-full bg-wh-card border-2 border-dashed border-wh-border rounded-lg"> <p className="text-lg text-wh-text-secondary"> Vyberte zákazníka ze seznamu pro zobrazení detailů. </p> </div> )}
         </div>
       </div>
       {isModalOpen && ( <StockPositionModal materialCode={selectedMaterial} onClose={() => setIsModalOpen(false)} /> )}
