@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { Loader2, AlertTriangle, Warehouse, PackageOpen, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/button";
-import EmptyBinsListModal from '@/components/modals/EmptyBinsListModal'; // <-- Import modálního okna
+import EmptyBinsListModal from '@/components/modals/EmptyBinsListModal';
 
 // --- Komponenty pro stavy ---
 const LoadingState = () => (
@@ -40,7 +40,7 @@ const EmptyState = () => (
 const FreeBinsSummaryTab = () => {
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null); // Chyba pro načítání SUMÁRNÍCH dat
+  const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
 
   // --- Stavy pro modální okno ---
@@ -73,15 +73,17 @@ const FreeBinsSummaryTab = () => {
 
   // --- Funkce pro otevření modálního okna ---
   const handleOpenModal = (sklad, typBinu) => {
-    // Ověření, že máme platné hodnoty PŘED nastavením stavu
+    // 1. Logování hodnot PŘED nastavením stavu
+    // console.log("handleOpenModal voláno s:", sklad, typBinu);
+
     if (sklad && typBinu) {
-        // console.log("Otevírám modal pro:", sklad, typBinu); // Pro ladění
-        setModalSklad(sklad); // Nastavíme stav pro sklad
-        setModalTypBinu(typBinu); // Nastavíme stav pro typ binu
-        setIsModalOpen(true); // Otevřeme modal
+        setModalSklad(sklad);       // Nastavíme stav pro sklad
+        setModalTypBinu(typBinu);     // Nastavíme stav pro typ binu
+        setIsModalOpen(true);       // Otevřeme modal AŽ PO nastavení stavů
     } else {
-        console.error("Pokus o otevření modalu s neplatnými daty:", sklad, typBinu);
-        // Zde můžete přidat toast notifikaci
+        console.error("handleOpenModal: Pokus o otevření modalu s neplatnými daty:", sklad, typBinu);
+        // Zobrazit chybu uživateli (např. pomocí react-hot-toast)
+        // toast.error("Nelze zobrazit detail, chybí informace o skladu nebo typu binu.");
     }
   };
   // ----------------------------------------
@@ -101,7 +103,7 @@ const FreeBinsSummaryTab = () => {
           return (
             <Card key={sklad} className="bg-wh-card border-wh-border shadow-md hover:shadow-lg transition-shadow duration-200 flex flex-col min-h-[200px]">
               <CardHeader className="pb-4 border-b border-slate-700/50 mb-4">
-                <div className="flex justify-between items-center">
+                 <div className="flex justify-between items-center">
                    <CardTitle className="text-2xl font-semibold text-wh-text-primary flex items-center">
                      <Warehouse className="w-6 h-6 mr-3 text-sky-400" /> Sklad {sklad}
                    </CardTitle>
@@ -115,19 +117,15 @@ const FreeBinsSummaryTab = () => {
                 {data && data.typy_binu.length > 0 ? (
                   <ul className="space-y-3">
                     {data.typy_binu
-                     .sort((a, b) => {
-                        const order = {'K1': 1, 'P1': 2, 'P2': 3, 'P3': 4, 'P4': 5};
-                        const orderA = order[a.typ] || 99;
-                        const orderB = order[b.typ] || 99;
-                        return orderA - orderB;
-                      })
+                     .sort((a, b) => { /* ... řazení ... */ })
                      .map((binInfo) => (
                       // Klikatelná položka seznamu
                       <li key={binInfo.typ}
                           className="flex justify-between items-center text-md border-b border-slate-700/50 pb-2 last:border-b-0 group cursor-pointer hover:bg-slate-800/50 px-2 -mx-2 rounded transition-colors duration-150"
-                          // Předáváme 'sklad' a 'binInfo.typ' do handleOpenModal
+                          // ZDE je klíčové předání parametrů
                           onClick={() => handleOpenModal(sklad, binInfo.typ)}
                           title={`Zobrazit seznam prázdných pozic typu ${binInfo.typ}`}>
+                        {/* ... Zobrazení typu a počtu ... */}
                         <span className="text-wh-text-secondary flex items-center">
                           <PackageOpen className="w-5 h-5 mr-2 text-slate-500"/>
                           <span className="w-10 font-medium group-hover:text-sky-300">{binInfo.typ}:</span>
@@ -168,10 +166,11 @@ const FreeBinsSummaryTab = () => {
       </p>
 
       {/* --- Vykreslení modálního okna --- */}
-      {/* Podmíněné vykreslení modalu POUZE pokud isModalOpen je true */}
+      {/* Modal se vykreslí POUZE pokud isModalOpen je true */}
       {/* Předáváme aktuální hodnoty ze stavu modalSklad a modalTypBinu */}
       {isModalOpen && (
         <EmptyBinsListModal
+          // ZDE je klíčové předání správných hodnot
           sklad={modalSklad}
           typBinu={modalTypBinu}
           onClose={() => setIsModalOpen(false)} // Funkce pro zavření
