@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Loader2, AlertTriangle, FileDown, Search, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import StockPositionModal from '@/components/modals/StockPositionModal'; // <-- NOVÝ IMPORT
+import StockPositionModal from '@/components/modals/StockPositionModal';
 import * as XLSX from 'xlsx';
 
 // Stav 1: Načítání
@@ -39,7 +39,7 @@ const EmptyState = () => (
  * Zobrazuje tabulku materiálů pro vybraného zákazníka.
  * Nyní s proklikem na materiál.
  */
-const CustomerMaterialTable = ({ customerName, data, onExport, onMaterialClick }) => { // <-- NOVÁ PROPS
+const CustomerMaterialTable = ({ customerName, data, onExport, onMaterialClick }) => {
   return (
     <Card className="bg-wh-card border-wh-border shadow-lg h-full flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -103,19 +103,22 @@ const CustomerMaterialTab = () => {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // --- NOVÉ STAVY PRO MODÁL ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
-  // ------------------------------
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
       try {
-        // Tento endpoint se nemění, volá funkci `get_customer_material_summary`
-        // která nyní díky Kroku 1 obsahuje agregovanou logiku.
-        const response = await fetch('/api/analytics/customer-materials');
+        
+        // ===================================================================
+        // ZDE JE KLÍČOVÁ OPRAVA (KROK 1)
+        // Přidali jsme `?cache_bust=${new Date().getTime()}`
+        // Tímto Vercel donutíme, aby vždy načetl čerstvá data a nepoužil cache.
+        // ===================================================================
+        const response = await fetch(`/api/analytics/customer-materials?cache_bust=${new Date().getTime()}`);
+        
         if (!response.ok) {
           const errData = await response.json();
           throw new Error(errData.error || `Chyba ${response.status}`);
@@ -176,12 +179,10 @@ const CustomerMaterialTab = () => {
     }
   };
   
-  // --- NOVÁ FUNKCE PRO OTEVŘENÍ MODÁLU ---
   const handleMaterialClick = (materialCode) => {
     setSelectedMaterial(materialCode);
     setIsModalOpen(true);
   };
-  // ----------------------------------------
 
   // --- Renderovací logika ---
 
@@ -212,7 +213,7 @@ const CustomerMaterialTab = () => {
               type="text"
               placeholder="Hledat zákazníka..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => setSearchTerm(e.traget.value)}
               className="w-full pl-10 pr-8 py-2 rounded-lg bg-slate-800 border border-wh-border text-wh-text-primary focus:ring-2 focus:ring-sky-500 focus:outline-none"
             />
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-wh-text-secondary" />
@@ -268,7 +269,7 @@ const CustomerMaterialTab = () => {
         </div>
       </div>
       
-      {/* NOVÉ: Vykreslení modálního okna */}
+      {/* Vykreslení modálního okna */}
       {isModalOpen && (
         <StockPositionModal
           materialCode={selectedMaterial}
