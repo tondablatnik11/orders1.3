@@ -36,7 +36,6 @@ const EmptyState = () => (
 
 /**
  * Komponenta "Detail"
- * Zobrazuje tabulku materiálů pro vybraného zákazníka.
  */
 const CustomerMaterialTable = ({ customerName, data, onExport, onMaterialClick }) => {
   return (
@@ -108,8 +107,7 @@ const CustomerMaterialTab = () => {
       setLoading(true);
       setError(null);
       try {
-        
-        // Toto volání je nyní řízeno hlavičkami z API (Krok 2)
+        // Toto volání nyní respektuje hlavičky z API (Krok 1)
         const response = await fetch('/api/analytics/customer-materials');
         
         if (!response.ok) {
@@ -135,15 +133,25 @@ const CustomerMaterialTab = () => {
     const customerSet = new Set(data.map(item => item.zakaznik || 'Neznámý zákazník'));
     const allCustomers = Array.from(customerSet);
 
-    // Prioritizace skupin
+    // ===================================================================
+    // PŘIDÁNO: PRIORITIZACE ZÁKAZNÍKŮ
+    // ===================================================================
     const prioritized = [];
-    if (allCustomers.includes('DAIMLER (Group)')) prioritized.push('DAIMLER (Group)');
-    if (allCustomers.includes('VOLVO (Group)')) prioritized.push('VOLVO (Group)');
+    // Zkontrolujeme a přidáme Daimler
+    if (allCustomers.includes('DAIMLER (Group)')) {
+      prioritized.push('DAIMLER (Group)');
+    }
+    // Zkontrolujeme a přidáme Volvo
+    if (allCustomers.includes('VOLVO (Group)')) {
+      prioritized.push('VOLVO (Group)');
+    }
     
+    // Přidáme všechny ostatní, kteří nejsou ve skupinách, a seřadíme je abecedně
     const otherCustomers = allCustomers
       .filter(c => c !== 'DAIMLER (Group)' && c !== 'VOLVO (Group)')
       .sort();
       
+    // Spojíme pole: prioritizovaní jsou první, pak zbytek
     return [...prioritized, ...otherCustomers];
   }, [data]);
 
@@ -218,7 +226,10 @@ const CustomerMaterialTab = () => {
               type="text"
               placeholder="Hledat zákazníka..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)} // Opraveno
+              // ===================================================================
+              // OPRAVA CHYBY Z MINULA (překlep e.traget -> e.target)
+              // ===================================================================
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-8 py-2 rounded-lg bg-slate-800 border border-wh-border text-wh-text-primary focus:ring-2 focus:ring-sky-500 focus:outline-none"
             />
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-wh-text-secondary" />
@@ -247,7 +258,7 @@ const CustomerMaterialTab = () => {
                     }`}
                     title={customer}
                   >
-                    {/* Prioritizované názvy zvýrazníme */}
+                    {/* Zvýraznění prioritizovaných skupin */}
                     {(customer.includes('(Group)')) ? (
                       <span className="font-bold text-yellow-400">{customer}</span>
                     ) : (
