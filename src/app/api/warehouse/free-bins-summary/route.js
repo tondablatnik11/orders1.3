@@ -1,10 +1,19 @@
-// src/app/api/warehouse/free-bins-summary/route.js
+// src/app/api/warehouse/empty-bins-list/route.js
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request) {
+  // Získáme parametry z URL query
+  const { searchParams } = new URL(request.url);
+  const sklad = searchParams.get('sklad');
+  const typBinu = searchParams.get('typBinu');
+
+  if (!sklad || !typBinu) {
+    return NextResponse.json({ error: 'Chybí parametry sklad nebo typBinu' }, { status: 400 });
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -13,40 +22,19 @@ export async function GET() {
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    // Voláme NOVOU funkci z Kroku 1
-    const { data, error } = await supabaseAdmin.rpc('get_empty_bin_summary_v2'); // <-- Změna názvu funkce
+    // Voláme novou funkci z Kroku 2 s parametry
+    const { data, error } = await supabaseAdmin.rpc('get_empty_bin_list_v1', {
+      target_sklad: sklad,
+      target_typ_binu: typBinu,
+    });
 
     if (error) {
-      console.error('Chyba při volání Supabase RPC (get_empty_bin_summary_v2):', error);
+      console.error('Chyba při volání Supabase RPC (get_empty_bin_list_v1):', error);
       throw error;
     }
 
-    // Zpracujeme data pro frontend: seskupíme podle skladu
-    const groupedData = data.reduce((acc, item) => {
-      // Změna názvu sloupce
-      const { sklad, typ_binu, pocet_prazdnych } = item;
-      if (!acc[sklad]) {
-        acc[sklad] = {
-          celkem_prazdnych: 0, // Změna názvu
-          typy_binu: []
-        };
-      }
-      acc[sklad].typy_binu.push({ typ: typ_binu, pocet: pocet_prazdnych });
-      acc[sklad].celkem_prazdnych += pocet_prazdnych; // Změna názvu
-      return acc;
-    }, {});
-
-    // Hlavičky pro zákaz cachování
-    const headers = new Headers();
-    headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    headers.set('Pragma', 'no-cache');
-    headers.set('Expires', '0');
-
-    // Vracíme seskupená data
-    return new NextResponse(JSON.stringify(groupedData), {
-      status: 200,
-      headers: headers,
-    });
+    // Vracíme přímo pole názvů binů
+    return NextResponse.json(data.map(item => item.storage_bin));
 
   } catch (error) {
     return NextResponse.json(
