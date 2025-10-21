@@ -8,32 +8,31 @@ export async function GET() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!supabaseUrl || !supabaseServiceKey) {
-    return NextResponse.json({ error: 'Chybí konfigurace Supabase' }, { status: 500 });
-  }
+  if (!supabaseUrl || !supabaseServiceKey) { /* ... error handling ... */ }
 
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    // Voláme novou funkci z Kroku 1
-    const { data, error } = await supabaseAdmin.rpc('get_free_bin_summary_v1');
+    // Voláme NOVOU funkci z Kroku 1
+    const { data, error } = await supabaseAdmin.rpc('get_empty_bin_summary_v2'); // <-- Změna názvu funkce
 
     if (error) {
-      console.error('Chyba při volání Supabase RPC (get_free_bin_summary_v1):', error);
+      console.error('Chyba při volání Supabase RPC (get_empty_bin_summary_v2):', error);
       throw error;
     }
 
     // Zpracujeme data pro frontend: seskupíme podle skladu
     const groupedData = data.reduce((acc, item) => {
-      const { sklad, typ_binu, pocet_volnych } = item;
+      // Změna názvu sloupce
+      const { sklad, typ_binu, pocet_prazdnych } = item;
       if (!acc[sklad]) {
         acc[sklad] = {
-          celkem_volnych: 0,
+          celkem_prazdnych: 0, // Změna názvu
           typy_binu: []
         };
       }
-      acc[sklad].typy_binu.push({ typ: typ_binu, pocet: pocet_volnych });
-      acc[sklad].celkem_volnych += pocet_volnych;
+      acc[sklad].typy_binu.push({ typ: typ_binu, pocet: pocet_prazdnych });
+      acc[sklad].celkem_prazdnych += pocet_prazdnych; // Změna názvu
       return acc;
     }, {});
 
