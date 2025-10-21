@@ -4,13 +4,31 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, AlertTriangle, Warehouse, PackageOpen, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
-// import { Progress } from "@/components/ui/progress"; // ODSTRANĚN IMPORT
 import { Button } from "@/components/ui/button";
 
-// --- Komponenty pro stavy (LoadingState, ErrorState, EmptyState) zůstávají beze změny ---
-const LoadingState = () => (/* ... kód ... */);
-const ErrorState = ({ error }) => (/* ... kód ... */);
-const EmptyState = () => (/* ... kód ... */);
+// --- Komponenty pro stavy ---
+const LoadingState = () => (
+  <div className="flex flex-col items-center justify-center h-64 text-center">
+    <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
+    <p className="text-lg text-wh-text-secondary">Načítám přehled prázdných pozic...</p>
+    <p className="text-sm text-slate-500">Zpracovávám data...</p>
+  </div>
+);
+const ErrorState = ({ error }) => (
+ <Card className="bg-red-900/20 border-red-700 text-red-400">
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2"><AlertTriangle className="w-5 h-5" /> Chyba</CardTitle>
+      <CardDescription className="text-red-300/80">Nepodařilo se získat data.</CardDescription>
+    </CardHeader>
+    <CardContent><p className="text-sm">Detail: {error}</p></CardContent>
+  </Card>
+);
+const EmptyState = () => (
+  <Card className="border-dashed border-slate-700">
+     <CardHeader><CardTitle className="text-wh-text-secondary font-normal">Žádná data</CardTitle></CardHeader>
+     <CardContent><p className="text-slate-500">Nebyly nalezeny žádné prázdné pozice.</p></CardContent>
+   </Card>
+);
 
 // --- Hlavní komponenta ---
 const FreeBinsSummaryTab = () => {
@@ -29,11 +47,9 @@ const FreeBinsSummaryTab = () => {
         throw new Error(errData.error || `Chyba ${response.status}`);
       }
       const allData = await response.json();
-
       const filteredData = {};
       if (allData['800']) filteredData['800'] = allData['800'];
       if (allData['820']) filteredData['820'] = allData['820'];
-
       setSummaryData(filteredData);
       setLastUpdated(new Date());
     } catch (err) { setError(err.message); setSummaryData(null); }
@@ -58,16 +74,13 @@ const FreeBinsSummaryTab = () => {
               <CardHeader className="pb-4 border-b border-slate-700/50 mb-4">
                 <div className="flex justify-between items-center">
                    <CardTitle className="text-2xl font-semibold text-wh-text-primary flex items-center">
-                     <Warehouse className="w-6 h-6 mr-3 text-sky-400" />
-                     Sklad {sklad}
+                     <Warehouse className="w-6 h-6 mr-3 text-sky-400" /> Sklad {sklad}
                    </CardTitle>
                    <div className="text-right">
                       <p className="text-sm text-wh-text-secondary">Celkem prázdných:</p>
                       <p className="text-3xl font-bold text-emerald-400">{celkemPrazdnych}</p>
                    </div>
                 </div>
-                 {/* ODSTRANĚNO POUŽITÍ PROGRESS BARU */}
-                 {/* <Progress value={progressValue} className="mt-2 h-2" /> */}
               </CardHeader>
               <CardContent className="flex-1 pt-0">
                 {data && data.typy_binu.length > 0 ? (
@@ -76,7 +89,7 @@ const FreeBinsSummaryTab = () => {
                      .sort((a, b) => {
                         const order = {'K1': 1, 'P1': 2, 'P2': 3, 'P3': 4, 'P4': 5};
                         return (order[a.typ] || 99) - (order[b.typ] || 99);
-                     })
+                      })
                      .map((binInfo) => (
                       <li key={binInfo.typ} className="flex justify-between items-center text-md border-b border-slate-700/50 pb-2 last:border-b-0">
                         <span className="text-wh-text-secondary flex items-center">
@@ -87,9 +100,7 @@ const FreeBinsSummaryTab = () => {
                       </li>
                     ))}
                   </ul>
-                ) : (
-                  <p className="text-sm text-slate-500 italic text-center py-4">Pro tento sklad nebyly nalezeny žádné prázdné pozice podle typu.</p>
-                )}
+                ) : ( <p className="text-sm text-slate-500 italic text-center py-4">Žádné prázdné pozice.</p> )}
               </CardContent>
             </Card>
           );
@@ -101,22 +112,11 @@ const FreeBinsSummaryTab = () => {
   return (
     <div className="h-full animate-fadeInUp">
       <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
-        <h1 className="text-3xl font-bold text-wh-text-primary">
-          Přehled prázdných pozic
-        </h1>
+        <h1 className="text-3xl font-bold text-wh-text-primary">Přehled prázdných pozic</h1>
         <div className="flex items-center gap-2 text-xs text-slate-400">
-           {lastUpdated && (
-             <span>Posl. akt.: {lastUpdated.toLocaleString('cs-CZ', { dateStyle: 'short', timeStyle: 'medium' })}</span>
-           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchData}
-            disabled={loading}
-            className="border-slate-600 hover:bg-slate-700 hover:text-sky-300"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Obnovit
+           {lastUpdated && (<span>Posl. akt.: {lastUpdated.toLocaleString('cs-CZ', { dateStyle: 'short', timeStyle: 'medium' })}</span>)}
+          <Button variant="outline" size="sm" onClick={fetchData} disabled={loading} className="border-slate-600 hover:bg-slate-700 hover:text-sky-300">
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Obnovit
           </Button>
         </div>
       </div>
