@@ -37,7 +37,6 @@ const EmptyState = () => (
 /**
  * Komponenta "Detail"
  * Zobrazuje tabulku materiálů pro vybraného zákazníka.
- * Nyní s proklikem na materiál.
  */
 const CustomerMaterialTable = ({ customerName, data, onExport, onMaterialClick }) => {
   return (
@@ -69,9 +68,8 @@ const CustomerMaterialTable = ({ customerName, data, onExport, onMaterialClick }
               {data.map((item, index) => (
                 <tr key={`${item.material}-${index}`} className="hover:bg-slate-700/50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {/* ZDE JE ÚPRAVA: Tlačítko pro proklik */}
                     <button
-                      onClick={() => onMaterialClick(item.material)} // <-- NOVÁ AKCE
+                      onClick={() => onMaterialClick(item.material)}
                       className="text-sky-400 hover:text-sky-300 hover:underline transition-colors"
                       title={`Zobrazit pozice (LT10) pro ${item.material}`}
                     >
@@ -94,7 +92,6 @@ const CustomerMaterialTable = ({ customerName, data, onExport, onMaterialClick }
 
 /**
  * Hlavní komponenta záložky
- * Nyní používá Master-Detail layout
  */
 const CustomerMaterialTab = () => {
   const [data, setData] = useState(null);
@@ -113,11 +110,12 @@ const CustomerMaterialTab = () => {
       try {
         
         // ===================================================================
-        // ZDE JE KLÍČOVÁ OPRAVA (KROK 1)
-        // Přidali jsme `?cache_bust=${new Date().getTime()}`
-        // Tímto Vercel donutíme, aby vždy načetl čerstvá data a nepoužil cache.
+        // VYLEPŠENÍ PROTI CACHE (KROK 1)
+        // Explicitně říkáme Vercelu, aby nikdy necachoval tuto odpověď.
         // ===================================================================
-        const response = await fetch(`/api/analytics/customer-materials?cache_bust=${new Date().getTime()}`);
+        const response = await fetch('/api/analytics/customer-materials', {
+          cache: 'no-store', // Toto je klíčová změna pro Vercel
+        });
         
         if (!response.ok) {
           const errData = await response.json();
@@ -138,8 +136,25 @@ const CustomerMaterialTab = () => {
   // Krok 1: Získáme seznam unikátních zákazníků (Master list)
   const uniqueCustomers = useMemo(() => {
     if (!data) return [];
+    
     const customerSet = new Set(data.map(item => item.zakaznik || 'Neznámý zákazník'));
-    return Array.from(customerSet).sort();
+    const allCustomers = Array.from(customerSet);
+
+    // ===================================================================
+    // PŘIDÁNO: PRIORITIZACE (KROK 2)
+    // Dáme "VOLVO (Group)" a "DAIMLER (Group)" na začátek seznamu.
+    // ===================================================================
+    const prioritized = [];
+    if (allCustomers.includes('DAIMLER (Group)')) prioritized.push('DAIMLER (Group)');
+    if (allCustomers.includes('VOLVO (Group)')) prioritized.push('VOLVO (Group)');
+    
+    // Ostatní zákazníci, seřazení abecedně
+    const otherCustomers = allCustomers
+      .filter(c => c !== 'DAIMLER (Group)' && c !== 'VOLVO (Group)')
+      .sort();
+      
+    // Spojíme prioritizované a ostatní
+    return [...prioritized, ...otherCustomers];
   }, [data]);
 
   // Krok 2: Filtrujeme seznam zákazníků podle vyhledávání
@@ -158,7 +173,7 @@ const CustomerMaterialTab = () => {
   }, [data, selectedCustomer]);
 
   /**
-   * OPRAVENÁ FUNKCE EXPORTU
+   * Funkce exportu
    */
   const handleExport = (customerName, customerData) => {
     try {
@@ -213,7 +228,11 @@ const CustomerMaterialTab = () => {
               type="text"
               placeholder="Hledat zákazníka..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.traget.value)}
+              // ===================================================================
+              // OPRAVA CHYBY (KROK 3)
+              // Zde byl překlep e.traget -> e.target
+              // ===================================================================
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-8 py-2 rounded-lg bg-slate-800 border border-wh-border text-wh-text-primary focus:ring-2 focus:ring-sky-500 focus:outline-none"
             />
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-wh-text-secondary" />
@@ -242,7 +261,12 @@ const CustomerMaterialTab = () => {
                     }`}
                     title={customer}
                   >
-                    {customer}
+                    {/* Prioritizované názvy zvýrazníme */}
+                    {(customer.includes('(Group)')) ? (
+                      <span className="font-bold text-yellow-400">{customer}</span>
+                    ) : (
+                      customer
+                    )}
                   </button>
                 </li>
               ))}
@@ -257,7 +281,7 @@ const CustomerMaterialTab = () => {
               customerName={selectedCustomer}
               data={selectedCustomerData}
               onExport={handleExport}
-              onMaterialClick={handleMaterialClick} // <-- Předání funkce do detailu
+              onMaterialClick={handleMaterialClick}
             />
           ) : (
             <div className="flex items-center justify-center h-full bg-wh-card border-2 border-dashed border-wh-border rounded-lg">
