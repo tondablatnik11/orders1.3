@@ -9,6 +9,7 @@ import * as XLSX from 'xlsx';
 
 // Stav 1: Načítání
 const LoadingState = () => (
+  // ... (bez zmeny)
   <div className="flex items-center justify-center h-full">
     <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
     <p className="ml-4 text-lg text-wh-text-secondary">Načítám analýzu...</p>
@@ -17,7 +18,8 @@ const LoadingState = () => (
 
 // Stav 2: Chyba
 const ErrorState = ({ error }) => (
-  <div className="flex flex-col items-center justify-center h-64 bg-red-900/20 border border-red-700 rounded-lg p-6">
+  // ... (bez zmeny)
+   <div className="flex flex-col items-center justify-center h-64 bg-red-900/20 border border-red-700 rounded-lg p-6">
     <AlertTriangle className="w-12 h-12 text-red-500" />
     <p className="mt-4 text-lg text-red-400">Chyba při načítání dat</p>
     <p className="mt-2 text-sm text-wh-text-secondary text-center">
@@ -28,14 +30,16 @@ const ErrorState = ({ error }) => (
 
 // Stav 3: Žádná data
 const EmptyState = () => (
-  <div className="flex items-center justify-center h-64">
+  // ... (bez zmeny)
+   <div className="flex items-center justify-center h-64">
     <p className="text-lg text-wh-text-secondary">Nenalezena žádná data pro analýzu.</p>
     <p className="text-sm text-wh-text-secondary ml-2">(Ověřte, že máte v DB data ze stejného období pro zakázky i picking).</p>
   </div>
 );
 
 /**
- * Komponenta "Detail"
+ * Komponenta "Detail" - OPRAVENÁ
+ * Zobrazuje tabulku materiálů pro vybraného zákazníka.
  */
 const CustomerMaterialTable = ({ customerName, data, onExport, onMaterialClick }) => {
   return (
@@ -45,14 +49,15 @@ const CustomerMaterialTable = ({ customerName, data, onExport, onMaterialClick }
         <button
           onClick={() => onExport(customerName, data)}
           className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors text-sm font-medium"
-          disabled={!data || data.length === 0} // Deaktivujeme tlačítko, pokud nejsou data
+          disabled={!data || data.length === 0}
         >
           <FileDown size={16} />
           Exportovat
         </button>
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden">
-        <div className="overflow-y-auto h-full pr-2">
+         {/* Pridané overflow-x-auto pre prípad veľmi dlhých reťazcov pozícií */}
+        <div className="overflow-auto h-full pr-2">
           <table className="min-w-full divide-y divide-wh-border">
             <thead className="bg-slate-800 sticky top-0">
               <tr>
@@ -62,8 +67,10 @@ const CustomerMaterialTable = ({ customerName, data, onExport, onMaterialClick }
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-wh-text-secondary uppercase tracking-wider">
                   Celk. Objednané Množství
                 </th>
-                 {/* NOVÝ SLOUPEC V TABULCE (nepovinné, pro přehlednost) */}
-                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-wh-text-secondary uppercase tracking-wider">
+                {/* =================================================================== */}
+                {/* TOTO CHÝBALO: Hlavička pre nový stĺpec */}
+                {/* =================================================================== */}
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-wh-text-secondary uppercase tracking-wider">
                   Pozice ve Skladu (Bin (ks))
                 </th>
               </tr>
@@ -83,8 +90,11 @@ const CustomerMaterialTable = ({ customerName, data, onExport, onMaterialClick }
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-wh-text-secondary font-mono">
                     {new Intl.NumberFormat('cs-CZ').format(item.celkove_mnozstvi)}
                   </td>
-                   {/* NOVÁ BUŇKA V TABULCE (nepovinné) */}
+                  {/* =================================================================== */}
+                  {/* TOTO CHÝBALO: Bunka pre nový stĺpec */}
+                  {/* =================================================================== */}
                    <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-400">
+                    {/* Zobrazíme info o pozíciách, ktoré prišlo z API */}
                     {item.pozice_info}
                   </td>
                 </tr>
@@ -101,8 +111,8 @@ const CustomerMaterialTable = ({ customerName, data, onExport, onMaterialClick }
 /**
  * Hlavní komponenta záložky
  */
-const CustomerMaterialTab = () => {
-  const [data, setData] = useState(null); // Data nyní obsahují { zakaznik, material, celkove_mnozstvi, pozice_info }
+const CustomerMaterialTab = ({/* ... props ... */}) => { // Pridal som ({/* ... props ... */}) pre prehľadnosť, nemusíte meniť
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -123,6 +133,8 @@ const CustomerMaterialTab = () => {
           throw new Error(errData.error || `Chyba ${response.status}`);
         }
         const result = await response.json();
+        // Overenie, či dáta obsahujú nové pole (len pre ladenie, môžete odstrániť)
+        // console.log("Fetched data sample:", result.length > 0 ? result[0] : 'No data'); 
         setData(result);
       } catch (err) {
         setError(err.message);
@@ -160,7 +172,6 @@ const CustomerMaterialTab = () => {
 
   const selectedCustomerData = useMemo(() => {
     if (!data || !selectedCustomer) return [];
-    // Data pro detail již obsahují 'pozice_info', nemusíme nic měnit
     return data
       .filter(item => (item.zakaznik || 'Neznámý zákazník') === selectedCustomer)
       .sort((a, b) => b.celkove_mnozstvi - a.celkove_mnozstvi);
@@ -172,26 +183,21 @@ const CustomerMaterialTab = () => {
   const handleExport = (customerName, customerData) => {
     if (!customerData || customerData.length === 0) {
       console.warn("Žádná data k exportu.");
-      return; // Předejdeme chybě, pokud by data byla prázdná
+      return; 
     }
     try {
-      // ===================================================================
-      // ZDE JE KLÍČOVÁ ZMĚNA: Přidáváme pole 'pozice_info' do exportu
-      // ===================================================================
       const ws_data = customerData.map(item => ({
         Material: item.material,
         "Celkové Objednané Množství": item.celkove_mnozstvi,
-        "Pozice ve Skladu (Bin (ks))": item.pozice_info, // <-- NOVÝ SLOUPEC
+        "Pozice ve Skladu (Bin (ks))": item.pozice_info, 
       }));
-      // ===================================================================
 
       const ws = XLSX.utils.json_to_sheet(ws_data);
 
-      // Nastavení šířky sloupců (volitelné, ale užitečné)
       ws['!cols'] = [
-        { wch: 20 }, // Material
-        { wch: 25 }, // Celkové Množství
-        { wch: 60 }  // Pozice ve Skladu (delší text)
+        { wch: 20 }, 
+        { wch: 25 }, 
+        { wch: 60 }  
       ];
 
       const wb = XLSX.utils.book_new();
@@ -203,7 +209,6 @@ const CustomerMaterialTab = () => {
 
     } catch (exportError) {
       console.error("Chyba při exportu do Excelu:", exportError);
-      // Zde můžete přidat notifikaci pro uživatele
     }
   };
   
