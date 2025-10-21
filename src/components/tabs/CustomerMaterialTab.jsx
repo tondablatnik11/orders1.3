@@ -109,13 +109,8 @@ const CustomerMaterialTab = () => {
       setError(null);
       try {
         
-        // ===================================================================
-        // VYLEPŠENÍ PROTI CACHE (KROK 1)
-        // Explicitně říkáme Vercelu, aby nikdy necachoval tuto odpověď.
-        // ===================================================================
-        const response = await fetch('/api/analytics/customer-materials', {
-          cache: 'no-store', // Toto je klíčová změna pro Vercel
-        });
+        // Toto volání je nyní řízeno hlavičkami z API (Krok 2)
+        const response = await fetch('/api/analytics/customer-materials');
         
         if (!response.ok) {
           const errData = await response.json();
@@ -140,20 +135,15 @@ const CustomerMaterialTab = () => {
     const customerSet = new Set(data.map(item => item.zakaznik || 'Neznámý zákazník'));
     const allCustomers = Array.from(customerSet);
 
-    // ===================================================================
-    // PŘIDÁNO: PRIORITIZACE (KROK 2)
-    // Dáme "VOLVO (Group)" a "DAIMLER (Group)" na začátek seznamu.
-    // ===================================================================
+    // Prioritizace skupin
     const prioritized = [];
     if (allCustomers.includes('DAIMLER (Group)')) prioritized.push('DAIMLER (Group)');
     if (allCustomers.includes('VOLVO (Group)')) prioritized.push('VOLVO (Group)');
     
-    // Ostatní zákazníci, seřazení abecedně
     const otherCustomers = allCustomers
       .filter(c => c !== 'DAIMLER (Group)' && c !== 'VOLVO (Group)')
       .sort();
       
-    // Spojíme prioritizované a ostatní
     return [...prioritized, ...otherCustomers];
   }, [data]);
 
@@ -169,7 +159,7 @@ const CustomerMaterialTab = () => {
     if (!data || !selectedCustomer) return [];
     return data
       .filter(item => (item.zakaznik || 'Neznámý zákazník') === selectedCustomer)
-      .sort((a, b) => b.celkove_mnozstvi - a.celkove_mnozstvi); // Seřadíme od největšího množství
+      .sort((a, b) => b.celkove_mnozstvi - a.celkove_mnozstvi);
   }, [data, selectedCustomer]);
 
   /**
@@ -228,11 +218,7 @@ const CustomerMaterialTab = () => {
               type="text"
               placeholder="Hledat zákazníka..."
               value={searchTerm}
-              // ===================================================================
-              // OPRAVA CHYBY (KROK 3)
-              // Zde byl překlep e.traget -> e.target
-              // ===================================================================
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => setSearchTerm(e.target.value)} // Opraveno
               className="w-full pl-10 pr-8 py-2 rounded-lg bg-slate-800 border border-wh-border text-wh-text-primary focus:ring-2 focus:ring-sky-500 focus:outline-none"
             />
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-wh-text-secondary" />

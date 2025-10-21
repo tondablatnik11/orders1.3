@@ -2,10 +2,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-export const dynamic = 'force-dynamic'; // Zajistí, že se data nebudou cachovat
+export const dynamic = 'force-dynamic'; // Říká Vercelu, aby funkci nespouštěl při sestavení
 
 export async function GET() {
-  // Vytvoříme admin klienta POUZE na serveru.
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -17,12 +16,9 @@ export async function GET() {
     );
   }
 
-  // Tento klient má plná administrátorská práva a obchází RLS.
-  // NIKDY jej nepoužívejte na frontendu.
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    // Zavoláme databázovou funkci, kterou jsme vytvořili v Kroku 1
     const { data, error } = await supabaseAdmin.rpc('get_customer_material_summary');
 
     if (error) {
@@ -30,7 +26,20 @@ export async function GET() {
       throw error;
     }
 
-    return NextResponse.json(data);
+    // ===================================================================
+    // ZDE JE KLÍČOVÁ ZMĚNA
+    // Přidáváme hlavičky, které Vercelu a prohlížeči říkají: "NECACHOVAT!"
+    // ===================================================================
+    const headers = new Headers();
+    headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    headers.set('Pragma', 'no-cache');
+    headers.set('Expires', '0');
+
+    return new NextResponse(JSON.stringify(data), {
+      status: 200,
+      headers: headers,
+    });
+    // ===================================================================
 
   } catch (error) {
     return NextResponse.json(
