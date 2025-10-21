@@ -22,6 +22,7 @@ import TicketsTab from '../tabs/TicketsTab';
 import SettingsTab from '../tabs/SettingsTab';
 import ToBeProcessedTab from '../tabs/ToBeProcessedTab';
 import CustomerMaterialTab from '../tabs/CustomerMaterialTab'; // <-- NOVÝ IMPORT
+import FreeBinsSummaryTab from '../tabs/FreeBinsSummaryTab';
 
 const DashboardLayout = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -42,6 +43,7 @@ const DashboardLayout = () => {
             case 'dashboard': return <DashboardTab setActiveTab={setActiveTab} />;
             case 'delayedOrders': return <DelayedOrdersTab />;
             case 'orderSearch': return <OrderSearchTab initialQuery={globalSearchQuery} clearInitialQuery={() => setGlobalSearchQuery('')} />;
+            case 'freeBins': return <FreeBinsSummaryTab />;
             
             // Záložky ze skupiny Operativa
             case 'processing': return <ToBeProcessedTab />;

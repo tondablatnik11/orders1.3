@@ -38,6 +38,7 @@ const Sidebar = forwardRef(({ activeTab, onTabChange, isOpen, isCollapsed, setCo
         { id: 'errorMonitor', label: 'Error Monitor', icon: AlertTriangle },
         { id: 'warehouseOverview', label: 'Přehled Skladu', icon: Warehouse },
         { id: 'customerAnalysis', label: 'Analýza Zákazníků', icon: PieChart }, // <-- NOVÁ POLOŽKA
+        { id: 'freeBins', label: 'Volné Pozice', icon: PackageSearch },
     ];
     
     const bottomMenuItems = [
