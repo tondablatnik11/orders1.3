@@ -9,33 +9,39 @@ const EmptyBinsListModal = ({ sklad, typBinu, onClose }) => {
   const [bins, setBins] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { darkMode } = useUI();
+  const { darkMode } = useUI(); // Pro stylování
 
   useEffect(() => {
     const fetchBins = async () => {
-      // Důležitá kontrola HNED na začátku
+      // 1. Důležitá kontrola HNED na začátku
       if (!sklad || !typBinu) {
+        console.error("EmptyBinsListModal: Chybí props 'sklad' nebo 'typBinu'. Sklad:", sklad, "TypBinu:", typBinu);
         setError("Chybí informace o skladu nebo typu binu pro načtení seznamu.");
         setLoading(false);
-        return; // Nepokračujeme ve fetchi, pokud chybí props
+        return; // Nepokračujeme ve fetchi
       }
 
       setLoading(true);
       setError(null);
-      setBins(null); // Resetujeme předchozí seznam
+      setBins(null); // Reset
 
       try {
-        // Sestavení URL s parametry - POUŽÍVÁME props sklad a typBinu
+        // 2. Sestavení URL s parametry
         const apiUrl = `/api/warehouse/empty-bins-list?sklad=${encodeURIComponent(sklad)}&typBinu=${encodeURIComponent(typBinu)}`;
         // console.log("Fetching bins from:", apiUrl); // Pro ladění
 
         const response = await fetch(apiUrl);
 
+        // 3. Kontrola odpovědi
         if (!response.ok) {
-          // Zkusíme získat detail chyby z API odpovědi, pokud existuje
-          const errData = await response.json().catch(() => ({ error: `HTTP chyba ${response.status}. API nevrátilo detail.` }));
-          // Zobrazíme chybu z API, nebo obecnou HTTP chybu
-          throw new Error(errData.error || `Chyba ${response.status}`);
+          let errorDetail = `HTTP chyba ${response.status}`;
+          try {
+            const errData = await response.json();
+            errorDetail = errData.error || errorDetail; // Zkusíme získat detail z API
+          } catch (e) {
+             // Pokud API nevrátí JSON, použijeme obecnou chybu
+          }
+          throw new Error(errorDetail);
         }
 
         const result = await response.json(); // API vrací pole stringů
@@ -43,7 +49,7 @@ const EmptyBinsListModal = ({ sklad, typBinu, onClose }) => {
 
       } catch (err) {
         console.error("Chyba při načítání seznamu binů:", err);
-        setError(err.message); // Nastavíme chybovou zprávu pro zobrazení
+        setError(err.message);
       } finally {
         setLoading(false);
       }
@@ -52,6 +58,7 @@ const EmptyBinsListModal = ({ sklad, typBinu, onClose }) => {
     fetchBins();
   }, [sklad, typBinu]); // Závislost na props je správně
 
+  // Funkce pro vykreslení obsahu modalu
   const renderContent = () => {
     if (loading) {
       return (
@@ -85,20 +92,18 @@ const EmptyBinsListModal = ({ sklad, typBinu, onClose }) => {
       );
     }
 
-    // Zobrazení seznamu binů ve sloupcích pro lepší čitelnost
-    const numColumns = 4; // Počet sloupců
+    // Zobrazení seznamu binů ve sloupcích
+    const numColumns = 4;
     const itemsPerColumn = Math.ceil(bins.length / numColumns);
     const columns = Array.from({ length: numColumns }, (_, colIndex) =>
       bins.slice(colIndex * itemsPerColumn, (colIndex + 1) * itemsPerColumn)
     );
 
     return (
-      // Grid pro sloupce, max výška a scrollování
       <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 max-h-96 overflow-y-auto pr-2">
         {columns.map((column, colIndex) => (
           <ul key={colIndex} className="space-y-1">
             {column.map((bin) => (
-              // Jednotlivá položka (bin)
               <li key={bin} className="text-sm font-mono text-wh-text-primary bg-slate-800 px-2 py-0.5 rounded break-all">
                 {bin}
               </li>
@@ -109,42 +114,35 @@ const EmptyBinsListModal = ({ sklad, typBinu, onClose }) => {
     );
   };
 
+  // Vykreslení celého modalu
   return (
-    // Pozadí modalu s efektem rozmazání
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in"
       onClick={onClose} // Kliknutí na pozadí zavře modal
     >
-      {/* Samotný obsah modalu */}
       <div
         className={`relative w-full max-w-3xl rounded-xl shadow-2xl border ${
-          darkMode
-            ? 'bg-slate-900 border-slate-700' // Styly pro tmavý režim
-            : 'bg-white border-gray-200'    // Styly pro světlý režim
+          darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'
         }`}
-        onClick={(e) => e.stopPropagation()} // Kliknutí uvnitř modalu ho nezavře
+        onClick={(e) => e.stopPropagation()} // Kliknutí dovnitř nezavře
       >
         {/* Hlavička modalu */}
         <div className="flex items-center justify-between p-4 border-b border-wh-border">
           <h2 className="text-lg font-semibold text-wh-text-primary">
-            {/* Titulek zobrazující předané parametry */}
-            Seznam prázdných pozic - Sklad: <span className="font-bold text-sky-400">{sklad}</span>, Typ: <span className="font-bold text-sky-400">{typBinu}</span>
+            Seznam prázdných pozic - Sklad: <span className="font-bold text-sky-400">{sklad || '?'}</span>, Typ: <span className="font-bold text-sky-400">{typBinu || '?'}</span>
           </h2>
-          {/* Tlačítko pro zavření */}
           <button
             onClick={onClose}
             className="p-2 rounded-full text-wh-text-secondary hover:bg-slate-700 hover:text-white transition-colors"
-            aria-label="Zavřít modal" // Popisek pro přístupnost
+            aria-label="Zavřít modal"
           >
             <X size={20} />
           </button>
         </div>
-
-        {/* Tělo modalu s obsahem */}
+        {/* Tělo modalu */}
         <div className="p-6">
-          {renderContent()} {/* Vykreslí loading, error, data nebo prázdný stav */}
+          {renderContent()}
         </div>
-
       </div>
     </div>
   );
