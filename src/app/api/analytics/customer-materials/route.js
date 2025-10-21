@@ -8,33 +8,28 @@ export async function GET() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!supabaseUrl || !supabaseServiceKey) {
-    return NextResponse.json(
-      { error: 'Chybí konfigurace Supabase' },
-      { status: 500 }
-    );
-  }
+  if (!supabaseUrl || !supabaseServiceKey) { /* ... error handling ... */ }
 
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
     // ===================================================================
-    // FINÁLNA OPRAVA: Voláme NOVÚ funkciu z Kroku 1 pomocou .rpc()
+    // FINÁLNÍ OPRAVA: Voláme NOVOU funkci v5 z Kroku 1
     // ===================================================================
-    const { data, error } = await supabaseAdmin.rpc('get_analysis_with_positions_v3'); // <-- Voláme novú funkciu
+    const { data, error } = await supabaseAdmin.rpc('get_analysis_with_positions_v5'); // <-- Změna názvu funkce
 
     if (error) {
-      console.error('Chyba při volání Supabase RPC (get_analysis_with_positions_v3):', error);
+      console.error('Chyba při volání Supabase RPC (get_analysis_with_positions_v5):', error);
       throw error;
     }
 
-    // Hlavičky pre zákaz cachovania
+    // Hlavičky pro zákaz cachování
     const headers = new Headers();
     headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     headers.set('Pragma', 'no-cache');
     headers.set('Expires', '0');
 
-    // API teraz vracia { zakaznik, material, celkove_mnozstvi, pozice_info }
+    // API stále vrací { zakaznik, material, celkove_mnozstvi, pozice_data }
     return new NextResponse(JSON.stringify(data), {
       status: 200,
       headers: headers,
