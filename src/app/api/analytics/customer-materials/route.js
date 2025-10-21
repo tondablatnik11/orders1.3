@@ -8,38 +8,39 @@ export async function GET() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!supabaseUrl || !supabaseServiceKey) { /* ... error handling ... */ }
+  if (!supabaseUrl || !supabaseServiceKey) {
+     return NextResponse.json( { error: 'Chybí konfigurace Supabase' }, { status: 500 });
+   }
 
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    // ===================================================================
-    // FINÁLNÍ OPRAVA: Voláme NOVOU funkci v5 z Kroku 1
-    // ===================================================================
-    const { data, error } = await supabaseAdmin.rpc('get_analysis_with_positions_v5'); // <-- Změna názvu funkce
+    // === UJISTĚTE SE, ŽE VOLÁTE TUTO FUNKCI ===
+    const { data, error } = await supabaseAdmin.rpc('get_analysis_with_positions_v5');
+    // ===========================================
 
     if (error) {
       console.error('Chyba při volání Supabase RPC (get_analysis_with_positions_v5):', error);
-      throw error;
+      // Pokud funkce neexistuje, tato chyba se objeví zde
+      throw new Error(`Chyba databáze: ${error.message}`);
     }
 
-    // Hlavičky pro zákaz cachování
     const headers = new Headers();
     headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     headers.set('Pragma', 'no-cache');
     headers.set('Expires', '0');
 
-    // API stále vrací { zakaznik, material, celkove_mnozstvi, pozice_data }
     return new NextResponse(JSON.stringify(data), {
       status: 200,
       headers: headers,
     });
 
   } catch (error) {
-    // Táto časť by sa už nemala spustiť
-    return NextResponse.json(
+     // Chyba se zachytí zde a pošle jako odpověď
+     console.error("API Error:", error); // Logování chyby na serveru Vercelu
+     return NextResponse.json(
       { error: `Interní chyba serveru: ${error.message}` },
       { status: 500 }
     );
-  }
+   }
 }
