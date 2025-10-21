@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Loader2, AlertTriangle, FileDown, Search, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import StockPositionModal from '@/components/modals/StockPositionModal'; // <-- NOVÝ IMPORT
 import * as XLSX from 'xlsx';
 
 // Stav 1: Načítání
@@ -36,8 +37,9 @@ const EmptyState = () => (
 /**
  * Komponenta "Detail"
  * Zobrazuje tabulku materiálů pro vybraného zákazníka.
+ * Nyní s proklikem na materiál.
  */
-const CustomerMaterialTable = ({ customerName, data, onExport }) => {
+const CustomerMaterialTable = ({ customerName, data, onExport, onMaterialClick }) => { // <-- NOVÁ PROPS
   return (
     <Card className="bg-wh-card border-wh-border shadow-lg h-full flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -66,8 +68,15 @@ const CustomerMaterialTable = ({ customerName, data, onExport }) => {
             <tbody className="bg-wh-card divide-y divide-wh-border">
               {data.map((item, index) => (
                 <tr key={`${item.material}-${index}`} className="hover:bg-slate-700/50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-wh-text-primary">
-                    {item.material}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    {/* ZDE JE ÚPRAVA: Tlačítko pro proklik */}
+                    <button
+                      onClick={() => onMaterialClick(item.material)} // <-- NOVÁ AKCE
+                      className="text-sky-400 hover:text-sky-300 hover:underline transition-colors"
+                      title={`Zobrazit pozice (LT10) pro ${item.material}`}
+                    >
+                      {item.material}
+                    </button>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-wh-text-secondary font-mono">
                     {new Intl.NumberFormat('cs-CZ').format(item.celkove_mnozstvi)}
@@ -93,12 +102,19 @@ const CustomerMaterialTab = () => {
   const [error, setError] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // --- NOVÉ STAVY PRO MODÁL ---
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedMaterial, setSelectedMaterial] = useState(null);
+  // ------------------------------
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
       try {
+        // Tento endpoint se nemění, volá funkci `get_customer_material_summary`
+        // která nyní díky Kroku 1 obsahuje agregovanou logiku.
         const response = await fetch('/api/analytics/customer-materials');
         if (!response.ok) {
           const errData = await response.json();
@@ -140,18 +156,16 @@ const CustomerMaterialTab = () => {
 
   /**
    * OPRAVENÁ FUNKCE EXPORTU
-   * Nyní exportuje pouze data vybraného zákazníka a má opravený překlep.
    */
   const handleExport = (customerName, customerData) => {
     try {
       const ws_data = customerData.map(item => ({
         Material: item.material,
-        "Celkové Množství": item.celkove_mnozstvi, // <-- ZDE BYLA OPRAVENA CHYBA (původně celkovy_mnozstvi)
+        "Celkové Množství": item.celkove_mnozstvi,
       }));
       const ws = XLSX.utils.json_to_sheet(ws_data);
       const wb = XLSX.utils.book_new();
       
-      // Vyčistíme název zákazníka pro název listu v Excelu (limit 31 znaků)
       const sheetName = customerName.replace(/[\*:\/\\?\s\[\]]/g, '').substring(0, 31);
       
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
@@ -159,9 +173,15 @@ const CustomerMaterialTab = () => {
 
     } catch (exportError) {
       console.error("Chyba při exportu do Excelu:", exportError);
-      // Zde můžete přidat notifikaci pro uživatele, např. toast.error("Export selhal.")
     }
   };
+  
+  // --- NOVÁ FUNKCE PRO OTEVŘENÍ MODÁLU ---
+  const handleMaterialClick = (materialCode) => {
+    setSelectedMaterial(materialCode);
+    setIsModalOpen(true);
+  };
+  // ----------------------------------------
 
   // --- Renderovací logika ---
 
@@ -236,6 +256,7 @@ const CustomerMaterialTab = () => {
               customerName={selectedCustomer}
               data={selectedCustomerData}
               onExport={handleExport}
+              onMaterialClick={handleMaterialClick} // <-- Předání funkce do detailu
             />
           ) : (
             <div className="flex items-center justify-center h-full bg-wh-card border-2 border-dashed border-wh-border rounded-lg">
@@ -245,8 +266,16 @@ const CustomerMaterialTab = () => {
             </div>
           )}
         </div>
-
       </div>
+      
+      {/* NOVÉ: Vykreslení modálního okna */}
+      {isModalOpen && (
+        <StockPositionModal
+          materialCode={selectedMaterial}
+          onClose={() => setIsModalOpen(false)}
+        />
+      )}
+      
     </div>
   );
 };
