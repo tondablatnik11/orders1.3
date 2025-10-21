@@ -3,22 +3,24 @@
 
 import React, { useState, useEffect } from 'react';
 import { Loader2, AlertTriangle, Warehouse, PackageOpen, RefreshCw } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
+// import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card"; // CardDescription odstránený z importu
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"; // Upravený import
 import { Button } from "@/components/ui/button";
 
-// --- Komponenty pro stavy ---
+// --- Komponenty pre stavy ---
 const LoadingState = () => (
-  <div className="flex flex-col items-center justify-center h-64 text-center">
+ <div className="flex flex-col items-center justify-center h-64 text-center">
     <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
     <p className="text-lg text-wh-text-secondary">Načítám přehled prázdných pozic...</p>
     <p className="text-sm text-slate-500">Zpracovávám data...</p>
   </div>
 );
 const ErrorState = ({ error }) => (
+ // V ErrorState CardDescription nepoužívame, ale pre istotu skontrolujeme
  <Card className="bg-red-900/20 border-red-700 text-red-400">
     <CardHeader>
       <CardTitle className="flex items-center gap-2"><AlertTriangle className="w-5 h-5" /> Chyba</CardTitle>
-      <CardDescription className="text-red-300/80">Nepodařilo se získat data.</CardDescription>
+      {/* <CardDescription className="text-red-300/80">Nepodařilo se získat data.</CardDescription>  <- TOTO SME NEPOUŽÍVALI*/}
     </CardHeader>
     <CardContent><p className="text-sm">Detail: {error}</p></CardContent>
   </Card>
@@ -37,7 +39,7 @@ const FreeBinsSummaryTab = () => {
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  const fetchData = async () => {
+  const fetchData = async () => { /* ... kód pro načítání dat (beze změny) ... */
     setLoading(true);
     setError(null);
     try {
@@ -86,7 +88,7 @@ const FreeBinsSummaryTab = () => {
                 {data && data.typy_binu.length > 0 ? (
                   <ul className="space-y-3">
                     {data.typy_binu
-                     .sort((a, b) => {
+                     .sort((a, b) => { /* ... řazení ... */
                         const order = {'K1': 1, 'P1': 2, 'P2': 3, 'P3': 4, 'P4': 5};
                         return (order[a.typ] || 99) - (order[b.typ] || 99);
                       })
