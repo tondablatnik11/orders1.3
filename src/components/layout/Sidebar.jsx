@@ -1,31 +1,32 @@
 'useclient';
 import { forwardRef, useState } from 'react';
-import { 
-    ChevronsLeft, ChevronsRight, Home, Search, Bell, Warehouse, AlertTriangle, 
-    LogOut, Settings, Ticket, PackageCheck, Printer, Zap, PlayCircle, 
-    ChevronDown, CalendarDays, Archive, PieChart // <-- PŘIDÁNA IKONA PieChart
+import {
+    ChevronsLeft, ChevronsRight, Home, Search, Bell, Warehouse, AlertTriangle,
+    LogOut, Settings, Ticket, PackageCheck, Printer, Zap, PlayCircle,
+    ChevronDown, CalendarDays, Archive, PieChart,
+    PackageSearch // <-- TENTO IMPORT CHYBĚL
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Image from 'next/image';
 
 const Sidebar = forwardRef(({ activeTab, onTabChange, isOpen, isCollapsed, setCollapsed }, ref) => {
     const { user, userProfile, logout } = useAuth();
-    const [openGroup, setOpenGroup] = useState('operativa'); // Skupina "Operativa" bude defaultně otevřená
+    const [openGroup, setOpenGroup] = useState('operativa');
 
     const menuItems = [
         { id: 'dashboard', label: 'Přehled', icon: Home },
-        { 
-          id: 'zakazky', 
-          label: 'Zakázky', 
+        {
+          id: 'zakazky',
+          label: 'Zakázky',
           icon: Archive,
           subItems: [
             { id: 'delayedOrders', label: 'Zpožděné zakázky', icon: CalendarDays },
             { id: 'orderSearch', label: 'Hledat zakázku', icon: Search },
           ]
         },
-        { 
-          id: 'operativa', 
-          label: 'Operativa', 
+        {
+          id: 'operativa',
+          label: 'Operativa',
           icon: Zap,
           subItems: [
             { id: 'processing', label: 'K zpracování', icon: PlayCircle },
@@ -37,14 +38,15 @@ const Sidebar = forwardRef(({ activeTab, onTabChange, isOpen, isCollapsed, setCo
         { id: 'picking', label: 'Pickování', icon: PackageCheck },
         { id: 'errorMonitor', label: 'Error Monitor', icon: AlertTriangle },
         { id: 'warehouseOverview', label: 'Přehled Skladu', icon: Warehouse },
-        { id: 'customerAnalysis', label: 'Analýza Zákazníků', icon: PieChart }, // <-- NOVÁ POLOŽKA
-        { id: 'freeBins', label: 'Volné Pozice', icon: PackageSearch },
+        { id: 'freeBins', label: 'Volné Pozice', icon: PackageSearch }, // <-- Zde se ikona používá
+        { id: 'customerAnalysis', label: 'Analýza Zákazníků', icon: PieChart },
     ];
-    
+
     const bottomMenuItems = [
         { id: 'settings', label: 'Nastavení', icon: Settings },
     ];
 
+    // --- Zbytek komponenty (NavItem, NavGroup, return ...) zůstává beze změny ---
     const NavItem = ({ item, isSubItem = false }) => {
         const isActive = activeTab === item.id;
         return (
@@ -53,8 +55,8 @@ const Sidebar = forwardRef(({ activeTab, onTabChange, isOpen, isCollapsed, setCo
                 onClick={(e) => { e.preventDefault(); onTabChange(item.id); }}
                 title={isCollapsed ? item.label : ''}
                 className={`flex items-center gap-4 rounded-lg cursor-pointer transition-all duration-200 group relative ${isSubItem ? 'py-2.5 pr-4 pl-14' : 'px-4 py-3'} ${
-                    isActive 
-                    ? 'bg-sky-500/20 text-sky-300 font-semibold' 
+                    isActive
+                    ? 'bg-sky-500/20 text-sky-300 font-semibold'
                     : 'text-slate-400 hover:bg-slate-700/50 hover:text-white'
                 }`}
             >
@@ -92,11 +94,11 @@ const Sidebar = forwardRef(({ activeTab, onTabChange, isOpen, isCollapsed, setCo
     };
 
     const userName = userProfile?.displayName || user?.email || 'Uživatel';
-    const avatarUrl = userProfile?.avatar_url || user?.photoURL || '/profile-avatar.png';
+    const avatarUrl = userProfile?.avatar_url || user?.photoURL || '/profile-avatar.png'; // Zajistí fallback obrázek
 
     return (
-        <aside 
-            ref={ref} 
+        <aside
+            ref={ref}
             className={`fixed inset-y-0 left-0 z-40 bg-slate-900/60 backdrop-blur-xl text-slate-200 flex flex-col justify-between border-r border-slate-700/50 transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} ${isCollapsed ? 'w-24 p-3' : 'w-64 p-4'}`}
         >
             <div>
@@ -129,7 +131,7 @@ const Sidebar = forwardRef(({ activeTab, onTabChange, isOpen, isCollapsed, setCo
                 </ul>
                 <div className="border-t border-slate-700/50 pt-4">
                     <div className="flex items-center gap-3">
-                        <Image src={avatarUrl} alt="Profilový obrázek" width={40} height={40} className="rounded-full border-2 border-slate-600 flex-shrink-0" />
+                         <Image src={avatarUrl} alt="Profilový obrázek" width={40} height={40} className="rounded-full border-2 border-slate-600 flex-shrink-0" onError={(e) => { e.target.onerror = null; e.target.src='/profile-avatar.png'; }} /> {/* Fallback pro případ chyby načtení obrázku */}
                         <div className={`flex-1 min-w-0 transition-opacity duration-200 whitespace-nowrap ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>
                             <p className="font-semibold text-white truncate">{userName}</p>
                         </div>
